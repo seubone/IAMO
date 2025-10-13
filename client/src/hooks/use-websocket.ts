@@ -18,8 +18,13 @@ export function useWebSocket() {
       return;
     }
 
+    // Use window.location.host which includes port (e.g., "localhost:5000")
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${token}`);
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
+    
+    console.log("Connecting to WebSocket:", wsUrl.replace(token, "[TOKEN]"));
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       console.log("WebSocket connected");
