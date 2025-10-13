@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { dbStorage as storage } from "./db-storage";
 import { authMiddleware, generateToken, type AuthRequest } from "./middleware/auth";
 import { requirePermission, requireRole } from "./middleware/rbac";
 import bcrypt from "bcryptjs";

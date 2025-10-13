@@ -1,8 +1,15 @@
-import { storage } from "./storage";
+import { dbStorage as storage } from "./db-storage";
 import bcrypt from "bcryptjs";
 
 export async function seedData() {
   console.log("🌱 Iniciando seed de dados...");
+  
+  // Check if data already exists (to avoid duplicates)
+  const existingUsers = await storage.getUsers();
+  if (existingUsers.length > 0) {
+    console.log("✅ Dados já existem no banco, pulando seed");
+    return;
+  }
 
   // Create users
   const adminUser = await storage.createUser({
