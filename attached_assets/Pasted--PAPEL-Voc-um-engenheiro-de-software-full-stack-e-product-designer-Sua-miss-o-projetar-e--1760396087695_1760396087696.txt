@@ -1,0 +1,133 @@
+<--PAPEL--> Você é um engenheiro de software full-stack e product designer. Sua missão é projetar e entregar um SISTEMA WEB completo (não apenas um dashboard) para monitorar IAs via N8N, com UI/UX elegante, simples e funcional, suportando tema claro/escuro e paleta preto (#050403) + amarelo de destaque (#FBC000). <--PAPEL-->
+
+<--CONTEXTO--> O sistema integra com fluxos do N8N para receber logs/erros e abrir tickets automaticamente. Usuários devem monitorar, filtrar, investigar e intervir (pausar/ativar/inativar IAs), além de auditar ações. A experiência deve ter alto contraste, tipografia legível, hierarquia clara, feedbacks visuais, estados vazios e carregamento, e acessibilidade (WCAG AA). <--CONTEXTO-->
+
+<--OBJETIVO--> Entregar arquitetura + código executável (frontend, backend, DB, integração N8N) com:
+
+Barra superior dinâmica (ticker) listando IAs + status (🟢 ativo, 🟡 pausado, 🔴 inativo).
+
+Barra lateral esquerda: Configurações, lista de IAs, tags, filtros avançados.
+
+Painel principal: feed em tempo real de tickets/logs (IA, atendimento, tipo de erro, severidade, sugestão de intervenção), busca, ordenação e paginação virtualizada.
+
+Barra lateral direita (contexto/ações): detalhes do ticket, histórico e botões Ativar / Pausar / Inativar para a IA selecionada.
+
+Módulos de sistema: autenticação (JWT), RBAC (admin/operador/visualizador), preferências do usuário (tema, densidade, colunas), trilhas de auditoria, notificações (toast e e-mail/Slack opcional). <--OBJETIVO-->
+
+<--GERENCIAMENTO_DA_IA--> Chat
+
+Conversação com o lead em tempo real.
+
+Ativar ou desativar a IA diretamente pelo painel.
+
+Exibir claramente em cada mensagem quem enviou (IA ou Usuário).
+
+Tags automáticas (ex.: Lead engajado, Link de pagamento, Orçamento, Pago).
+
+Possibilidade de adicionar Notas na conversa.
+
+Dash
+
+Métricas de engajamento e performance:
+
+Taxa de primeira resposta.
+
+Conversão de vendas.
+
+Conversão de orçamentos feitos.
+
+Conversão de link de pagamento.
+
+% da IA nas mensagens (geral e por venda).
+
+Tickets
+
+Visualização em Kanban (Novo ticket, Atendimento, Resolvido).
+
+Criar uma task automaticamente para o time técnico entender o problema.
+
+Categorizar tickets por tipo:
+
+Falha na automação.
+
+Falha no prompt.
+
+Falha de negociação. <--GERENCIAMENTO_DA_IA-->
+
+<--REQUISITOS_TÉCNICOS--> Frontend: React + Vite, TailwindCSS (design tokens), Zustand/Redux p/ estado, React Query p/ dados; ícones lucide-react.
+
+Theming: modo claro/escuro com CSS variables. Base clara: fundo #FFFFFF, texto #0A0A0A. Base escura: fundo #0B0B0D, texto #F5F6F7.
+
+Tokens: --brand:#FBC000, --brand-contrast:#050403, --muted, --surface, --border, --success, --warning, --error. Amarelo apenas como destaque/CTA.
+
+Backend: Node.js + Express; WebSocket/EventSource p/ realtime; Zod p/ validação. DB: PostgreSQL + Prisma.
+
+Tabelas:
+
+ias (id, nome, status, tags[], criado_em, atualizado_em)
+
+tickets (id, ia_id, atendimento_id, tipo_erro, severidade, mensagem, sugestao, origem, criado_em, status_ticket)
+
+acoes (id, ia_id, usuario_id, acao, motivo, criado_em)
+
+usuarios (id, nome, email, role, hash, preferencias_json)
+
+Integração N8N: endpoint /webhooks/n8n/log (POST). Segurança: JWT, rate limit, auditoria. <--REQUISITOS_TÉCNICOS-->
+
+<--FLUXOS_UX-->
+
+Onboarding: login → tour → escolher tema → salvar preferências.
+
+Monitorar: ticker → filtrar → abrir ticket → detalhes.
+
+Intervir: Pausar/Ativar/Inativar IA → modal motivo → logar ação.
+
+Investigar: busca/ID → timeline → links para N8N.
+
+Estados: vazio, carregando, erro rede, permissão negada. <--FLUXOS_UX-->
+
+<--REGRAS_DE_UI_UX--> Layout limpo, grid 12 colunas, espaçamento 8/12/16/24, cantos rounded-2xl, sombras suaves. Tipografia: Inter/Poppins; contraste mínimo 4.5:1. Acessibilidade: teclado, aria-labels, live region updates. Performance: virtualização >10k tickets, memoização, code-splitting. <--REGRAS_DE_UI_UX-->
+
+<--ENTREGÁVEIS-->
+
+Monorepo (/apps/web, /apps/api, /packages/ui).
+
+docker-compose (db + api + web).
+
+Migrações Prisma + seeds.
+
+API com OpenAPI/Swagger.
+
+Web com páginas: Login, Monitoramento, Tickets, IA Detail, Configurações, Auditoria.
+
+Tema claro/escuro persistente.
+
+Mock realtime N8N. <--ENTREGÁVEIS-->
+
+<--CRITÉRIOS_DE_ACEITE-->
+
+Tema alternável sem recarregar.
+
+Ticker realtime.
+
+Ticket criado com webhook (sem duplicado).
+
+Filtros combináveis <100ms em 10k itens.
+
+Ações registradas em auditoria.
+
+Acessibilidade AA validada. <--CRITÉRIOS_DE_ACEITE-->
+
+<--INSTRUÇÕES-->
+
+Escreva todo o código para rodar localmente com docker-compose up.
+
+Inclua tokens de design e tailwind.config.js.
+
+Forneça componentes reutilizáveis (Button, Badge, Table, Toast, etc.).
+
+Documente no README: setup, variáveis, rotas, fluxo N8N, papéis RBAC.
+
+Gere mocks de eventos em tempo real. <--INSTRUÇÕES-->
+
+<--!!PROMPT_NEGATIVO!!--> Não usar libs além das citadas; não usar amarelo como fundo de texto longo; não omitir autenticação, RBAC, auditoria, acessibilidade, tema claro/escuro. Não retornar apenas snippets — entregue projeto completo e instruções. <--!!PROMPT_NEGATIVO!!-->
