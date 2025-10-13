@@ -27,20 +27,39 @@ const wsClients = new Set<WebSocket>();
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // WebSocket setup
+  // WebSocket setup with authentication
   const wss = new WebSocketServer({ 
     server: httpServer,
     path: "/ws"
   });
 
-  wss.on("connection", (ws) => {
-    console.log("WebSocket client connected");
-    wsClients.add(ws);
+  wss.on("connection", (ws, req) => {
+    // Extract token from query string or header
+    const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const token = url.searchParams.get("token") || req.headers.authorization?.replace("Bearer ", "");
 
-    ws.on("close", () => {
-      console.log("WebSocket client disconnected");
-      wsClients.delete(ws);
-    });
+    if (!token) {
+      console.log("WebSocket connection rejected: No token provided");
+      ws.close(1008, "Authentication required");
+      return;
+    }
+
+    try {
+      // Verify JWT token
+      const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
+      const decoded = require("jsonwebtoken").verify(token, JWT_SECRET);
+      
+      console.log(`WebSocket client connected: ${decoded.email}`);
+      wsClients.add(ws);
+
+      ws.on("close", () => {
+        console.log("WebSocket client disconnected");
+        wsClients.delete(ws);
+      });
+    } catch (error) {
+      console.log("WebSocket connection rejected: Invalid token");
+      ws.close(1008, "Invalid token");
+    }
   });
 
   // Helper to broadcast to all connected clients
