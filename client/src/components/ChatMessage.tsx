@@ -1,0 +1,85 @@
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Bot, User } from "lucide-react";
+
+export type MessageSender = "ia" | "user" | "system";
+export type MessageTag = "engaged" | "payment_link" | "quote" | "paid";
+
+export interface ChatMessage {
+  id: string;
+  sender: MessageSender;
+  content: string;
+  timestamp: string;
+  tags?: MessageTag[];
+}
+
+interface ChatMessageProps {
+  message: ChatMessage;
+}
+
+const tagConfig = {
+  engaged: { label: "Lead Engajado", variant: "default" as const },
+  payment_link: { label: "Link de Pagamento", variant: "default" as const },
+  quote: { label: "Orçamento", variant: "secondary" as const },
+  paid: { label: "Pago", variant: "default" as const },
+};
+
+export function ChatMessageComponent({ message }: ChatMessageProps) {
+  const isIA = message.sender === "ia";
+  const isUser = message.sender === "user";
+  const isSystem = message.sender === "system";
+
+  if (isSystem) {
+    return (
+      <div className="flex justify-center my-2">
+        <p className="text-xs text-muted-foreground italic" data-testid={`message-${message.id}`}>
+          {message.content}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+      data-testid={`message-${message.id}`}
+    >
+      <Avatar className="h-8 w-8 shrink-0">
+        <AvatarFallback className={isIA ? "bg-primary/10" : "bg-muted"}>
+          {isIA ? <Bot className="h-4 w-4 text-primary" /> : <User className="h-4 w-4" />}
+        </AvatarFallback>
+      </Avatar>
+
+      <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? "items-end" : "items-start"}`}>
+        <div
+          className={`rounded-lg px-4 py-2 ${
+            isIA
+              ? "bg-muted/50"
+              : "bg-primary/10 border border-primary/20"
+          }`}
+        >
+          <p className="text-sm">{message.content}</p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">
+            {new Date(message.timestamp).toLocaleTimeString('pt-BR', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
+          </span>
+          
+          {message.tags?.map((tag) => (
+            <Badge
+              key={tag}
+              variant={tagConfig[tag].variant}
+              className="text-xs h-5"
+            >
+              {tagConfig[tag].label}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
