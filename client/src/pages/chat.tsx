@@ -1,11 +1,37 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Send,
   Paperclip,
@@ -18,10 +44,11 @@ import {
   Pause,
   Ban,
   Clock,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { conversationAPI, messageAPI } from "@/lib/api";
-import type { Conversation, Message } from "@shared/schema";
+import { conversationAPI, messageAPI, iaAPI } from "@/lib/api";
+import type { Conversation, Message, IA } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -33,12 +60,34 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 
+const newConversationSchema = z.object({
+  leadName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
+  channel: z.enum(["whatsapp", "email", "phone"], {
+    required_error: "Selecione um canal",
+  }),
+  iaId: z.string().min(1, "Selecione uma IA"),
+  attendanceId: z.string().optional(),
+});
+
+type NewConversationForm = z.infer<typeof newConversationSchema>;
+
 export default function Chat() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const form = useForm<NewConversationForm>({
+    resolver: zodResolver(newConversationSchema),
+    defaultValues: {
+      leadName: "",
+      channel: undefined,
+      iaId: "",
+      attendanceId: "",
+    },
+  });
 
   const updateIAStatusMutation = useMutation({
     mutationFn: (enabled: number) =>
@@ -60,6 +109,11 @@ export default function Chat() {
     },
   });
 
+  // Fetch all IAs
+  const { data: ias = [] } = useQuery<IA[]>({
+    queryKey: ["/api/ias"],
+  });
+
   // Fetch all conversations
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations"],
@@ -74,10 +128,65 @@ export default function Chat() {
     enabled: !!selectedConversation,
   });
 
+  const sendMessageMutation = useMutation({
+    mutationFn: (content: string) =>
+      messageAPI.create({
+        conversationId: selectedConversation!.id,
+        sender: "operator",
+        content,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/messages/conversation", selectedConversation?.id] 
+      });
+      setMessage("");
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível enviar a mensagem",
+      });
+    },
+  });
+
+  const createConversationMutation = useMutation({
+    mutationFn: (data: NewConversationForm) => {
+      const attendanceId = data.attendanceId || `ATD-${Date.now()}`;
+      return conversationAPI.create({
+        iaId: data.iaId,
+        leadName: data.leadName,
+        channel: data.channel,
+        attendanceId,
+        iaEnabled: 1,
+      });
+    },
+    onSuccess: (newConversation) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      setSelectedConversation(newConversation);
+      setIsNewConversationOpen(false);
+      form.reset();
+      toast({
+        title: "Atendimento criado",
+        description: `Novo atendimento para ${newConversation.leadName} foi criado`,
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível criar o atendimento",
+      });
+    },
+  });
+
   const handleSend = () => {
     if (!message.trim() || !selectedConversation) return;
-    console.log("Enviando mensagem:", message);
-    setMessage("");
+    sendMessageMutation.mutate(message);
+  };
+
+  const onCreateConversation = (data: NewConversationForm) => {
+    createConversationMutation.mutate(data);
   };
 
   const filteredConversations = conversations.filter((conv) =>
@@ -118,7 +227,118 @@ export default function Chat() {
       {/* Sidebar de Conversas */}
       <div className="w-80 border-r flex flex-col">
         <div className="p-4 border-b space-y-3">
-          <h2 className="font-semibold font-heading">Conversas</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold font-heading">Conversas</h2>
+            <Dialog open={isNewConversationOpen} onOpenChange={setIsNewConversationOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" data-testid="button-new-conversation">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Novo
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Atendimento</DialogTitle>
+                  <DialogDescription>
+                    Crie um novo atendimento para gerenciar a conversa com um lead
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onCreateConversation)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="leadName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome do Lead</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: João Silva" {...field} data-testid="input-lead-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="channel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Canal</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-channel">
+                                <SelectValue placeholder="Selecione o canal" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                              <SelectItem value="email">Email</SelectItem>
+                              <SelectItem value="phone">Telefone</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="iaId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IA Responsável</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-ia">
+                                <SelectValue placeholder="Selecione a IA" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {ias.filter(ia => ia.status === 'active').map((ia) => (
+                                <SelectItem key={ia.id} value={ia.id}>
+                                  {ia.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="attendanceId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ID de Atendimento (Opcional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: ATD-12345" {...field} data-testid="input-attendance-id" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsNewConversationOpen(false)}
+                        data-testid="button-cancel"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createConversationMutation.isPending}
+                        data-testid="button-create-conversation"
+                      >
+                        {createConversationMutation.isPending ? "Criando..." : "Criar Atendimento"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -305,6 +525,7 @@ export default function Chat() {
                   size="icon"
                   data-testid="button-attach-file"
                   className="flex-shrink-0"
+                  disabled={sendMessageMutation.isPending}
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -320,10 +541,11 @@ export default function Chat() {
                   }}
                   data-testid="input-message"
                   className="flex-1"
+                  disabled={sendMessageMutation.isPending}
                 />
                 <Button
                   onClick={handleSend}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || sendMessageMutation.isPending}
                   data-testid="button-send"
                   className="flex-shrink-0"
                 >

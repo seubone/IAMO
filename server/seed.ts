@@ -138,46 +138,133 @@ export async function seedData() {
 
   console.log("✅ Ações de auditoria criadas");
 
-  // Create conversation
-  const conversation = await storage.createConversation({
+  // Create conversations and messages
+  const conversation1 = await storage.createConversation({
     iaId: ia1.id,
     attendanceId: "ATD-12345",
     leadName: "João Silva",
     iaEnabled: 1,
+    channel: "whatsapp",
     notes: "Cliente demonstrou interesse em upgrade, agendar follow-up.",
   });
 
-  // Create messages
   await storage.createMessage({
-    conversationId: conversation.id,
+    conversationId: conversation1.id,
     sender: "ia",
     content: "Olá! Como posso ajudar você hoje?",
   });
 
   await storage.createMessage({
-    conversationId: conversation.id,
+    conversationId: conversation1.id,
     sender: "user",
     content: "Quero saber mais sobre o produto premium",
     tags: ["engaged"],
   });
 
   await storage.createMessage({
-    conversationId: conversation.id,
+    conversationId: conversation1.id,
     sender: "ia",
-    content: "Claro! Nosso plano premium oferece recursos exclusivos...",
+    content: "Claro! Nosso plano premium oferece recursos exclusivos: suporte prioritário 24/7, integrações ilimitadas e análises avançadas de desempenho.",
   });
 
   await storage.createMessage({
-    conversationId: conversation.id,
+    conversationId: conversation1.id,
     sender: "user",
     content: "Quanto custa?",
   });
 
   await storage.createMessage({
-    conversationId: conversation.id,
+    conversationId: conversation1.id,
     sender: "ia",
     content: "O investimento é R$ 297/mês. Aqui está o link para pagamento: link.com/pagar",
     tags: ["payment_link"],
+  });
+
+  // Conversation 2
+  const conversation2 = await storage.createConversation({
+    iaId: ia2.id,
+    attendanceId: "ATD-12346",
+    leadName: "Maria Santos",
+    iaEnabled: 1,
+    channel: "email",
+    notes: "Cliente com dúvida técnica sobre integração.",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation2.id,
+    sender: "user",
+    content: "Olá, estou com problemas na integração com o meu CRM",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation2.id,
+    sender: "ia",
+    content: "Olá Maria! Vou te ajudar com isso. Qual CRM você está utilizando?",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation2.id,
+    sender: "user",
+    content: "Estou usando o Salesforce",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation2.id,
+    sender: "ia",
+    content: "Perfeito! Para integrar com Salesforce, você precisa: 1) Acessar Configurações > Integrações, 2) Clicar em 'Adicionar Salesforce', 3) Autorizar a conexão. Posso te enviar um tutorial em vídeo?",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation2.id,
+    sender: "user",
+    content: "Sim, por favor! Isso seria ótimo.",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation2.id,
+    sender: "ia",
+    content: "Enviado! Você receberá o link por email em instantes. Qualquer dúvida estou à disposição.",
+    tags: ["tutorial_sent"],
+  });
+
+  // Conversation 3
+  const conversation3 = await storage.createConversation({
+    iaId: ia3.id,
+    attendanceId: "ATD-12347",
+    leadName: "Pedro Oliveira",
+    iaEnabled: 0,
+    channel: "whatsapp",
+    notes: "Solicitou orçamento personalizado. IA pausada para atendimento humano.",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation3.id,
+    sender: "user",
+    content: "Boa tarde! Preciso de um orçamento para 50 licenças",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation3.id,
+    sender: "ia",
+    content: "Olá Pedro! Que ótimo! Para 50 licenças temos condições especiais. Vou conectar você com nosso time comercial para montar a melhor proposta.",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation3.id,
+    sender: "operator",
+    content: "Olá Pedro, aqui é o Carlos da equipe comercial. Para 50 licenças conseguimos um desconto de 30%. O valor ficaria R$ 10.395/mês. Podemos agendar uma call?",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation3.id,
+    sender: "user",
+    content: "Excelente! Podemos conversar amanhã às 14h?",
+  });
+
+  await storage.createMessage({
+    conversationId: conversation3.id,
+    sender: "operator",
+    content: "Perfeito! Agendado para amanhã às 14h. Vou enviar o link da reunião por email.",
   });
 
   console.log("✅ Conversas e mensagens criadas");

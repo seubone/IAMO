@@ -132,6 +132,13 @@ export const conversationAPI = {
       headers: getAuthHeaders(),
     }),
 
+  create: (data: any) =>
+    apiRequest("/api/conversations", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
   update: (id: string, data: any) =>
     apiRequest(`/api/conversations/${id}`, {
       method: "PATCH",
