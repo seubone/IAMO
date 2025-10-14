@@ -30,9 +30,11 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
   - IA status mutation with UI updates
 - **Profile Page Created**:
   - Tabs: Personal Data, Preferences, Personal Integrations
-  - Functional profile update with mutations and toast notifications
-  - Password change with validation
+  - Avatar display and editing with live preview (URL input field)
+  - Functional profile update with mutations and toast notifications (name + avatar)
+  - Password change with full validation and confirmation
   - API routes: PATCH /api/auth/profile, PATCH /api/auth/password
+  - User interface extended with avatar field in auth state
   
 ### January 14, 2025 (Morning)
 - **Fixed Critical Login Bug**: Resolved "Failed to execute 'fetch'" error when accessing login via external link
