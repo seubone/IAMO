@@ -1,4 +1,4 @@
-import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3 } from "lucide-react";
+import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,11 @@ const menuItems = [
     icon: Home,
   },
   {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: BarChart3,
+  },
+  {
     title: "Chat",
     url: "/chat",
     icon: MessageSquare,
@@ -28,14 +33,14 @@ const menuItems = [
     icon: SquareKanban,
   },
   {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: BarChart3,
-  },
-  {
     title: "Auditoria",
     url: "/audit",
     icon: Shield,
+  },
+  {
+    title: "Perfil",
+    url: "/profile",
+    icon: User,
   },
   {
     title: "Configurações",

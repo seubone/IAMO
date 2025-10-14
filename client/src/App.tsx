@@ -15,6 +15,7 @@ import Chat from "@/pages/chat";
 import Tickets from "@/pages/tickets";
 import Dashboard from "@/pages/dashboard";
 import Audit from "@/pages/audit";
+import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -63,6 +64,7 @@ function ProtectedRoutes() {
               <Route path="/tickets" component={Tickets} />
               <Route path="/dashboard" component={Dashboard} />
               <Route path="/audit" component={Audit} />
+              <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
             </Switch>

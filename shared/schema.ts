@@ -10,8 +10,11 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("viewer"), // admin, operator, viewer
-  preferences: jsonb("preferences"),
+  avatar: text("avatar"),
+  preferences: jsonb("preferences"), // UI preferences, notifications, etc
+  personalIntegrations: jsonb("personal_integrations"), // Personal API keys, tokens
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // IAs
@@ -20,6 +23,8 @@ export const ias = pgTable("ias", {
   name: text("name").notNull(),
   status: text("status").notNull().default("active"), // active, paused, inactive
   tags: text("tags").array(),
+  parameters: jsonb("parameters"), // AI parameters, prompts, configs
+  statusHistory: jsonb("status_history"), // Audit trail of status transitions
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -54,8 +59,10 @@ export const conversations = pgTable("conversations", {
   iaId: varchar("ia_id").notNull().references(() => ias.id),
   attendanceId: text("attendance_id").notNull().unique(),
   leadName: text("lead_name"),
+  channel: text("channel"), // whatsapp, email, telegram, etc
   iaEnabled: integer("ia_enabled").notNull().default(1), // 1 = true, 0 = false
   notes: text("notes"),
+  metadata: jsonb("metadata"), // Extra data like contact info, tags, etc
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -66,6 +73,8 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
   sender: text("sender").notNull(), // ia, user, system
   content: text("content").notNull(),
+  attachments: jsonb("attachments"), // Files, images, documents
+  actions: jsonb("actions"), // Actions performed on this message
   tags: text("tags").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -84,14 +93,26 @@ export const metrics = pgTable("metrics", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Global Settings
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(), // Setting identifier
+  value: jsonb("value").notNull(), // Setting value (flexible JSON)
+  category: text("category").notNull(), // integrations, webhooks, slas, notifications, permissions
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert Schemas
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertIASchema = createInsertSchema(ias).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true });
 export const insertActionSchema = createInsertSchema(actions).omit({ id: true, createdAt: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 export const insertMetricSchema = createInsertSchema(metrics).omit({ id: true, createdAt: true });
+export const insertSettingSchema = createInsertSchema(settings).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -114,3 +135,6 @@ export type Message = typeof messages.$inferSelect;
 
 export type InsertMetric = z.infer<typeof insertMetricSchema>;
 export type Metric = typeof metrics.$inferSelect;
+
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
+export type Setting = typeof settings.$inferSelect;
