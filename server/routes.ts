@@ -154,7 +154,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       email: user.email,
       role: user.role,
       preferences: user.preferences,
+      avatar: user.avatar,
+      personalIntegrations: user.personalIntegrations,
     });
+  });
+
+  // Update user profile
+  app.patch("/api/auth/profile", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { name, avatar, preferences, personalIntegrations } = req.body;
+      
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Nome inválido" });
+      }
+
+      const user = await storage.updateUser(req.user!.id, {
+        name,
+        avatar,
+        preferences,
+        personalIntegrations,
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        preferences: user.preferences,
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Update password
+  app.patch("/api/auth/password", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Campos obrigatórios faltando" });
+      }
+
+      if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+        return res.status(400).json({ error: "Senhas inválidas" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "A nova senha deve ter no mínimo 6 caracteres" });
+      }
+      
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+
+      const validPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Senha atual incorreta" });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const updated = await storage.updateUser(req.user!.id, { password: hashedPassword });
+
+      if (!updated) {
+        return res.status(500).json({ error: "Erro ao atualizar senha" });
+      }
+
+      res.json({ message: "Senha atualizada com sucesso" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
   });
 
   // ============ IA ROUTES ============

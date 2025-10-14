@@ -6,7 +6,27 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 
 ## Recent Changes
 
-### January 14, 2025
+### January 14, 2025 (Evening)
+- **Navigation Reorganized**: Sidebar menu now follows requested order: Monitoramento → Dashboard → Chat → Tickets → Auditoria → Perfil → Configurações
+- **Database Schema Expanded**:
+  - users: Added avatar, personalIntegrations, updatedAt
+  - ias: Added parameters, statusHistory for AI audit trail
+  - conversations: Added channel, metadata
+  - messages: Added attachments, actions
+  - New table: settings for global configurations
+- **Chat Page Rebuilt**:
+  - Sidebar with searchable conversation list
+  - Header showing contact name, channel, and IA status controls (Activate/Pause/Deactivate)
+  - Message area with proper sender differentiation
+  - Input bar with attachment button and send functionality
+  - Empty states and loading indicators
+- **Profile Page Created**:
+  - Tabs: Personal Data, Preferences, Personal Integrations
+  - Functional profile update with mutations and toast notifications
+  - Password change with validation
+  - API routes: PATCH /api/auth/profile, PATCH /api/auth/password
+  
+### January 14, 2025 (Morning)
 - **Fixed Critical Login Bug**: Resolved "Failed to execute 'fetch'" error when accessing login via external link
   - Root cause: TypeScript errors in `getAuthHeaders()` preventing correct compilation
   - Solution: Added explicit `Record<string, string>` return type to `getAuthHeaders()`

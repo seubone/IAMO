@@ -1,14 +1,105 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Key, Bell } from "lucide-react";
+import { auth } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, setAuth } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const [name, setName] = useState(user?.name || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: { name: string }) => auth.updateProfile(data),
+    onSuccess: (data) => {
+      setAuth(data, localStorage.getItem("auth_token") || "");
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: "Perfil atualizado",
+        description: "Suas informações foram salvas com sucesso",
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível atualizar o perfil",
+      });
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+      auth.updatePassword(data),
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({
+        title: "Senha atualizada",
+        description: "Sua senha foi alterada com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Não foi possível alterar a senha",
+      });
+    },
+  });
+
+  const handleSaveProfile = () => {
+    if (!name.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nome não pode estar vazio",
+      });
+      return;
+    }
+    updateProfileMutation.mutate({ name });
+  };
+
+  const handleChangePassword = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Preencha todos os campos",
+      });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "As senhas não coincidem",
+      });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "A senha deve ter no mínimo 6 caracteres",
+      });
+      return;
+    }
+    updatePasswordMutation.mutate({ currentPassword, newPassword });
+  };
 
   return (
     <div className="flex flex-col h-screen overflow-y-auto">
@@ -45,19 +136,10 @@ export default function Profile() {
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-6">
                   <Avatar className="h-24 w-24">
-                    <AvatarImage src="" />
                     <AvatarFallback className="text-2xl">
                       {user?.name?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="space-y-2">
-                    <Button variant="outline" size="sm" data-testid="button-upload-photo">
-                      Alterar Foto
-                    </Button>
-                    <p className="text-sm text-muted-foreground">
-                      JPG, PNG ou GIF. Máx. 2MB
-                    </p>
-                  </div>
                 </div>
 
                 <div className="grid gap-4">
@@ -65,7 +147,8 @@ export default function Profile() {
                     <Label htmlFor="name">Nome Completo</Label>
                     <Input
                       id="name"
-                      defaultValue={user?.name}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       data-testid="input-name"
                     />
                   </div>
@@ -74,7 +157,7 @@ export default function Profile() {
                     <Input
                       id="email"
                       type="email"
-                      defaultValue={user?.email}
+                      value={user?.email}
                       disabled
                       data-testid="input-email"
                     />
@@ -86,7 +169,7 @@ export default function Profile() {
                     <Label htmlFor="role">Função</Label>
                     <Input
                       id="role"
-                      defaultValue={user?.role}
+                      value={user?.role}
                       disabled
                       data-testid="input-role"
                       className="capitalize"
@@ -95,8 +178,12 @@ export default function Profile() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button data-testid="button-save-profile">
-                    Salvar Alterações
+                  <Button
+                    onClick={handleSaveProfile}
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-save-profile"
+                  >
+                    {updateProfileMutation.isPending ? "Salvando..." : "Salvar Alterações"}
                   </Button>
                 </div>
               </CardContent>
@@ -115,6 +202,8 @@ export default function Profile() {
                   <Input
                     id="current-password"
                     type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
                     data-testid="input-current-password"
                   />
                 </div>
@@ -123,6 +212,8 @@ export default function Profile() {
                   <Input
                     id="new-password"
                     type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
                     data-testid="input-new-password"
                   />
                 </div>
@@ -131,12 +222,19 @@ export default function Profile() {
                   <Input
                     id="confirm-password"
                     type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     data-testid="input-confirm-password"
                   />
                 </div>
                 <div className="flex justify-end">
-                  <Button variant="outline" data-testid="button-change-password">
-                    Alterar Senha
+                  <Button
+                    variant="outline"
+                    onClick={handleChangePassword}
+                    disabled={updatePasswordMutation.isPending}
+                    data-testid="button-change-password"
+                  >
+                    {updatePasswordMutation.isPending ? "Alterando..." : "Alterar Senha"}
                   </Button>
                 </div>
               </CardContent>

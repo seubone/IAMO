@@ -1,118 +1,353 @@
 import { useState } from "react";
-import { ChatMessageComponent, type ChatMessage } from "@/components/ChatMessage";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Send, StickyNote, Bot } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Send,
+  Paperclip,
+  Search,
+  MessageSquare,
+  Phone,
+  Mail,
+  MessageCircle,
+  Play,
+  Pause,
+  Ban,
+  Clock,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { conversationAPI, messageAPI } from "@/lib/api";
+import type { Conversation, Message } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { format } from "date-fns";
 
 export default function Chat() {
-  const [iaEnabled, setIaEnabled] = useState(true);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // TODO: Remove mock data
-  const mockMessages: ChatMessage[] = [
-    {
-      id: "1",
-      sender: "ia",
-      content: "Olá! Como posso ajudar você hoje?",
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
+  const updateIAStatusMutation = useMutation({
+    mutationFn: (enabled: number) =>
+      conversationAPI.update(selectedConversation!.id, { iaEnabled: enabled }),
+    onSuccess: (data) => {
+      setSelectedConversation(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      toast({
+        title: "Estado da IA atualizado",
+        description: "O estado foi alterado com sucesso",
+      });
     },
-    {
-      id: "2",
-      sender: "user",
-      content: "Quero saber mais sobre o produto",
-      timestamp: new Date(Date.now() - 3500000).toISOString(),
-      tags: ["engaged"],
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível atualizar o estado da IA",
+      });
     },
-    {
-      id: "3",
-      sender: "ia",
-      content: "Claro! Nosso produto oferece diversas funcionalidades incríveis...",
-      timestamp: new Date(Date.now() - 3400000).toISOString(),
-    },
-    {
-      id: "4",
-      sender: "user",
-      content: "Quanto custa?",
-      timestamp: new Date(Date.now() - 3300000).toISOString(),
-    },
-    {
-      id: "5",
-      sender: "ia",
-      content: "O investimento é R$ 297/mês. Aqui está o link: link.com/pagar",
-      timestamp: new Date(Date.now() - 3200000).toISOString(),
-      tags: ["payment_link"],
-    },
-  ];
+  });
+
+  // Fetch all conversations
+  const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
+    queryKey: ["/api/conversations"],
+  });
+
+  // Fetch messages for selected conversation
+  const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
+    queryKey: ["/api/messages/conversation", selectedConversation?.id],
+    queryFn: selectedConversation
+      ? () => messageAPI.getByConversation(selectedConversation.id)
+      : undefined,
+    enabled: !!selectedConversation,
+  });
 
   const handleSend = () => {
-    console.log('Mensagem enviada:', message);
+    if (!message.trim() || !selectedConversation) return;
+    console.log("Enviando mensagem:", message);
     setMessage("");
+  };
+
+  const filteredConversations = conversations.filter((conv) =>
+    conv.leadName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.attendanceId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getChannelIcon = (channel?: string | null) => {
+    switch (channel) {
+      case "whatsapp":
+        return <MessageCircle className="h-4 w-4" />;
+      case "email":
+        return <Mail className="h-4 w-4" />;
+      case "phone":
+        return <Phone className="h-4 w-4" />;
+      default:
+        return <MessageSquare className="h-4 w-4" />;
+    }
+  };
+
+  const getIAStatusConfig = (enabled: number) => {
+    if (enabled === 1) {
+      return {
+        label: "Ativa",
+        icon: <Play className="h-3 w-3" />,
+        variant: "default" as const,
+      };
+    }
+    return {
+      label: "Inativa",
+      icon: <Ban className="h-3 w-3" />,
+      variant: "destructive" as const,
+    };
   };
 
   return (
     <div className="flex h-screen">
-      <div className="flex-1 flex flex-col">
-        <div className="p-4 border-b flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold font-heading">Chat com Lead</h1>
-            <p className="text-sm text-muted-foreground">Atendimento #ATD-12345</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Label htmlFor="ia-toggle" className="text-sm">IA</Label>
-            <Switch
-              id="ia-toggle"
-              checked={iaEnabled}
-              onCheckedChange={setIaEnabled}
-              data-testid="switch-ia-enabled"
-            />
-            <Bot className={`h-5 w-5 ${iaEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {mockMessages.map((msg) => (
-            <ChatMessageComponent key={msg.id} message={msg} />
-          ))}
-        </div>
-
-        <div className="p-4 border-t">
-          <div className="flex gap-2">
+      {/* Sidebar de Conversas */}
+      <div className="w-80 border-r flex flex-col">
+        <div className="p-4 border-b space-y-3">
+          <h2 className="font-semibold font-heading">Conversas</h2>
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Digite sua mensagem..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              data-testid="input-chat-message"
+              placeholder="Buscar conversas..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="input-search-conversations"
             />
-            <Button onClick={handleSend} data-testid="button-send-message">
-              <Send className="h-4 w-4" />
-            </Button>
           </div>
         </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-1">
+            {loadingConversations ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                Carregando conversas...
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="p-4 text-center">
+                <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery ? "Nenhuma conversa encontrada" : "Nenhuma conversa ativa"}
+                </p>
+              </div>
+            ) : (
+              filteredConversations.map((conv) => (
+                <Card
+                  key={conv.id}
+                  className={cn(
+                    "p-3 cursor-pointer hover-elevate transition-colors",
+                    selectedConversation?.id === conv.id && "bg-accent"
+                  )}
+                  onClick={() => setSelectedConversation(conv)}
+                  data-testid={`conversation-${conv.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {getChannelIcon(conv.channel)}
+                        <span className="font-medium text-sm truncate">
+                          {conv.leadName || "Sem nome"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {conv.attendanceId}
+                      </p>
+                    </div>
+                    <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-1" />
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </ScrollArea>
       </div>
 
-      <div className="w-80 border-l p-4 space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <StickyNote className="h-4 w-4" />
-            Notas
-          </h3>
-          <Card className="p-3">
-            <Textarea
-              placeholder="Adicionar nota sobre a conversa..."
-              className="min-h-32 resize-none"
-              data-testid="textarea-notes"
-            />
-            <Button className="w-full mt-2" size="sm" data-testid="button-save-note">
-              Salvar Nota
-            </Button>
-          </Card>
-        </div>
+      {/* Área Principal */}
+      <div className="flex-1 flex flex-col">
+        {selectedConversation ? (
+          <>
+            {/* Header do Contato */}
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  {getChannelIcon(selectedConversation.channel)}
+                </div>
+                <div>
+                  <h2 className="font-semibold font-heading">
+                    {selectedConversation.leadName || "Sem nome"}
+                  </h2>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="capitalize">{selectedConversation.channel || "Chat"}</span>
+                    <span>•</span>
+                    <span>{selectedConversation.attendanceId}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controle do Estado da IA */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={getIAStatusConfig(selectedConversation.iaEnabled).variant}
+                    size="sm"
+                    data-testid="button-ia-status"
+                    className="gap-2"
+                  >
+                    {getIAStatusConfig(selectedConversation.iaEnabled).icon}
+                    IA {getIAStatusConfig(selectedConversation.iaEnabled).label}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Estado da IA</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    data-testid="menu-ia-activate"
+                    onClick={() => updateIAStatusMutation.mutate(1)}
+                    disabled={updateIAStatusMutation.isPending}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Ativar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-testid="menu-ia-pause"
+                    onClick={() => updateIAStatusMutation.mutate(0)}
+                    disabled={updateIAStatusMutation.isPending}
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Pausar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-testid="menu-ia-deactivate"
+                    onClick={() => updateIAStatusMutation.mutate(0)}
+                    disabled={updateIAStatusMutation.isPending}
+                  >
+                    <Ban className="h-4 w-4 mr-2" />
+                    Desativar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Mensagens */}
+            <ScrollArea className="flex-1 p-4">
+              {loadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">Carregando mensagens...</p>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    Nenhuma mensagem ainda. Inicie a conversa!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={cn(
+                        "flex",
+                        msg.sender === "user" ? "justify-end" : "justify-start"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "max-w-[70%] rounded-lg p-3",
+                          msg.sender === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        )}
+                        data-testid={`message-${msg.id}`}
+                      >
+                        <p className="text-sm">{msg.content}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs opacity-70">
+                            {format(new Date(msg.createdAt), "HH:mm")}
+                          </span>
+                          {msg.tags && msg.tags.length > 0 && (
+                            <>
+                              <Separator orientation="vertical" className="h-3" />
+                              {msg.tags.map((tag, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+
+            {/* Input de Mensagem */}
+            <div className="p-4 border-t">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  data-testid="button-attach-file"
+                  className="flex-shrink-0"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Input
+                  placeholder="Digite sua mensagem..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  data-testid="input-message"
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={!message.trim()}
+                  data-testid="button-send"
+                  className="flex-shrink-0"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Pressione Enter para enviar, Shift+Enter para quebrar linha
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <MessageSquare className="h-24 w-24 text-muted-foreground mx-auto mb-4" />
+              <h2 className="text-xl font-semibold font-heading mb-2">
+                Selecione uma conversa
+              </h2>
+              <p className="text-muted-foreground">
+                Escolha uma conversa na barra lateral para começar
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

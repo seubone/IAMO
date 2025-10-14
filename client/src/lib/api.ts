@@ -42,6 +42,20 @@ export const auth = {
         Authorization: `Bearer ${token}`,
       },
     }),
+
+  updateProfile: (data: { name?: string; avatar?: string; preferences?: any }) =>
+    apiRequest("/api/auth/profile", {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  updatePassword: (data: { currentPassword: string; newPassword: string }) =>
+    apiRequest("/api/auth/password", {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
 };
 
 // Helper to get auth headers
