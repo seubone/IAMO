@@ -15,6 +15,7 @@ export async function apiRequest<T = any>(
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
       ...options?.headers,
     },
     credentials: "include",
@@ -22,6 +23,14 @@ export async function apiRequest<T = any>(
 
   await throwIfResNotOk(res);
   return await res.json();
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem("auth_token");
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -32,6 +41,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers: getAuthHeaders(),
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
