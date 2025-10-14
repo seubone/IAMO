@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Key, Bell } from "lucide-react";
@@ -17,12 +17,13 @@ export default function Profile() {
   const queryClient = useQueryClient();
   
   const [name, setName] = useState(user?.name || "");
+  const [avatar, setAvatar] = useState(user?.avatar || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: { name: string }) => auth.updateProfile(data),
+    mutationFn: (data: { name: string; avatar?: string }) => auth.updateProfile(data),
     onSuccess: (data) => {
       setAuth(data, localStorage.getItem("auth_token") || "");
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -70,7 +71,10 @@ export default function Profile() {
       });
       return;
     }
-    updateProfileMutation.mutate({ name });
+    updateProfileMutation.mutate({ 
+      name: name.trim(),
+      avatar: avatar.trim() || undefined
+    });
   };
 
   const handleChangePassword = () => {
@@ -136,6 +140,7 @@ export default function Profile() {
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-6">
                   <Avatar className="h-24 w-24">
+                    <AvatarImage src={avatar.trim() || user?.avatar || ""} alt={user?.name || "Avatar"} />
                     <AvatarFallback className="text-2xl">
                       {user?.name?.charAt(0) || "U"}
                     </AvatarFallback>
@@ -151,6 +156,20 @@ export default function Profile() {
                       onChange={(e) => setName(e.target.value)}
                       data-testid="input-name"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="avatar">Avatar URL</Label>
+                    <Input
+                      id="avatar"
+                      type="url"
+                      placeholder="https://exemplo.com/avatar.jpg"
+                      value={avatar}
+                      onChange={(e) => setAvatar(e.target.value)}
+                      data-testid="input-avatar"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      URL da imagem do seu avatar
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
