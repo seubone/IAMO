@@ -4,6 +4,19 @@
 
 Monitor IA is a comprehensive web-based monitoring system for AI agents integrated with N8N workflow automation. The system provides real-time monitoring, ticket management, chat interfaces, performance dashboards, and audit trails for managing multiple AI instances. Built as a full-stack TypeScript application, it enables operations teams to monitor AI performance, intervene when issues occur, and track all system actions.
 
+## Recent Changes
+
+### January 14, 2025
+- **Fixed Critical Login Bug**: Resolved "Failed to execute 'fetch'" error when accessing login via external link
+  - Root cause: TypeScript errors in `getAuthHeaders()` preventing correct compilation
+  - Solution: Added explicit `Record<string, string>` return type to `getAuthHeaders()`
+  - Impact: Login now works correctly from external URLs and all authentication flows are stable
+- **Database Storage Migration**: Fully migrated from in-memory to PostgreSQL
+  - Aligned all `DatabaseStorage` method names with `IStorage` interface
+  - Added idempotent seed data loading (checks if data exists before inserting)
+  - All 7 database tables operational: users, ias, tickets, actions, conversations, messages, metrics
+- **Code Quality**: Eliminated all TypeScript LSP errors across the codebase
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -84,9 +97,10 @@ Preferred communication style: Simple, everyday language.
 
 **Storage Layer:**
 - Abstracted storage interface in `server/storage.ts`
-- In-memory implementation for development
-- Database implementation would use same interface
-- Seed data automatically loaded in development mode
+- **Production Implementation**: PostgreSQL via `DatabaseStorage` class (`server/db-storage.ts`)
+- Fully aligned with IStorage interface for type safety
+- Seed data automatically loaded on first start (idempotent)
+- Database initialization creates all 7 tables automatically
 
 ### Integration Points
 
