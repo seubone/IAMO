@@ -6,7 +6,16 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 
 ## Recent Changes
 
-### January 14, 2025 (Evening)
+### January 14, 2025 (Evening - Latest)
+- **Kanban Drag-and-Drop Added**:
+  - Tickets page now supports full drag-and-drop functionality
+  - Cards can be dragged between "Novo Ticket", "Em Atendimento", and "Resolvido" columns
+  - HTML5 drag-and-drop API with visual feedback (bg-accent/5 on hover)
+  - PATCH /api/tickets/:id mutation updates status in real-time
+  - Toast notifications for success/error feedback
+  - React Query integration for loading tickets from database
+  - Maps ticket.iaId to IA names by querying both endpoints
+  - Fixed critical auth bug: queryClient now includes Authorization headers for all API requests
 - **User Registration System Added**:
   - Login page now includes tabbed interface with "Entrar" (Login) and "Cadastrar" (Register)
   - Complete registration flow with validation (name, email, password, confirm password)
