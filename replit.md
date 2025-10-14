@@ -7,6 +7,13 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 ## Recent Changes
 
 ### January 14, 2025 (Evening)
+- **User Registration System Added**:
+  - Login page now includes tabbed interface with "Entrar" (Login) and "Cadastrar" (Register)
+  - Complete registration flow with validation (name, email, password, confirm password)
+  - Backend route POST /api/auth/register with duplicate email checking and bcrypt hashing
+  - New users are created with default 'viewer' role
+  - Automatic authentication and redirect after successful registration
+  - E2E tested and fully functional
 - **Navigation Reorganized**: Sidebar menu now follows requested order: Monitoramento → Dashboard → Chat → Tickets → Auditoria → Perfil → Configurações
 - **Database Schema Expanded**:
   - users: Added avatar, personalIntegrations, updatedAt
@@ -20,6 +27,7 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
   - Message area with proper sender differentiation
   - Input bar with attachment button and send functionality
   - Empty states and loading indicators
+  - IA status mutation with UI updates
 - **Profile Page Created**:
   - Tabs: Personal Data, Preferences, Personal Integrations
   - Functional profile update with mutations and toast notifications
