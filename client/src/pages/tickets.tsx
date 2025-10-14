@@ -1,52 +1,77 @@
+import { useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { KanbanColumn, type KanbanTicket } from "@/components/KanbanColumn";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Ticket, IA } from "@shared/schema";
 
 export default function Tickets() {
-  // TODO: Remove mock data
-  const newTickets: KanbanTicket[] = [
-    {
-      id: "1",
-      title: "IA não respondendo objeções de preço",
-      iaName: "IA Vendas",
-      type: "prompt",
-      priority: "high",
-    },
-    {
-      id: "2",
-      title: "Erro ao enviar mensagem programada",
-      iaName: "IA Marketing",
-      type: "automation",
-      priority: "medium",
-    },
-  ];
+  const { toast } = useToast();
 
-  // TODO: Remove mock data
-  const inProgressTickets: KanbanTicket[] = [
-    {
-      id: "3",
-      title: "Cliente não recebeu proposta",
-      iaName: "IA Comercial",
-      type: "negotiation",
-      priority: "high",
-    },
-  ];
+  const { data: ticketsData = [], isLoading: ticketsLoading } = useQuery<Ticket[]>({
+    queryKey: ["/api/tickets"],
+  });
 
-  // TODO: Remove mock data
-  const resolvedTickets: KanbanTicket[] = [
-    {
-      id: "4",
-      title: "Correção de fluxo de pagamento",
-      iaName: "IA Vendas",
-      type: "automation",
-      priority: "low",
+  const { data: iasData = [] } = useQuery<IA[]>({
+    queryKey: ["/api/ias"],
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ ticketId, status }: { ticketId: string; status: string }) => {
+      return await apiRequest(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
     },
-    {
-      id: "5",
-      title: "Atualização de prompt de boas-vindas",
-      iaName: "IA Suporte",
-      type: "prompt",
-      priority: "low",
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      toast({
+        title: "Status atualizado",
+        description: "O ticket foi movido com sucesso.",
+      });
     },
-  ];
+    onError: () => {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar o status do ticket.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const tickets = useMemo(() => {
+    return ticketsData.map((ticket): KanbanTicket => {
+      const ia = iasData.find((ia) => ia.id === ticket.iaId);
+      return {
+        id: ticket.id,
+        title: ticket.message,
+        iaName: ia?.name || "IA Desconhecida",
+        type: ticket.errorType as "automation" | "prompt" | "negotiation",
+        priority: ticket.severity === "critical" || ticket.severity === "high" 
+          ? "high" 
+          : ticket.severity === "medium" 
+          ? "medium" 
+          : "low",
+        status: ticket.status as "new" | "in_progress" | "resolved",
+      };
+    });
+  }, [ticketsData, iasData]);
+
+  const handleTicketDrop = (ticketId: string, newStatus: "new" | "in_progress" | "resolved") => {
+    updateStatusMutation.mutate({ ticketId, status: newStatus });
+  };
+
+  const newTickets = tickets.filter((t) => t.status === "new");
+  const inProgressTickets = tickets.filter((t) => t.status === "in_progress");
+  const resolvedTickets = tickets.filter((t) => t.status === "resolved");
+
+  if (ticketsLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-muted-foreground">Carregando tickets...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen">
@@ -62,18 +87,24 @@ export default function Tickets() {
             count={newTickets.length}
             tickets={newTickets}
             color="bg-chart-1"
+            status="new"
+            onTicketDrop={handleTicketDrop}
           />
           <KanbanColumn
             title="Em Atendimento"
             count={inProgressTickets.length}
             tickets={inProgressTickets}
             color="bg-chart-2"
+            status="in_progress"
+            onTicketDrop={handleTicketDrop}
           />
           <KanbanColumn
             title="Resolvido"
             count={resolvedTickets.length}
             tickets={resolvedTickets}
             color="bg-chart-3"
+            status="resolved"
+            onTicketDrop={handleTicketDrop}
           />
         </div>
       </div>
