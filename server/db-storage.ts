@@ -79,6 +79,14 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async deleteIA(id: string): Promise<boolean> {
+    const result = await db
+      .delete(ias)
+      .where(eq(ias.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
   // Tickets
   async getAllTickets(): Promise<Ticket[]> {
     return await db.select().from(tickets).orderBy(desc(tickets.createdAt));

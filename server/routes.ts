@@ -294,6 +294,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete IA
+  app.delete("/api/ias/:id", authMiddleware, requireRole("admin"), async (req, res) => {
+    try {
+      const deleted = await storage.deleteIA(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "IA não encontrada" });
+      }
+      
+      broadcast({ type: "ia_deleted", data: { id: req.params.id } });
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // ============ TICKET ROUTES ============
   
   // Get all tickets

@@ -22,6 +22,7 @@ export interface IStorage {
   getIA(id: string): Promise<IA | undefined>;
   createIA(ia: InsertIA): Promise<IA>;
   updateIA(id: string, ia: Partial<InsertIA>): Promise<IA | undefined>;
+  deleteIA(id: string): Promise<boolean>;
   
   // Tickets
   getAllTickets(): Promise<Ticket[]>;
@@ -136,6 +137,10 @@ export class MemStorage implements IStorage {
     };
     this.ias.set(id, updated);
     return updated;
+  }
+
+  async deleteIA(id: string): Promise<boolean> {
+    return this.ias.delete(id);
   }
 
   // Tickets
