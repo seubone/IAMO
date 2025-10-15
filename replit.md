@@ -6,7 +6,25 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 
 ## Recent Changes
 
-### January 15, 2025 (Latest)
+### January 15, 2025 (Latest - Evening)
+- **Settings Page - IA Management Section**:
+  - Created complete "Gerenciar IAs" section in Settings page
+  - IA creation dialog with validated form (name, status, tags)
+  - List view of all IAs with status badges and delete functionality
+  - Backend routes: POST /api/ias (admin only) and DELETE /api/ias/:id (admin only)
+  - React Query mutations with cache invalidation and toast feedback
+  - Proper authorization checks with requireRole middleware
+- **IASelector Component Created**:
+  - Reusable dropdown component for IA selection across the application
+  - Loads IAs via React Query with loading state
+  - Integrated with Shadcn Select primitives
+  - Test IDs for all interactive elements
+- **Bug Fixes**:
+  - Fixed critical apiRequest bug: Now handles 204 No Content responses without JSON parsing
+  - This fixes IA deletion flow that was silently failing
+  - All mutations now properly trigger success callbacks and cache invalidation
+
+### January 15, 2025 (Morning)
 - **Monitoring Page - IA Status Actions**:
   - Created IAStatusDialog component with reason/motivo input required before status changes
   - Integrated IA action buttons (Ativar/Pausar/Inativar) in Monitoring page IADetailPanel
