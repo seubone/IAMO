@@ -482,15 +482,15 @@ export default function Chat() {
                       key={msg.id}
                       className={cn(
                         "flex",
-                        msg.sender === "user" ? "justify-end" : "justify-start"
+                        msg.sender === "user" ? "justify-start" : "justify-end"
                       )}
                     >
                       <div
                         className={cn(
                           "max-w-[70%] rounded-lg p-3",
                           msg.sender === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
+                            ? "bg-muted"
+                            : "bg-primary text-primary-foreground"
                         )}
                         data-testid={`message-${msg.id}`}
                       >
