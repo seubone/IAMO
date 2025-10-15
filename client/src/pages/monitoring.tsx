@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { IAStatusTicker, type IATickerItem } from "@/components/IAStatusTicker";
-import { TicketCard, type Ticket } from "@/components/TicketCard";
+import { TicketCard, type Ticket as TicketCardType } from "@/components/TicketCard";
 import { IADetailPanel, type IAAction } from "@/components/IADetailPanel";
+import { IAStatusDialog } from "@/components/IAStatusDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Filter } from "lucide-react";
@@ -12,72 +14,120 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { queryClient } from "@/lib/queryClient";
+import { iaAPI, actionsAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import type { IA, Ticket, Action } from "@shared/schema";
 
 export default function Monitoring() {
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<TicketCardType | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"activate" | "pause" | "deactivate" | null>(null);
+  const { toast } = useToast();
 
-  // TODO: Remove mock data
-  const mockIAs: IATickerItem[] = [
-    { id: "1", name: "IA Vendas WhatsApp", status: "active" },
-    { id: "2", name: "IA Suporte Email", status: "paused" },
-    { id: "3", name: "IA Marketing", status: "active" },
-    { id: "4", name: "IA Cobrança", status: "inactive" },
-    { id: "5", name: "IA Onboarding", status: "active" },
-  ];
+  const { data: ias = [] } = useQuery<IA[]>({
+    queryKey: ["/api/ias"],
+  });
 
-  // TODO: Remove mock data
-  const mockTickets: Ticket[] = [
-    {
-      id: "TCK-001",
-      iaName: "IA Vendas WhatsApp",
-      attendanceId: "ATD-12345",
-      errorType: "prompt",
-      severity: "high",
-      message: "IA não está respondendo corretamente às objeções de preço.",
-      suggestion: "Verificar se o prompt inclui instruções sobre política de descontos.",
-      origin: "N8N Webhook",
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-      status: "new",
-    },
-    {
-      id: "TCK-002",
-      iaName: "IA Suporte Email",
-      attendanceId: "ATD-12346",
-      errorType: "automation",
-      severity: "critical",
-      message: "Falha ao enviar email automático de confirmação de pedido.",
-      suggestion: "Verificar configuração do servidor SMTP no N8N.",
-      origin: "N8N Webhook",
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-      status: "in_progress",
-    },
-    {
-      id: "TCK-003",
-      iaName: "IA Marketing",
-      attendanceId: "ATD-12347",
-      errorType: "negotiation",
-      severity: "medium",
-      message: "Cliente não recebeu proposta de upgrade solicitada.",
-      origin: "N8N Webhook",
-      createdAt: new Date(Date.now() - 10800000).toISOString(),
-      status: "new",
-    },
-  ];
+  const { data: tickets = [] } = useQuery<Ticket[]>({
+    queryKey: ["/api/tickets"],
+  });
 
-  // TODO: Remove mock data
-  const mockActions: IAAction[] = [
-    {
-      id: "1",
-      action: "IA Pausada",
-      user: "João Silva",
-      reason: "Taxa de conversão abaixo de 20%",
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
+  const { data: actions = [] } = useQuery<Action[]>({
+    queryKey: ["/api/actions"],
+  });
+
+  const updateIAStatusMutation = useMutation({
+    mutationFn: ({ iaId, status, reason }: { iaId: string; status: string; reason: string }) =>
+      iaAPI.updateStatus(iaId, status, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ias"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/actions"] });
+      toast({
+        title: "Status atualizado",
+        description: "O status da IA foi alterado com sucesso.",
+      });
+      setDialogOpen(false);
+      setPendingAction(null);
     },
-  ];
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar o status da IA.",
+      });
+    },
+  });
+
+  const iaTickerItems: IATickerItem[] = useMemo(() => {
+    return ias.map((ia) => ({
+      id: ia.id,
+      name: ia.name,
+      status: ia.status as "active" | "paused" | "inactive",
+    }));
+  }, [ias]);
+
+  const ticketCards: TicketCardType[] = useMemo(() => {
+    return tickets.map((ticket) => {
+      const ia = ias.find((ia) => ia.id === ticket.iaId);
+      return {
+        id: ticket.id,
+        iaName: ia?.name || "IA Desconhecida",
+        iaId: ticket.iaId,
+        attendanceId: ticket.attendanceId,
+        errorType: ticket.errorType as "automation" | "prompt" | "negotiation",
+        severity: ticket.severity as "low" | "medium" | "high" | "critical",
+        message: ticket.message,
+        suggestion: ticket.suggestion || undefined,
+        origin: ticket.origin,
+        createdAt: typeof ticket.createdAt === "string" ? ticket.createdAt : new Date(ticket.createdAt).toISOString(),
+        status: ticket.status as "new" | "in_progress" | "resolved",
+      };
+    });
+  }, [tickets, ias]);
+
+  const selectedIA = useMemo(() => {
+    if (!selectedTicket) return null;
+    return ias.find((ia) => ia.id === selectedTicket.iaId);
+  }, [selectedTicket, ias]);
+
+  const selectedIAActions: IAAction[] = useMemo(() => {
+    if (!selectedIA) return [];
+    return actions
+      .filter((action) => action.iaId === selectedIA.id)
+      .map((action) => ({
+        id: action.id,
+        action: action.action,
+        user: action.userId,
+        reason: action.reason,
+        timestamp: typeof action.createdAt === "string" ? action.createdAt : new Date(action.createdAt).toISOString(),
+      }));
+  }, [selectedIA, actions]);
+
+  const handleStatusAction = (action: "activate" | "pause" | "deactivate") => {
+    setPendingAction(action);
+    setDialogOpen(true);
+  };
+
+  const handleConfirmStatusChange = (reason: string) => {
+    if (!selectedIA || !pendingAction) return;
+
+    const statusMap = {
+      activate: "active",
+      pause: "paused",
+      deactivate: "inactive",
+    };
+
+    updateIAStatusMutation.mutate({
+      iaId: selectedIA.id,
+      status: statusMap[pendingAction],
+      reason,
+    });
+  };
 
   return (
     <div className="flex flex-col h-screen">
-      <IAStatusTicker items={mockIAs} />
+      <IAStatusTicker items={iaTickerItems} />
       
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -110,7 +160,7 @@ export default function Monitoring() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {mockTickets.map((ticket) => (
+            {ticketCards.map((ticket) => (
               <TicketCard
                 key={ticket.id}
                 ticket={ticket}
@@ -120,19 +170,33 @@ export default function Monitoring() {
           </div>
         </div>
 
-        {selectedTicket && (
+        {selectedTicket && selectedIA && (
           <div className="w-96 border-l bg-card">
             <IADetailPanel
-              iaName={selectedTicket.iaName}
-              status="paused"
-              onActivate={() => console.log('Ativar IA')}
-              onPause={() => console.log('Pausar IA')}
-              onDeactivate={() => console.log('Inativar IA')}
-              actions={mockActions}
+              iaName={selectedIA.name}
+              status={selectedIA.status as "active" | "paused" | "inactive"}
+              onActivate={() => handleStatusAction("activate")}
+              onPause={() => handleStatusAction("pause")}
+              onDeactivate={() => handleStatusAction("deactivate")}
+              actions={selectedIAActions}
             />
           </div>
         )}
       </div>
+
+      {selectedIA && (
+        <IAStatusDialog
+          isOpen={dialogOpen}
+          onClose={() => {
+            setDialogOpen(false);
+            setPendingAction(null);
+          }}
+          onConfirm={handleConfirmStatusChange}
+          iaName={selectedIA.name}
+          action={pendingAction || "activate"}
+          isLoading={updateIAStatusMutation.isPending}
+        />
+      )}
     </div>
   );
 }

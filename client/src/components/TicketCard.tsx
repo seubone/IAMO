@@ -9,6 +9,7 @@ export type TicketType = "automation" | "prompt" | "negotiation";
 export interface Ticket {
   id: string;
   iaName: string;
+  iaId: string;
   attendanceId: string;
   errorType: TicketType;
   severity: TicketSeverity;
@@ -35,11 +36,12 @@ const typeConfig = {
   automation: { label: "Falha na Automação", borderColor: "border-l-destructive" },
   prompt: { label: "Falha no Prompt", borderColor: "border-l-chart-1" },
   negotiation: { label: "Falha de Negociação", borderColor: "border-l-chart-2" },
+  unknown: { label: "Erro Desconhecido", borderColor: "border-l-muted-foreground" },
 };
 
 export function TicketCard({ ticket, onClick }: TicketCardProps) {
-  const severityStyle = severityConfig[ticket.severity];
-  const typeStyle = typeConfig[ticket.errorType];
+  const severityStyle = severityConfig[ticket.severity] || severityConfig.medium;
+  const typeStyle = typeConfig[ticket.errorType] || typeConfig.unknown;
 
   return (
     <Card
