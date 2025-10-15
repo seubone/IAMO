@@ -6,7 +6,23 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 
 ## Recent Changes
 
-### January 14, 2025 (Evening - Latest)
+### January 15, 2025 (Latest)
+- **Monitoring Page - IA Status Actions**:
+  - Created IAStatusDialog component with reason/motivo input required before status changes
+  - Integrated IA action buttons (Ativar/Pausar/Inativar) in Monitoring page IADetailPanel
+  - Actions trigger PATCH /api/ias/:id with status and reason
+  - Automatic audit trail creation for all IA status changes
+  - Real-time UI updates via React Query cache invalidation
+  - Toast notifications for success/error feedback
+  - E2E tested and fully functional
+- **Bug Fixes**:
+  - Fixed date serialization: ticket.createdAt and action.createdAt handled as strings
+  - Fixed TicketCard rendering: Added fallback for invalid errorType values
+  - Added "unknown" type config with neutral border color (border-l-muted-foreground)
+  - Normalized database tickets: All error_type values validated and corrected
+  - Added defensive fallbacks for severity and errorType in TicketCard component
+
+### January 14, 2025 (Evening)
 - **Kanban Drag-and-Drop Added**:
   - Tickets page now supports full drag-and-drop functionality
   - Cards can be dragged between "Novo Ticket", "Em Atendimento", and "Resolvido" columns
