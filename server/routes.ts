@@ -578,6 +578,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Validar formato do número do destinatário (pode ser brasileiro ou internacional)
+      // Aceita números com 8-15 dígitos (flexível para formato internacional)
+      const recipientNumberPattern = /^\d{8,15}$/;
+      if (!recipientNumberPattern.test(recipientNumber)) {
+        return res.status(400).json({ 
+          error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)" 
+        });
+      }
+
       // Verificar se a instância existe no Evolution DB pelo número
       const { evolutionPool } = await import("./evolution-db");
       const instanceResult = await evolutionPool.query(`

@@ -104,8 +104,11 @@ export default function WhatsApp() {
       return;
     }
     
-    // Extract recipient phone number from remoteJid (remove @s.whatsapp.net or @g.us)
-    const recipientNumber = selectedChatJid.split('@')[0];
+    // Extract recipient phone number from remoteJid
+    // Format: 5511999999999@s.whatsapp.net or 5511999999999:16@s.whatsapp.net
+    // We need to remove both the suffix after ':' and after '@'
+    let recipientNumber = selectedChatJid.split('@')[0]; // Remove @s.whatsapp.net
+    recipientNumber = recipientNumber.split(':')[0]; // Remove :16 or other suffixes
     
     // Use instance number in Brazilian format (55XXYYYYYYYY)
     sendMessageMutation.mutate({
