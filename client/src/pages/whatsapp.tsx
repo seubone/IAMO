@@ -3,20 +3,28 @@ import { useQuery } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, CheckCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Check, CheckCheck, Filter } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
+import profileEmptyImage from "@assets/profile empty_1760640302262.png";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
+  const [showOnlyActive, setShowOnlyActive] = useState(true);
 
   // Fetch instances
-  const { data: instances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
+  const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
     queryKey: ["/api/whatsapp/instances"],
   });
+
+  // Filter instances based on status
+  const instances = showOnlyActive 
+    ? allInstances?.filter(i => i.connectionStatus === "open") 
+    : allInstances;
 
   // Fetch chats for selected instance
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
@@ -80,33 +88,52 @@ export default function WhatsApp() {
 
       {/* Pills de Instâncias */}
       <div className="border-b bg-card px-4 py-3">
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Instâncias WhatsApp</h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowOnlyActive(!showOnlyActive)}
+            data-testid="button-filter-instances"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            {showOnlyActive ? 'Mostrar Todas' : 'Apenas Ativas'}
+          </Button>
+        </div>
+        
         {isLoadingInstances ? (
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Carregando instâncias...</span>
           </div>
         ) : instances && instances.length > 0 ? (
-          <div className="flex gap-2 overflow-x-auto">
-            {instances.map((instance) => (
-              <button
-                key={instance.id}
-                onClick={() => {
-                  setSelectedInstanceId(instance.id);
-                  setSelectedChatJid(null);
-                }}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedInstanceId === instance.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover-elevate'
-                }`}
-                data-testid={`instance-pill-${instance.id}`}
-              >
-                {instance.number || instance.name || instance.id}
-              </button>
-            ))}
+          <div className="flex gap-2 overflow-x-auto pb-2 max-w-full">
+            {instances.map((instance) => {
+              const isActive = instance.connectionStatus === "open";
+              return (
+                <button
+                  key={instance.id}
+                  onClick={() => {
+                    setSelectedInstanceId(instance.id);
+                    setSelectedChatJid(null);
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2 flex-shrink-0 ${
+                    selectedInstanceId === instance.id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover-elevate'
+                  }`}
+                  data-testid={`instance-pill-${instance.id}`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                  {instance.number || instance.name || instance.id}
+                </button>
+              );
+            })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Nenhuma instância encontrada</p>
+          <p className="text-sm text-muted-foreground">
+            {showOnlyActive ? 'Nenhuma instância ativa encontrada' : 'Nenhuma instância encontrada'}
+          </p>
         )}
       </div>
 
@@ -141,7 +168,7 @@ export default function WhatsApp() {
                         data-testid={`chat-item-${chat.remoteJid}`}
                       >
                         <Avatar className="h-12 w-12 flex-shrink-0">
-                          <AvatarImage src={chat.profilePicUrl} />
+                          <AvatarImage src={chat.profilePicUrl || profileEmptyImage} />
                           <AvatarFallback>
                             {(chat.name || chat.pushName || '?')[0].toUpperCase()}
                           </AvatarFallback>
@@ -186,7 +213,7 @@ export default function WhatsApp() {
                   {/* Header do Chat */}
                   <div className="h-16 border-b px-4 flex items-center gap-3 bg-card">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={selectedChat?.profilePicUrl} />
+                      <AvatarImage src={selectedChat?.profilePicUrl || profileEmptyImage} />
                       <AvatarFallback>
                         {(selectedChat?.name || selectedChat?.pushName || '?')[0].toUpperCase()}
                       </AvatarFallback>
