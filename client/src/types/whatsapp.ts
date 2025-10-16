@@ -1,27 +1,61 @@
-export interface WhatsAppChat {
+// Evolution Database Types
+
+export interface EvolutionInstance {
   id: string;
-  remote_jid: string;
   name: string;
-  unread_count: number;
-  timestamp: number;
-  profile_pic_url?: string;
-  push_name?: string;
+  number: string;
+  profilePicUrl?: string;
+  profileName?: string;
+  connectionStatus: string;
+}
+
+export interface EvolutionChat {
+  id: string;
+  remoteJid: string;
+  name?: string;
+  unreadMessages: number;
+  createdAt: string;
+  updatedAt: string;
+  profilePicUrl?: string;
+  pushName?: string;
   last_message?: string;
   last_message_timestamp?: number;
 }
 
-export interface WhatsAppMessage {
+export interface EvolutionMessage {
   id: string;
-  key_remote_jid: string;
-  key_from_me: boolean;
-  key_id: string;
-  push_name?: string;
-  message_type: string;
-  message_text?: string;
-  message_timestamp: number;
-  message_quoted_text?: string;
-  message_quoted_message?: any;
-  message_media_url?: string;
-  message_caption?: string;
+  key: {
+    id: string;
+    fromMe: boolean;
+    remoteJid: string;
+    participant?: string;
+  };
+  pushName?: string;
+  participant?: string;
+  messageType: string;
+  message: {
+    conversation?: string;
+    imageMessage?: {
+      url?: string;
+      caption?: string;
+      mimetype?: string;
+    };
+    audioMessage?: {
+      url?: string;
+      mimetype?: string;
+      seconds?: number;
+    };
+    documentMessage?: {
+      url?: string;
+      mimetype?: string;
+      fileName?: string;
+      caption?: string;
+    };
+  };
+  contextInfo?: {
+    quotedMessage?: any;
+    stanzaId?: string;
+  };
+  messageTimestamp: number;
   status?: string;
 }

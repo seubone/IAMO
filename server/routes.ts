@@ -469,41 +469,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ WHATSAPP/EVOLUTION ROUTES ============
   
-  // Get all chats/conversations (inbox)
-  app.get("/api/whatsapp/chats", authMiddleware, async (req, res) => {
+  // Get all instances (números/contas do WhatsApp)
+  app.get("/api/whatsapp/instances", authMiddleware, async (req, res) => {
     try {
       const { evolutionPool } = await import("./evolution-db");
       const result = await evolutionPool.query(`
         SELECT 
+          id,
+          name,
+          number,
+          "profilePicUrl",
+          "profileName",
+          "connectionStatus"
+        FROM "Instance"
+        ORDER BY "createdAt" DESC
+      `);
+      
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error fetching instances:", error);
+      res.status(500).json({ error: "Erro ao buscar instâncias" });
+    }
+  });
+
+  // Get chats for a specific instance
+  app.get("/api/whatsapp/instances/:instanceId/chats", authMiddleware, async (req, res) => {
+    try {
+      const { instanceId } = req.params;
+      const { evolutionPool } = await import("./evolution-db");
+      
+      const result = await evolutionPool.query(`
+        SELECT 
           c.id,
-          c.remote_jid,
+          c."remoteJid",
           c.name,
-          c.unread_count,
-          c.timestamp,
-          ct.profile_pic_url,
-          ct.push_name,
+          c."unreadMessages",
+          c."createdAt",
+          c."updatedAt",
+          ct."profilePicUrl",
+          ct."pushName",
           (
-            SELECT m.message_text 
+            SELECT m.message->>'conversation'
             FROM "Message" m 
-            WHERE m.key_remote_jid = c.remote_jid 
-            ORDER BY m.message_timestamp DESC 
+            WHERE (m.key->>'remoteJid') = c."remoteJid"
+              AND m."instanceId" = c."instanceId"
+            ORDER BY m."messageTimestamp" DESC 
             LIMIT 1
           ) as last_message,
           (
-            SELECT m.message_timestamp 
+            SELECT m."messageTimestamp"
             FROM "Message" m 
-            WHERE m.key_remote_jid = c.remote_jid 
-            ORDER BY m.message_timestamp DESC 
+            WHERE (m.key->>'remoteJid') = c."remoteJid"
+              AND m."instanceId" = c."instanceId"
+            ORDER BY m."messageTimestamp" DESC 
             LIMIT 1
           ) as last_message_timestamp
         FROM "Chat" c
-        LEFT JOIN "Contact" ct ON ct.id = c.remote_jid
+        LEFT JOIN "Contact" ct ON ct."remoteJid" = c."remoteJid" AND ct."instanceId" = c."instanceId"
+        WHERE c."instanceId" = $1
         ORDER BY COALESCE(
-          (SELECT m.message_timestamp FROM "Message" m WHERE m.key_remote_jid = c.remote_jid ORDER BY m.message_timestamp DESC LIMIT 1),
-          c.timestamp
+          (SELECT m."messageTimestamp" FROM "Message" m WHERE (m.key->>'remoteJid') = c."remoteJid" AND m."instanceId" = c."instanceId" ORDER BY m."messageTimestamp" DESC LIMIT 1),
+          EXTRACT(EPOCH FROM c."updatedAt")::INTEGER
         ) DESC
         LIMIT 100
-      `);
+      `, [instanceId]);
       
       res.json(result.rows);
     } catch (error: any) {
@@ -513,31 +542,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get messages for a specific chat
-  app.get("/api/whatsapp/chats/:remoteJid/messages", authMiddleware, async (req, res) => {
+  app.get("/api/whatsapp/instances/:instanceId/chats/:remoteJid/messages", authMiddleware, async (req, res) => {
     try {
-      const { remoteJid } = req.params;
+      const { instanceId, remoteJid } = req.params;
       const { evolutionPool } = await import("./evolution-db");
       
       const result = await evolutionPool.query(`
         SELECT 
           id,
-          key_remote_jid,
-          key_from_me,
-          key_id,
-          push_name,
-          message_type,
-          message_text,
-          message_timestamp,
-          message_quoted_text,
-          message_quoted_message,
-          message_media_url,
-          message_caption,
+          key,
+          "pushName",
+          participant,
+          "messageType",
+          message,
+          "contextInfo",
+          "messageTimestamp",
           status
         FROM "Message"
-        WHERE key_remote_jid = $1
-        ORDER BY message_timestamp ASC
+        WHERE (key->>'remoteJid') = $1
+          AND "instanceId" = $2
+        ORDER BY "messageTimestamp" ASC
         LIMIT 500
-      `, [remoteJid]);
+      `, [remoteJid, instanceId]);
       
       res.json(result.rows);
     } catch (error: any) {
