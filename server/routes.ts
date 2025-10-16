@@ -467,5 +467,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ WHATSAPP/EVOLUTION ROUTES ============
+  
+  // Get all chats/conversations (inbox)
+  app.get("/api/whatsapp/chats", authMiddleware, async (req, res) => {
+    try {
+      const { evolutionPool } = await import("./evolution-db");
+      const result = await evolutionPool.query(`
+        SELECT 
+          c.id,
+          c.remote_jid,
+          c.name,
+          c.unread_count,
+          c.timestamp,
+          ct.profile_pic_url,
+          ct.push_name,
+          (
+            SELECT m.message_text 
+            FROM "Message" m 
+            WHERE m.key_remote_jid = c.remote_jid 
+            ORDER BY m.message_timestamp DESC 
+            LIMIT 1
+          ) as last_message,
+          (
+            SELECT m.message_timestamp 
+            FROM "Message" m 
+            WHERE m.key_remote_jid = c.remote_jid 
+            ORDER BY m.message_timestamp DESC 
+            LIMIT 1
+          ) as last_message_timestamp
+        FROM "Chat" c
+        LEFT JOIN "Contact" ct ON ct.id = c.remote_jid
+        ORDER BY COALESCE(
+          (SELECT m.message_timestamp FROM "Message" m WHERE m.key_remote_jid = c.remote_jid ORDER BY m.message_timestamp DESC LIMIT 1),
+          c.timestamp
+        ) DESC
+        LIMIT 100
+      `);
+      
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error fetching chats:", error);
+      res.status(500).json({ error: "Erro ao buscar conversas" });
+    }
+  });
+
+  // Get messages for a specific chat
+  app.get("/api/whatsapp/chats/:remoteJid/messages", authMiddleware, async (req, res) => {
+    try {
+      const { remoteJid } = req.params;
+      const { evolutionPool } = await import("./evolution-db");
+      
+      const result = await evolutionPool.query(`
+        SELECT 
+          id,
+          key_remote_jid,
+          key_from_me,
+          key_id,
+          push_name,
+          message_type,
+          message_text,
+          message_timestamp,
+          message_quoted_text,
+          message_quoted_message,
+          message_media_url,
+          message_caption,
+          status
+        FROM "Message"
+        WHERE key_remote_jid = $1
+        ORDER BY message_timestamp ASC
+        LIMIT 500
+      `, [remoteJid]);
+      
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ error: "Erro ao buscar mensagens" });
+    }
+  });
+
   return httpServer;
 }
