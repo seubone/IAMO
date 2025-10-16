@@ -654,8 +654,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { instanceId } = req.params;
       const { evolutionPool } = await import("./evolution-db");
       
-      // Simplified query without heavy subqueries - much faster!
+      // Query with last message preview
       const result = await evolutionPool.query(`
+        WITH LastMessages AS (
+          SELECT DISTINCT ON ((key->>'remoteJid'))
+            (key->>'remoteJid') as remote_jid,
+            COALESCE(
+              message->>'conversation',
+              CASE 
+                WHEN message->'imageMessage' IS NOT NULL THEN '📷 Imagem'
+                WHEN message->'audioMessage' IS NOT NULL THEN '🎵 Áudio'
+                WHEN message->'documentMessage' IS NOT NULL THEN '📄 ' || COALESCE(message->'documentMessage'->>'fileName', 'Documento')
+                WHEN message->'videoMessage' IS NOT NULL THEN '🎥 Vídeo'
+                ELSE '(mensagem não suportada)'
+              END
+            ) as last_message_text,
+            "messageTimestamp" as last_msg_timestamp
+          FROM "Message"
+          WHERE "instanceId" = $1
+          ORDER BY (key->>'remoteJid'), "messageTimestamp" DESC
+        )
         SELECT 
           c.id,
           c."remoteJid",
@@ -665,12 +683,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           c."updatedAt",
           ct."profilePicUrl",
           ct."pushName",
-          NULL::text as last_message,
-          NULL::integer as last_message_timestamp
+          COALESCE(lm.last_message_text, 'Sem mensagens') as last_message,
+          lm.last_msg_timestamp as last_message_timestamp
         FROM "Chat" c
         LEFT JOIN "Contact" ct ON ct."remoteJid" = c."remoteJid" AND ct."instanceId" = c."instanceId"
+        LEFT JOIN LastMessages lm ON lm.remote_jid = c."remoteJid"
         WHERE c."instanceId" = $1
-        ORDER BY c."updatedAt" DESC
+        ORDER BY COALESCE(lm.last_msg_timestamp, EXTRACT(EPOCH FROM c."updatedAt")::integer) DESC
         LIMIT 100
       `, [instanceId]);
       
