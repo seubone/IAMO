@@ -62,9 +62,12 @@ export default function WhatsApp() {
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
 
+  // Get selected instance details to extract phone number
+  const selectedInstance = allInstances?.find(i => i.id === selectedInstanceId);
+
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (data: { instanceId: string; number: string; text: string }) => {
+    mutationFn: async (data: { instanceNumber: string; recipientNumber: string; text: string }) => {
       return await apiRequest("/api/whatsapp/send-message", {
         method: "POST",
         body: JSON.stringify(data),
@@ -92,14 +95,22 @@ export default function WhatsApp() {
   });
 
   const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid) return;
+    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid || !selectedInstance?.number) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Instância sem número registrado. Não é possível enviar mensagem.",
+      });
+      return;
+    }
     
-    // Extract phone number from remoteJid (remove @s.whatsapp.net or @g.us)
-    const number = selectedChatJid.split('@')[0];
+    // Extract recipient phone number from remoteJid (remove @s.whatsapp.net or @g.us)
+    const recipientNumber = selectedChatJid.split('@')[0];
     
+    // Use instance number in Brazilian format (55XXYYYYYYYY)
     sendMessageMutation.mutate({
-      instanceId: selectedInstanceId,
-      number: number,
+      instanceNumber: selectedInstance.number,
+      recipientNumber: recipientNumber,
       text: messageText.trim(),
     });
   };
