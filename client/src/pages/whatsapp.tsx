@@ -336,11 +336,11 @@ export default function WhatsApp() {
             </div>
 
             {/* Área de Mensagens (Direita) */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
               {selectedChatJid ? (
                 <>
                   {/* Header do Chat */}
-                  <div className="h-16 border-b px-4 flex items-center gap-3 bg-card">
+                  <div className="h-16 flex-shrink-0 border-b px-4 flex items-center gap-3 bg-card">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={selectedChat?.profilePicUrl || profileEmptyImage} />
                       <AvatarFallback>
@@ -358,7 +358,7 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Mensagens */}
-                  <div className="flex-1 overflow-y-auto p-4 bg-muted/5">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/5">
                     {isLoadingMessages ? (
                       <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -417,7 +417,7 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Input de Mensagem */}
-                  <div className="border-t px-4 py-3 flex items-center gap-2 bg-card">
+                  <div className="flex-shrink-0 border-t px-4 py-3 flex items-center gap-2 bg-card">
                     <Input
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}
