@@ -191,9 +191,9 @@ export default function WhatsApp() {
     }
   }, [messages]);
 
-  // Mark messages as read when chat is opened
+  // Mark messages as read when chat is opened with Evolution verification
   useEffect(() => {
-    if (messages && messages.length > 0 && selectedInstance?.number && selectedChatJid) {
+    if (messages && messages.length > 0 && selectedInstance?.number && selectedChatJid && selectedInstanceId) {
       // Filtrar apenas mensagens não lidas que não são minhas
       const unreadMessageIds = messages
         .filter(msg => !msg.key.fromMe && msg.status !== 'READ')
@@ -208,11 +208,48 @@ export default function WhatsApp() {
             instanceNumber: selectedInstance.number,
             messageIds: unreadMessageIds
           }),
-        }).then(() => {
-          // Invalidar cache de chats para atualizar contador de não lidas
-          queryClient.invalidateQueries({ 
-            queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
-          });
+        }).then(async () => {
+          // Polling no Evolution até confirmar que unreadMessages zerou
+          const maxAttempts = 10; // 10 tentativas (5 segundos total)
+          let attempts = 0;
+          
+          const pollUnreadCount = async (): Promise<void> => {
+            attempts++;
+            
+            try {
+              const response = await apiRequest(
+                `/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/unread-count`,
+                { method: "GET" }
+              );
+              
+              const data = response as { unreadMessages: number };
+              
+              if (data.unreadMessages === 0) {
+                // Evolution confirmou que zerou - atualizar cache
+                queryClient.invalidateQueries({ 
+                  queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
+                });
+              } else if (attempts < maxAttempts) {
+                // Ainda tem mensagens não lidas - tentar novamente em 500ms
+                setTimeout(() => pollUnreadCount(), 500);
+              } else {
+                // Timeout - forçar atualização mesmo assim
+                console.warn("Timeout ao aguardar Evolution atualizar unreadMessages, forçando refresh");
+                queryClient.invalidateQueries({ 
+                  queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
+                });
+              }
+            } catch (error) {
+              console.error("Error polling unread count:", error);
+              // Em caso de erro, forçar atualização
+              queryClient.invalidateQueries({ 
+                queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
+              });
+            }
+          };
+          
+          // Iniciar polling após 500ms (dar tempo para Evolution processar)
+          setTimeout(() => pollUnreadCount(), 500);
         }).catch(error => {
           console.error("Error marking messages as read:", error);
         });
