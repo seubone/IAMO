@@ -1,0 +1,638 @@
+Beleza. Vou te entregar um **documento técnico completo** pra qualquer dev levantar o painel CRM no front usando **SEU banco (Evolution/Postgres)** como fonte de verdade e o **uazapi** pra envio. Direto, sem rodeio.
+
+> ⚠️ **Segurança (importantíssimo, sem caô):** essas credenciais são sensíveis. **NÃO** comita em git, **NÃO** manda em print/figma/whatsapp, use `.env` e **IP allowlist** no firewall. Se vazar, troca a porra do password na hora.
+
+---
+
+# Painel CRM — Documento de Implementação
+
+## 0) Conexão ao banco (produção)
+
+* **Tipo:** PostgreSQL
+* **Host:** `31.97.255.54`
+* **Porta:** `5432`
+* **DB:** `chatwoot`
+* **User:** `postgres`
+* **Pass:** `d4b5507303632dbd23b1`
+* **SSL:** desativado (SSL mode: disable/None)
+* **JDBC (se precisar):** `jdbc:postgresql://31.97.255.54:5432/chatwoot`
+
+> `.env` backend:
+
+```
+DATABASE_URL=postgres://postgres:d4b5507303632dbd23b1@31.97.255.54:5432/chatwoot?sslmode=disable
+
+UAZAPI_BASE=https://free.uazapi.com
+UAZAPI_SUBDOMAIN=free
+UAZAPI_TOKEN=<<<seu_token_da_instancia>>>
+
+PORT=8080
+```
+
+---
+
+## 1) Arquitetura de alto nível
+
+* **Frontend (Next.js/React)**: lista de conversas, thread, composer, side panel (contato/lead), upload/áudio.
+* **Backend (Node/TS, Fastify/Express)**:
+
+  * **Leitura** direto do Postgres (queries paginadas).
+  * **Tempo real** por `LISTEN/NOTIFY` (triggers no Postgres) + **WebSocket** (sala por `chat:{id}`).
+  * **Envio** via **uazapi** (adapters de texto, mídia, áudio, doc).
+  * **Webhook/SSE** do uazapi pra atualizar `status` (`SENT/DELIVERED/READ/FAILED`) no DB.
+* **Banco (Postgres/Evolution)**: é a **fonte de verdade**. Nada de inventar schema paralelo.
+
+---
+
+## 2) Modelo de dados (mapa do que interessa pro front)
+
+### 2.1 `chat` (conversa)
+
+Campos importantes (com base no teu dump):
+
+* `id` (pk interno), **ex:** `cmcxoz0sr003uqj5w8ihfoaki`
+* `jid`: `...@s.whatsapp.net` (1:1) / `...@g.us` (grupo)
+* `title` (pode vir vazio em 1:1, usar `contact.name` como fallback)
+* `photo_url` (opcional; se vazio, usar do `contact`/`instance`)
+* `created_at`, `updated_at`
+
+Derivados:
+
+* `is_group = jid LIKE '%@g.us'`
+* `last_message_at` (via join em `message`)
+* `unread_count` (conta mensagens `in` não lidas)
+
+### 2.2 `message`
+
+* `id` (pk interno) — ex: `cmg6ugqcj5qimoe5wb0d3ou44`
+* `key_meta_json` (JSON): `{"id","fromMe","remoteJid","participant"?}`
+* `type`: `conversation`, `imageMessage`, `audioMessage`, `documentMessage`, …
+* `content_json` (JSON) por tipo:
+
+  * `conversation`: `{"conversation":"texto..."}`
+  * `imageMessage`: `{ url, caption, width, height, mimetype, jpegThumbnail, ... }`
+  * idem pros demais tipos
+* `context_json` (JSON): `messageContextInfo`, `quotedMessage`, `disappearingMode`, etc.
+* `origin`: `web|api|bot|...`
+* `timestamp`: epoch int (segundos)
+* `status`: `PENDING|SENDING|SENT|DELIVERED|READ|FAILED|DELIVERY_ACK`
+* `chat_id` (fk)
+* `track_id` (uuid) — **idempotência de envio**
+* **direção derivada**: `fromMe ? 'out' : 'in'`
+* **jid**: `key_meta.remoteJid`
+* **participant** (se grupo): `key_meta.participant`
+
+### 2.3 `contact`
+
+* `jid` (unique), `name`, `photo_url`, `bio?`, `created_at`, `updated_at`
+
+### 2.4 `instance`
+
+* status da conta (open/connecting/close), avatar, alias/label do número
+* renderiza no cabeçalho e impede envio quando **não** `open`
+
+### 2.5 `onwhatsapp`
+
+* ajuda a normalizar jid/número (útil pra verificar contato)
+
+### 2.6 `label`
+
+* catálogo de rótulos (precisa pivô `chat_label` se quiser múltiplos)
+
+### 2.7 `messageUpdate`
+
+* eventos (ex. `READ`) que ajustam status em lote
+
+> **Session**: ignore no front (chaves criptográficas).
+
+---
+
+## 3) SQL — consultas oficiais (copiar/colar)
+
+### 3.1 Inbox (lista de conversas ordenada por última mensagem)
+
+```sql
+WITH last_msg AS (
+  SELECT chat_id, MAX(timestamp) AS last_ts
+  FROM message
+  GROUP BY chat_id
+),
+counts AS (
+  SELECT chat_id,
+         COUNT(*) FILTER (WHERE (content_json->>'conversation') IS NOT NULL
+                          AND (key_meta_json->>'fromMe')::boolean = false
+                          AND status <> 'READ') AS unread_count
+  FROM message
+  GROUP BY chat_id
+)
+SELECT
+  c.id,
+  c.jid,
+  COALESCE(c.title, ct.name)           AS title,
+  COALESCE(ct.photo_url, c.photo_url)  AS photo_url,
+  (c.jid LIKE '%@g.us')                AS is_group,
+  lm.last_ts                           AS last_message_at,
+  COALESCE(cnt.unread_count,0)         AS unread
+FROM chat c
+JOIN last_msg lm ON lm.chat_id = c.id
+LEFT JOIN counts cnt ON cnt.chat_id = c.id
+LEFT JOIN contact ct ON ct.jid = c.jid
+ORDER BY lm.last_ts DESC
+LIMIT $1 OFFSET $2; -- paginação por offset OU troque para cursor
+```
+
+### 3.2 Thread de mensagens (paginada por timestamp)
+
+```sql
+SELECT
+  m.id, m.chat_id, m.type, m.timestamp, m.status,
+  m.key_meta_json, m.content_json, m.context_json
+FROM message m
+WHERE m.chat_id = $1
+  AND m.timestamp < $2 -- cursor (ultimo ts carregado); para primeira página, use NOW() ou MAX
+ORDER BY m.timestamp DESC
+LIMIT $3;
+```
+
+> **Front** inverte a ordem para ASC e usa **infinite scroll**. Cursor = menor `timestamp` carregado.
+
+### 3.3 Marcar chat como lido
+
+```sql
+UPDATE message
+SET status='READ', updated_at=NOW()
+WHERE chat_id=$1
+  AND (key_meta_json->>'fromMe')::boolean = false
+  AND status <> 'READ';
+```
+
+### 3.4 Busca (nome/telefone/jid)
+
+```sql
+WITH q AS (SELECT unaccent($1) AS q),
+hits AS (
+  SELECT id, jid, name FROM contact, q
+   WHERE unaccent(name) ILIKE '%'||q.q||'%'
+      OR REPLACE(jid,'@s.whatsapp.net','') ILIKE '%'||q.q||'%'
+)
+SELECT c.id, c.jid, COALESCE(c.title, h.name) AS title
+FROM chat c
+JOIN hits h ON h.jid = c.jid
+ORDER BY (SELECT MAX(timestamp) FROM message m WHERE m.chat_id=c.id) DESC
+LIMIT 50;
+```
+
+### 3.5 Labels por chat (se houver pivô)
+
+```sql
+SELECT l.id, l.name
+FROM chat_label cl
+JOIN label l ON l.id = cl.label_id
+WHERE cl.chat_id = $1;
+```
+
+### 3.6 Índices que **precisam existir**
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_message_chat_ts ON message (chat_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_message_status_ts ON message (status, timestamp);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_contact_jid ON contact (jid);
+CREATE INDEX IF NOT EXISTS idx_chat_jid ON chat (jid);
+```
+
+---
+
+## 4) Tempo real (LISTEN/NOTIFY)
+
+### 4.1 Triggers (Postgres)
+
+```sql
+-- Notifica INSERT
+CREATE OR REPLACE FUNCTION notify_message_insert() RETURNS trigger AS $$
+DECLARE payload json;
+BEGIN
+  payload := json_build_object(
+    'type','insert',
+    'chat_id', NEW.chat_id,
+    'message_id', NEW.id,
+    'timestamp', NEW.timestamp
+  );
+  PERFORM pg_notify('messages_inserted', payload::text);
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_message_insert
+AFTER INSERT ON message
+FOR EACH ROW EXECUTE FUNCTION notify_message_insert();
+
+-- Notifica UPDATE de status
+CREATE OR REPLACE FUNCTION notify_message_update() RETURNS trigger AS $$
+DECLARE payload json;
+BEGIN
+  IF (OLD.status IS DISTINCT FROM NEW.status) THEN
+    payload := json_build_object(
+      'type','update',
+      'chat_id', NEW.chat_id,
+      'message_id', NEW.id,
+      'status', NEW.status,
+      'timestamp', NEW.timestamp
+    );
+    PERFORM pg_notify('messages_updated', payload::text);
+  END IF;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_message_update
+AFTER UPDATE ON message
+FOR EACH ROW EXECUTE FUNCTION notify_message_update();
+```
+
+### 4.2 Listener (Node/TS)
+
+```ts
+// pg-listener.ts
+import { Pool } from 'pg';
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+export async function bootPgListener(onEvent:(channel:string,payload:any)=>void) {
+  const client = await pool.connect();
+  await client.query('LISTEN messages_inserted');
+  await client.query('LISTEN messages_updated');
+  client.on('notification', (msg) => {
+    if (!msg.payload) return;
+    onEvent(msg.channel, JSON.parse(msg.payload));
+  });
+}
+```
+
+### 4.3 WebSocket (salas por chat)
+
+```ts
+// ws.ts
+import { WebSocketServer } from 'ws';
+const wss = new WebSocketServer({ noServer: true });
+const rooms = new Map<string, Set<any>>();
+
+export function attachWS(server:any) {
+  server.on('upgrade', (req:any, socket:any, head:any) => {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      ws.on('message', (m:Buffer) => {
+        const msg = JSON.parse(m.toString());
+        if (msg.action === 'join') {
+          const r = rooms.get(msg.room) || new Set();
+          r.add(ws); rooms.set(msg.room, r);
+          ws.on('close', () => r.delete(ws));
+        }
+      });
+    });
+  });
+}
+
+export function publish(room:string, event:any) {
+  rooms.get(room)?.forEach(ws => ws.readyState===1 && ws.send(JSON.stringify(event)));
+}
+```
+
+### 4.4 Fanout
+
+```ts
+// wiring
+bootPgListener((channel, payload) => {
+  if (channel === 'messages_inserted' || channel === 'messages_updated') {
+    publish(`chat:${payload.chat_id}`, payload);
+    publish(`inbox`, { kind:'inbox_update', chat_id: payload.chat_id });
+  }
+});
+```
+
+---
+
+## 5) Backend — API contrato pro front
+
+### 5.1 Inbox
+
+`GET /api/inbox?limit=50&cursor=<ts|offset>`
+
+```json
+{
+  "items": [
+    {
+      "chatId":"cmcxoz0sr003uqj5w8ihfoaki",
+      "jid":"558199293577@s.whatsapp.net",
+      "title":"Julio Cassol",
+      "photoUrl":"https://pps.whatsapp.net/...jpg",
+      "isGroup":false,
+      "lastMessageAt":1759254093,
+      "unread":2
+    }
+  ],
+  "nextCursor":"1759254000"
+}
+```
+
+### 5.2 Mensagens do chat
+
+`GET /api/chats/:chatId/messages?limit=50&cursor=<ts>`
+
+```json
+{
+  "items":[
+    {
+      "id":"cmg6ugqcj5qimoe5wb0d3ou44",
+      "jid":"5511999864179@s.whatsapp.net",
+      "participant":null,
+      "direction":"out",
+      "type":"image",
+      "ts":1759254093,
+      "status":"delivered",
+      "media":{
+        "kind":"image",
+        "url":"/api/proxy-media?u=<assinada>",
+        "w":1600,"h":1600,
+        "caption":""
+      },
+      "quoted":{ "id":"3B36BB6990D...", "preview":"Contato: Jefferson..." }
+    },
+    { "id":"...", "type":"text", "text":"....", "status":"READ" }
+  ],
+  "nextCursor":"1759253000"
+}
+```
+
+> **Importante:** mídia SEMPRE via `/api/proxy-media` (back baixa e streama; controla cache/assinatura, evita expor URL WhatsApp direto).
+
+### 5.3 Enviar mensagem (texto)
+
+`POST /api/messages/send`
+
+```json
+{
+  "chatId":"7f02fc9b-2996-4929-8856-2d39e99f785c",
+  "jid":"5511999864179@s.whatsapp.net",
+  "type":"text",
+  "text":"bora fechar",
+  "replyToId":"3EB02770451EF0AB8B3265",
+  "mentions":["55119...@s.whatsapp.net"]
+}
+```
+
+**Resposta**:
+
+```json
+{ "id":"cm_new_local", "trackId":"f3b3e5d4-...", "status":"PENDING" }
+```
+
+### 5.4 Upload & envio de mídia
+
+Fluxo:
+
+1. Front faz upload p/ storage (S3/minio) → pega URL assinada curta
+2. `POST /api/messages/send` com `{ type:"image|document|audio", url, filename, caption, ptt? }`
+3. Backend salva `message(PENDING)` → chama uazapi adapter → atualiza status por webhook/SSE
+
+### 5.5 Marcar como lido
+
+`POST /api/chats/:chatId/read`
+
+---
+
+## 6) Adapters uazapi (envio)
+
+### 6.1 Texto
+
+```ts
+async function sendText({ number, text, trackId }){
+  const res = await fetch(`${process.env.UAZAPI_BASE}/message/text`, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'token': process.env.UAZAPI_TOKEN,
+      'x-subdomain': process.env.UAZAPI_SUBDOMAIN
+    },
+    body: JSON.stringify({ number, text, track_id: trackId })
+  });
+  if (!res.ok) throw new Error(`uazapi ${res.status}`);
+  return res.json();
+}
+```
+
+### 6.2 Imagem/Documento/Áudio
+
+* `POST /message/image` → `{ number, url, caption, track_id }`
+* `POST /message/document` → `{ number, url, filename, caption, track_id }`
+* `POST /message/audio` → `{ number, url, ptt:true, track_id }`
+* **Reply**: incluir `replyId` (stanzaId) quando existir
+* **Mentions**: `mentions: [jid1, jid2,...]` quando o endpoint suportar
+
+### 6.3 Webhook/SSE de status
+
+* Configure em **Webhooks e SSE** no uazapi.
+* Handler:
+
+```ts
+app.post('/webhooks/uazapi', async (req,res)=>{
+  const ev = req.body; // {track_id, status, message_id, delivered_at, read_at...}
+  await db.query(
+    `UPDATE message
+        SET status=$2,
+            uazapi_message_id=COALESCE(uazapi_message_id,$3),
+            updated_at=NOW()
+      WHERE track_id=$1`,
+    [ev.track_id, mapStatus(ev.status), ev.message_id]
+  );
+  res.sendStatus(200);
+});
+```
+
+**Mapeamento sugerido**:
+
+* `sent` → `SENT`
+* `delivery_ack`/`delivered` → `DELIVERED`
+* `read` → `READ`
+* `failed` → `FAILED`
+
+### 6.4 Outbox worker (retry/backoff)
+
+* Seleciona `messages` com `direction='out' AND status IN ('PENDING','RETRY')`
+* Envia → se 2xx: `SENT`; se 429/5xx: `RETRY`; se 4xx terminal: `FAILED`
+* Backoff: 1s,2s,4s,8s,… máx 60s/global cooldown
+
+---
+
+## 7) Normalização de payload (parser)
+
+```ts
+export function normalize(row:any){
+  const meta = JSON.parse(row.key_meta_json || '{}');
+  const ctx  = row.context_json ? JSON.parse(row.context_json) : null;
+  const body = row.content_json ? JSON.parse(row.content_json) : null;
+
+  const base:any = {
+    id: row.id,
+    jid: meta.remoteJid,
+    participant: meta.participant || null,
+    direction: meta.fromMe ? 'out' : 'in',
+    ts: Number(row.timestamp),
+    status: row.status,
+    type: row.type
+  };
+
+  if (row.type === 'conversation') {
+    base.text = body?.conversation || '';
+  } else if (row.type === 'imageMessage') {
+    base.media = {
+      kind: 'image',
+      url: body?.imageMessage?.url,
+      w: Number(body?.imageMessage?.width),
+      h: Number(body?.imageMessage?.height),
+      caption: body?.imageMessage?.caption || '',
+      thumb_b64: body?.imageMessage?.jpegThumbnail || null,
+      mime: body?.imageMessage?.mimetype || 'image/jpeg'
+    };
+  } else {
+    base.raw = body;
+  }
+
+  // quoted preview
+  const q = ctx?.quotedMessage;
+  if (q?.contactMessage?.vcard) {
+    base.quoted = { id: ctx?.stanzaId, preview: 'Contato vCard' };
+  }
+  return base;
+}
+```
+
+---
+
+## 8) UI (pontos que o front **tem** que cobrir)
+
+* **Inbox**: avatar, título (fallback contact), último trecho (texto ou “[imagem]”), badge de não lidas, indicador de instância (open/connecting/close).
+* **Thread**:
+
+  * Agrupar por dia.
+  * Bubbles `in/out`, ticks de status (`SENT`, `DELIVERED`, `READ`).
+  * **Reply preview** (texto ou marcador de mídia).
+  * **Grupos**: mostrar nome/foto do autor (`participant`) no balão.
+  * **Mídia**: thumb + modal (imagem), file card (doc), player (áudio).
+* **Composer**:
+
+  * Texto (Enter = enviar; Shift+Enter = quebra).
+  * Upload (drag/drop), áudio (MediaRecorder), emoji, mentions (`@` + busca).
+  * Reply (clicou em msg → set replyTo).
+* **Side panel**:
+
+  * Contato (nome, fone/jid, bio se tiver, foto), labels, notas internas.
+  * Bot toggle (se tiver campo `bot_enabled`), **assignee** (se tiver).
+* **Estados ruins**:
+
+  * Instância `connecting/close` → desabilita enviar, tooltip com último erro (dos campos `instance.error`).
+  * Erro de envio → botão “Reenviar”.
+
+---
+
+## 9) Segurança e operação (não vacila)
+
+* **Credenciais** só em **backend** (.env).
+* **Proxy de mídia** (nunca URL direto do WhatsApp no front).
+* **Rate limit** de envio, backoff global em 429.
+* **Logs com `track_id`** pra rastrear ponta-a-ponta.
+* **Backups** do Postgres e **índices** ativos.
+* **CORS** do backend só pro domínio do painel.
+* **CSRF** em rotas de POST (cookies/same-site) se usar sessão.
+
+---
+
+## 10) Checklist de entrega (fases)
+
+1. **Leitura**: `/api/inbox`, `/api/chats/:id/messages` funcionando com paginação.
+2. **Realtime**: triggers + LISTEN/NOTIFY + WebSocket → front atualiza sem refresh.
+3. **Envio texto**: `/api/messages/send` + outbox + uazapi + webhook.
+4. **Mídia/Áudio/Doc**: upload + envio + previews.
+5. **Qualidade**: busca, labels, reply, mentions, marcar como lido, erros de instância.
+6. **Hardening**: métricas (p50/p95), retries, observabilidade.
+
+---
+
+## 11) “Gotchas” do teu dump que o front deve respeitar
+
+* **Grupos (`@g.us`)**: sempre usar `participant` pra mostrar autor.
+* **`messageUpdate` com `READ`**: pode marcar lote. Não fazer tick por mensagem isolada.
+* **`instance.status != open`**: travar “enviar” (UI tem que evidenciar motivo: 401/403, device_removed, etc.).
+* **`onwhatsapp`**: ajuda a normalizar número/jid nas buscas/mentions.
+* **Thumbnails** (b64) pesadas: renderiza em `img src="data:image/jpeg;base64,..."` com `loading="lazy"`.
+
+---
+
+## 12) Snippets prontos (backend)
+
+### API — Inbox
+
+```ts
+app.get('/api/inbox', async (req,res)=>{
+  const limit = Number(req.query.limit||50);
+  const offset = Number(req.query.offset||0);
+  const rows = await db.query(/* SQL 3.1 aqui */, [limit, offset]);
+  res.json({ items: rows.rows, nextCursor: offset+limit });
+});
+```
+
+### API — Messages
+
+```ts
+app.get('/api/chats/:id/messages', async (req,res)=>{
+  const chatId = req.params.id;
+  const cursor = Number(req.query.cursor || Date.now()/1000 + 1);
+  const limit = Number(req.query.limit || 50);
+  const rows = await db.query(/* SQL 3.2 */, [chatId, cursor, limit]);
+  const items = rows.rows.map(normalize);
+  const nextCursor = items.length ? items[items.length-1].ts : null;
+  res.json({ items, nextCursor });
+});
+```
+
+### API — Send
+
+```ts
+app.post('/api/messages/send', async (req,res)=>{
+  const { chatId, jid, type, text, url, filename, caption, replyToId, mentions } = req.body;
+  const trackId = crypto.randomUUID();
+
+  // 1) cria registro local (PENDING)
+  const { rows:[msg] } = await db.query(
+    `INSERT INTO message (chat_id, type, key_meta_json, content_json, status, timestamp, track_id)
+     VALUES ($1,$2,$3,$4,'PENDING',EXTRACT(EPOCH FROM NOW()),$5)
+     RETURNING id`,
+    [chatId, type, JSON.stringify({fromMe:true, remoteJid:jid}), JSON.stringify(buildContent()), trackId]
+  );
+
+  // 2) chama uazapi (adapter)
+  queueOutboxSend({ jid, type, text, url, filename, caption, replyToId, mentions, trackId });
+
+  res.json({ id: msg.id, trackId, status:'PENDING' });
+
+  function buildContent(){
+    if (type==='text') return { conversation: text };
+    if (type==='image') return { imageMessage: { url, caption } };
+    if (type==='document') return { documentMessage: { url, filename, caption } };
+    if (type==='audio') return { audioMessage: { url, ptt:true } };
+    return {};
+  }
+});
+```
+
+---
+
+## 13) Testes manuais (sanity)
+
+* Conectou no DB? Inbox lista ≥1 chat.
+* Abre um chat? Thread carrega 50 mensagens.
+* Chega nova msg (inbound)? Aparece sem F5 (WS).
+* Manda texto? Cria `PENDING` → vira `SENT` → `DELIVERED/READ`.
+* Instância em **connecting**? Botão Enviar **desabilitado** com tooltip.
+* Grupos? Mostra **autor** corretamente.
+
+---
+
+Se quiser, eu também te mando (num próximo passo) o **boilerplate** do backend (Fastify + pg + ws) e o **esqueleto** do front (Next + Tailwind + virtualized list) já plugados nesses contratos.
+
+**Pronto.** Isso aqui é o mapa da mina. Se seguir à risca, você sobe esse painel sem dor de cabeça.
