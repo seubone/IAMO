@@ -6,7 +6,21 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 
 ## Recent Changes
 
-### January 15, 2025 (Latest - Evening)
+### January 16, 2025 (Latest)
+- **Sistema de Notificações do WhatsApp Implementado**:
+  - Backend: Novo webhook POST /webhooks/evolution/message para receber eventos do Evolution API
+  - Webhook processa events messages.upsert e messages.update
+  - Emite evento WebSocket "whatsapp_message_received" para todos os clientes conectados
+  - Frontend: Lógica de notificação corrigida - notifica SEMPRE exceto quando chat está aberto E aba está visível
+  - Toast melhorado com nome do remetente (pushName ou JID) e preview da mensagem (50 chars)
+  - Suporte a preview de diferentes tipos de mídia: texto, imagem 📷, áudio 🎵, documento 📄
+  - Notificações do navegador (Notification API) quando aba está inativa
+  - Solicitação automática de permissão de notificações após 2 segundos (melhor UX)
+  - Badge contador no título da página: "(N) Monitor IA - Chat" quando há mensagens não lidas
+  - Bug fix: Movida declaração de isPageVisible para evitar erro LSP "used before declaration"
+- **Configuração Necessária**: Evolution API precisa configurar webhook apontando para /webhooks/evolution/message
+
+### January 15, 2025 (Evening)
 - **Settings Page - IA Management Section**:
   - Created complete "Gerenciar IAs" section in Settings page
   - IA creation dialog with validated form (name, status, tags)
