@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
+import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
@@ -309,9 +310,7 @@ export default function WhatsApp() {
               
               <div className="flex-1 overflow-y-auto">
                 {isLoadingChats ? (
-                  <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <ChatListSkeleton />
                 ) : filteredChats.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground">
                     <p>Nenhuma conversa encontrada</p>
@@ -399,9 +398,7 @@ export default function WhatsApp() {
                   {/* Mensagens */}
                   <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/5">
                     {isLoadingMessages ? (
-                      <div className="flex items-center justify-center h-full">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
+                      <MessageListSkeleton />
                     ) : messages && messages.length > 0 ? (
                       <div className="space-y-2">
                         {messages.map((message) => {
