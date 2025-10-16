@@ -6,10 +6,20 @@ interface WebSocketMessage {
   data: any;
 }
 
-export function useWebSocket() {
+interface UseWebSocketOptions {
+  onWhatsAppMessage?: (data: any) => void;
+}
+
+export function useWebSocket(options?: UseWebSocketOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
+  const optionsRef = useRef(options);
+
+  // Keep options ref updated
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -54,6 +64,11 @@ export function useWebSocket() {
               queryKey: ["/api/whatsapp/instances"]
             });
             console.log("📱 WhatsApp message received - invalidating queries");
+            
+            // Call callback if provided (using ref to avoid dependency issues)
+            if (optionsRef.current?.onWhatsAppMessage) {
+              optionsRef.current.onWhatsAppMessage(message.data);
+            }
             break;
         }
       } catch (error) {
@@ -75,6 +90,7 @@ export function useWebSocket() {
     return () => {
       ws.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient]);
 
   return { isConnected };

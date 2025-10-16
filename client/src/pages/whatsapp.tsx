@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +21,7 @@ import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types
 import profileEmptyImage from "@assets/profile empty_1760640302262.png";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,6 +33,22 @@ export default function WhatsApp() {
   const [messageText, setMessageText] = useState("");
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Stable callback for WebSocket messages
+  const handleWhatsAppMessage = useCallback((data: any) => {
+    // Se mensagem é de outro chat (não o selecionado), mostrar toast
+    if (data.remoteJid && data.remoteJid !== selectedChatJid) {
+      toast({
+        title: "Nova mensagem",
+        description: `Você recebeu uma nova mensagem`,
+      });
+    }
+  }, [selectedChatJid, toast]);
+
+  // WebSocket with toast notification for messages in other chats
+  useWebSocket({
+    onWhatsAppMessage: handleWhatsAppMessage
+  });
 
   // Fetch instances
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
