@@ -33,6 +33,7 @@ export default function WhatsApp() {
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
+  const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -200,6 +201,8 @@ export default function WhatsApp() {
         .map(msg => msg.key.id);
 
       if (unreadMessageIds.length > 0) {
+        setIsMarkingAsRead(true);
+        
         // Marcar como lida usando a API Uazapi
         apiRequest("/api/whatsapp/mark-read", {
           method: "POST",
@@ -226,6 +229,7 @@ export default function WhatsApp() {
               
               if (data.unreadMessages === 0) {
                 // Evolution confirmou que zerou - atualizar cache
+                setIsMarkingAsRead(false);
                 queryClient.invalidateQueries({ 
                   queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
                 });
@@ -235,6 +239,7 @@ export default function WhatsApp() {
               } else {
                 // Timeout - forçar atualização mesmo assim
                 console.warn("Timeout ao aguardar Evolution atualizar unreadMessages, forçando refresh");
+                setIsMarkingAsRead(false);
                 queryClient.invalidateQueries({ 
                   queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
                 });
@@ -242,6 +247,7 @@ export default function WhatsApp() {
             } catch (error) {
               console.error("Error polling unread count:", error);
               // Em caso de erro, forçar atualização
+              setIsMarkingAsRead(false);
               queryClient.invalidateQueries({ 
                 queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
               });
@@ -252,6 +258,7 @@ export default function WhatsApp() {
           setTimeout(() => pollUnreadCount(), 500);
         }).catch(error => {
           console.error("Error marking messages as read:", error);
+          setIsMarkingAsRead(false);
         });
       }
     }
@@ -619,7 +626,11 @@ export default function WhatsApp() {
                                 className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#FBC000] hover:bg-[#FBC000] text-black font-semibold"
                                 data-testid={`badge-unread-${chat.remoteJid}`}
                               >
-                                {chat.unreadMessages}
+                                {isMarkingAsRead && selectedChatJid === chat.remoteJid ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  chat.unreadMessages
+                                )}
                               </Badge>
                             )}
                           </div>
