@@ -4,7 +4,14 @@ import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Check, CheckCheck, Filter } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
@@ -15,6 +22,7 @@ export default function WhatsApp() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState(true);
+  const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
 
   // Fetch instances
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
@@ -82,7 +90,7 @@ export default function WhatsApp() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-x-hidden">
       {/* Header Superior */}
       <WhatsAppHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
@@ -107,8 +115,9 @@ export default function WhatsApp() {
             <span className="text-sm text-muted-foreground">Carregando instâncias...</span>
           </div>
         ) : instances && instances.length > 0 ? (
-          <div className="flex gap-2 overflow-x-auto pb-2 max-w-full">
-            {instances.map((instance) => {
+          <div className="flex gap-2 items-center">
+            {/* Mostrar apenas as primeiras 6 instâncias */}
+            {instances.slice(0, 6).map((instance) => {
               const isActive = instance.connectionStatus === "open";
               return (
                 <button
@@ -129,6 +138,65 @@ export default function WhatsApp() {
                 </button>
               );
             })}
+            
+            {/* Botão "..." se houver mais de 6 instâncias */}
+            {instances.length > 6 && (
+              <Dialog open={isInstanceDialogOpen} onOpenChange={setIsInstanceDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="flex-shrink-0"
+                    data-testid="button-more-instances"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh]">
+                  <DialogHeader>
+                    <DialogTitle>Selecionar Instância</DialogTitle>
+                  </DialogHeader>
+                  <div className="overflow-y-auto max-h-[60vh] space-y-2">
+                    {instances.map((instance) => {
+                      const isActive = instance.connectionStatus === "open";
+                      return (
+                        <button
+                          key={instance.id}
+                          onClick={() => {
+                            setSelectedInstanceId(instance.id);
+                            setSelectedChatJid(null);
+                            setIsInstanceDialogOpen(false);
+                          }}
+                          className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors hover-elevate ${
+                            selectedInstanceId === instance.id ? 'bg-accent' : ''
+                          }`}
+                          data-testid={`instance-dialog-item-${instance.id}`}
+                        >
+                          <Avatar className="h-12 w-12 flex-shrink-0">
+                            <AvatarImage src={instance.profilePicUrl || profileEmptyImage} />
+                            <AvatarFallback>
+                              {(instance.name || instance.number || '?')[0].toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                              <h3 className="font-medium">
+                                {instance.name || instance.number || instance.id}
+                              </h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {instance.number || instance.id}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
