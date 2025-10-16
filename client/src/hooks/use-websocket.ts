@@ -59,11 +59,34 @@ export function useWebSocket(options?: UseWebSocketOptions) {
             queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
             break;
           case "whatsapp_message_received":
-            // Invalidar todas as queries de WhatsApp para garantir atualização
+            // Invalidar queries de WhatsApp de forma mais específica
+            // 1. Invalidar lista de instâncias (caso status mude)
             queryClient.invalidateQueries({ 
               queryKey: ["/api/whatsapp/instances"]
             });
-            console.log("📱 WhatsApp message received - invalidating queries");
+            
+            // 2. Invalidar TODOS os chats (para atualizar contadores de não lidas)
+            queryClient.invalidateQueries({ 
+              predicate: (query) => {
+                const key = query.queryKey;
+                return Array.isArray(key) && 
+                       key[0] === "/api/whatsapp/instances" && 
+                       key[2] === "chats";
+              }
+            });
+            
+            // 3. Invalidar TODAS as mensagens (para atualizar mensagens em chats abertos)
+            queryClient.invalidateQueries({ 
+              predicate: (query) => {
+                const key = query.queryKey;
+                return Array.isArray(key) && 
+                       key[0] === "/api/whatsapp/instances" && 
+                       key[2] === "chats" &&
+                       key[4] === "messages";
+              }
+            });
+            
+            console.log("📱 WhatsApp message received - invalidating all chats and messages queries");
             
             // Call callback if provided (using ref to avoid dependency issues)
             if (optionsRef.current?.onWhatsAppMessage) {

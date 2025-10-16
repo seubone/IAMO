@@ -558,6 +558,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark messages as read via Uazapi
+  app.post("/api/whatsapp/mark-read", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, messageIds } = req.body;
+
+      // Validação
+      if (!instanceNumber || !messageIds || !Array.isArray(messageIds)) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber (string), messageIds (array)" 
+        });
+      }
+
+      // Buscar token da instância no storage
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância. Configure na página de Configurações." 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/message/markread`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ id: messageIds }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi mark-read error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao marcar mensagens como lidas",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Mensagens marcadas como lidas",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error marking messages as read:", error);
+      res.status(500).json({ error: "Erro ao marcar mensagens como lidas" });
+    }
+  });
+
+  // React to message via Uazapi
+  app.post("/api/whatsapp/react", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, number, text, id } = req.body;
+
+      // Validação
+      if (!instanceNumber || !number || !text || !id) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, number, text (emoji), id (messageId)" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/message/react`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ number, text, id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi react error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao adicionar reação",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Reação adicionada com sucesso",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error reacting to message:", error);
+      res.status(500).json({ error: "Erro ao adicionar reação" });
+    }
+  });
+
+  // Delete message via Uazapi
+  app.post("/api/whatsapp/delete", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, id } = req.body;
+
+      // Validação
+      if (!instanceNumber || !id) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, id (messageId)" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/message/delete`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi delete error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao deletar mensagem",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Mensagem deletada com sucesso",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error deleting message:", error);
+      res.status(500).json({ error: "Erro ao deletar mensagem" });
+    }
+  });
+
   // Send text message via Uazapi
   app.post("/api/whatsapp/send-message", authMiddleware, async (req, res) => {
     try {

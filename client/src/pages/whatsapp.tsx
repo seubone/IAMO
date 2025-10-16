@@ -22,6 +22,8 @@ import profileEmptyImage from "@assets/profile empty_1760640302262.png";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { MessageStatus } from "@/components/MessageStatus";
+import { MessageActions } from "@/components/MessageActions";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -114,6 +116,30 @@ export default function WhatsApp() {
     }
   }, [messages]);
 
+  // Mark messages as read when chat is opened
+  useEffect(() => {
+    if (messages && messages.length > 0 && selectedInstance?.number && selectedChatJid) {
+      // Filtrar apenas mensagens não lidas que não são minhas
+      const unreadMessageIds = messages
+        .filter(msg => !msg.key.fromMe && msg.status !== 'READ')
+        .map(msg => msg.key.id);
+
+      if (unreadMessageIds.length > 0) {
+        // Marcar como lida usando a API Uazapi
+        apiRequest("/api/whatsapp/mark-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instanceNumber: selectedInstance.number,
+            messageIds: unreadMessageIds
+          }),
+        }).catch(error => {
+          console.error("Error marking messages as read:", error);
+        });
+      }
+    }
+  }, [messages, selectedInstance, selectedChatJid]);
+
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { instanceNumber: string; recipientNumber: string; text: string }) => {
@@ -139,6 +165,62 @@ export default function WhatsApp() {
         variant: "destructive",
         title: "Erro ao enviar",
         description: error.message || "Não foi possível enviar a mensagem",
+      });
+    },
+  });
+
+  // React to message mutation
+  const reactToMessageMutation = useMutation({
+    mutationFn: async (data: { instanceNumber: string; number: string; text: string; id: string }) => {
+      return await apiRequest("/api/whatsapp/react", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Reação adicionada",
+        description: "Reação enviada com sucesso!",
+      });
+      // Invalidate messages to reload
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"] 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao reagir",
+        description: error.message || "Não foi possível adicionar reação",
+      });
+    },
+  });
+
+  // Delete message mutation
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (data: { instanceNumber: string; id: string }) => {
+      return await apiRequest("/api/whatsapp/delete", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mensagem deletada",
+        description: "Mensagem deletada para todos",
+      });
+      // Invalidate messages to reload
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"] 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao deletar",
+        description: error.message || "Não foi possível deletar a mensagem",
       });
     },
   });
@@ -466,9 +548,31 @@ export default function WhatsApp() {
                               return (
                                 <div
                                   key={message.id}
-                                  className={`flex ${fromMe ? 'justify-end' : 'justify-start'}`}
+                                  className={`flex gap-2 group ${fromMe ? 'justify-end' : 'justify-start'}`}
                                   data-testid={`message-${message.id}`}
                                 >
+                                  {/* Message Actions (shows on hover) - antes da mensagem se for minha */}
+                                  {fromMe && selectedInstance?.number && (
+                                    <MessageActions
+                                      messageId={message.id}
+                                      fromMe={fromMe}
+                                      onReact={(emoji) => {
+                                        reactToMessageMutation.mutate({
+                                          instanceNumber: selectedInstance.number,
+                                          number: selectedChatJid!,
+                                          text: emoji,
+                                          id: message.key.id,
+                                        });
+                                      }}
+                                      onDelete={() => {
+                                        deleteMessageMutation.mutate({
+                                          instanceNumber: selectedInstance.number,
+                                          id: message.key.id,
+                                        });
+                                      }}
+                                    />
+                                  )}
+                                  
                                   <div
                                     className={`max-w-[70%] rounded-lg px-3 py-2 ${
                                       fromMe
@@ -499,6 +603,28 @@ export default function WhatsApp() {
                                       <MessageStatus status={message.status} fromMe={fromMe} />
                                     </div>
                                   </div>
+                                  
+                                  {/* Message Actions (shows on hover) - depois da mensagem se não for minha */}
+                                  {!fromMe && selectedInstance?.number && (
+                                    <MessageActions
+                                      messageId={message.id}
+                                      fromMe={fromMe}
+                                      onReact={(emoji) => {
+                                        reactToMessageMutation.mutate({
+                                          instanceNumber: selectedInstance.number,
+                                          number: selectedChatJid!,
+                                          text: emoji,
+                                          id: message.key.id,
+                                        });
+                                      }}
+                                      onDelete={() => {
+                                        deleteMessageMutation.mutate({
+                                          instanceNumber: selectedInstance.number,
+                                          id: message.key.id,
+                                        });
+                                      }}
+                                    />
+                                  )}
                                 </div>
                               );
                             })}
