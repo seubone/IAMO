@@ -545,6 +545,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/instances/:instanceId/chats/:remoteJid/messages", authMiddleware, async (req, res) => {
     try {
       const { instanceId, remoteJid } = req.params;
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = parseInt(req.query.offset as string) || 0;
       const { evolutionPool } = await import("./evolution-db");
       
       const result = await evolutionPool.query(`
@@ -562,8 +564,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE (key->>'remoteJid') = $1
           AND "instanceId" = $2
         ORDER BY "messageTimestamp" ASC
-        LIMIT 500
-      `, [remoteJid, instanceId]);
+        LIMIT $3 OFFSET $4
+      `, [remoteJid, instanceId, limit, offset]);
       
       res.json(result.rows);
     } catch (error: any) {
