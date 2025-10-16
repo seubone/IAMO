@@ -36,16 +36,48 @@ export default function WhatsApp() {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Detectar se a aba está ativa (Page Visibility API)
+  const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
+
   // Stable callback for WebSocket messages
   const handleWhatsAppMessage = useCallback((data: any) => {
-    // Se mensagem é de outro chat (não o selecionado), mostrar toast
-    if (data.remoteJid && data.remoteJid !== selectedChatJid) {
+    // Notificar sempre, EXCETO quando o chat está aberto E a aba está visível
+    const isChatOpen = data.remoteJid && data.remoteJid === selectedChatJid;
+    const shouldNotify = !isChatOpen || !isPageVisible;
+    
+    if (shouldNotify && !data.fromMe) {
+      // Extrair texto da mensagem para preview
+      let messagePreview = "Nova mensagem";
+      if (data.message?.conversation) {
+        messagePreview = data.message.conversation.substring(0, 50);
+        if (data.message.conversation.length > 50) messagePreview += "...";
+      } else if (data.message?.imageMessage) {
+        messagePreview = "📷 Imagem";
+      } else if (data.message?.audioMessage) {
+        messagePreview = "🎵 Áudio";
+      } else if (data.message?.documentMessage) {
+        messagePreview = "📄 Documento";
+      }
+      
+      // Nome do remetente (pushName ou parte do JID)
+      const senderName = data.pushName || data.remoteJid?.split('@')[0] || "Contato";
+      
       toast({
-        title: "Nova mensagem",
-        description: `Você recebeu uma nova mensagem`,
+        title: `📱 ${senderName}`,
+        description: messagePreview,
+        duration: 5000,
       });
+      
+      // Tentar notificação do navegador se aba não estiver visível
+      if (!isPageVisible && "Notification" in window && Notification.permission === "granted") {
+        new Notification(`${senderName}`, {
+          body: messagePreview,
+          icon: "/favicon.ico",
+          tag: data.remoteJid, // Agrupa notificações do mesmo remetente
+        });
+      }
     }
-  }, [selectedChatJid, toast]);
+  }, [selectedChatJid, isPageVisible, toast]);
 
   // WebSocket with toast notification for messages in other chats
   useWebSocket({
@@ -62,15 +94,28 @@ export default function WhatsApp() {
     ? allInstances?.filter(i => i.connectionStatus === "open") 
     : allInstances;
 
-  // Detectar se a aba está ativa (Page Visibility API)
-  const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
-
+  // Monitor página visibilidade
   useEffect(() => {
     const handleVisibilityChange = () => {
       setIsPageVisible(!document.hidden);
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  // Solicitar permissão de notificações do navegador ao montar componente
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      // Aguardar 2 segundos antes de solicitar (melhor UX)
+      const timer = setTimeout(() => {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            console.log("✅ Permissão de notificações concedida");
+          }
+        });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   // Fetch chats for selected instance com polling
@@ -80,6 +125,23 @@ export default function WhatsApp() {
     // Polling: 10s se página visível, 30s se não
     refetchInterval: selectedInstanceId && isPageVisible ? 10000 : 30000,
   });
+
+  // Calcular total de mensagens não lidas e atualizar título da página
+  useEffect(() => {
+    if (chats) {
+      const totalUnread = chats.reduce((sum, chat) => sum + (chat.unreadMessages || 0), 0);
+      
+      if (totalUnread > 0) {
+        document.title = `(${totalUnread}) Monitor IA - Chat`;
+      } else {
+        document.title = "Monitor IA - Chat";
+      }
+    }
+    
+    return () => {
+      document.title = "Monitor IA";
+    };
+  }, [chats]);
 
   // Fetch messages for selected chat com polling inteligente
   const { data: messages, isLoading: isLoadingMessages } = useQuery<EvolutionMessage[]>({
