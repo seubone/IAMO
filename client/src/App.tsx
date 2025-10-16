@@ -11,7 +11,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useEffect } from "react";
 import Monitoring from "@/pages/monitoring";
-import Chat from "@/pages/chat";
 import WhatsApp from "@/pages/whatsapp";
 import Tickets from "@/pages/tickets";
 import Dashboard from "@/pages/dashboard";
@@ -61,8 +60,7 @@ function ProtectedRoutes() {
           <main className="flex-1 overflow-hidden">
             <Switch>
               <Route path="/" component={Monitoring} />
-              <Route path="/chat" component={Chat} />
-              <Route path="/whatsapp" component={WhatsApp} />
+              <Route path="/chat" component={WhatsApp} />
               <Route path="/tickets" component={Tickets} />
               <Route path="/dashboard" component={Dashboard} />
               <Route path="/audit" component={Audit} />
