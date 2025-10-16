@@ -42,16 +42,31 @@ export default function WhatsApp() {
     ? allInstances?.filter(i => i.connectionStatus === "open") 
     : allInstances;
 
-  // Fetch chats for selected instance
+  // Detectar se a aba está ativa (Page Visibility API)
+  const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsPageVisible(!document.hidden);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  // Fetch chats for selected instance com polling
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"],
     enabled: !!selectedInstanceId,
+    // Polling: 10s se página visível, 30s se não
+    refetchInterval: selectedInstanceId && isPageVisible ? 10000 : 30000,
   });
 
-  // Fetch messages for selected chat
+  // Fetch messages for selected chat com polling inteligente
   const { data: messages, isLoading: isLoadingMessages } = useQuery<EvolutionMessage[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"],
     enabled: !!selectedInstanceId && !!selectedChatJid,
+    // Polling: 5s se chat ativo e página visível, 30s se não
+    refetchInterval: selectedChatJid && isPageVisible ? 5000 : 30000,
   });
 
   // Filter chats based on search

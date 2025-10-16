@@ -48,6 +48,13 @@ export function useWebSocket() {
           case "message_created":
             queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
             break;
+          case "whatsapp_message_received":
+            // Invalidar todas as queries de WhatsApp para garantir atualização
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/whatsapp/instances"]
+            });
+            console.log("📱 WhatsApp message received - invalidating queries");
+            break;
         }
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);

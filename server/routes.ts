@@ -719,5 +719,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ WEBHOOKS ============
+  
+  // Evolution API webhook for new messages
+  app.post("/webhooks/evolution/message", webhookLimiter, async (req, res) => {
+    try {
+      const payload = req.body;
+      
+      console.log("📨 Evolution webhook received:", JSON.stringify(payload, null, 2));
+
+      // Estrutura esperada do webhook do Evolution:
+      // {
+      //   "instance": "instance_name",
+      //   "data": {
+      //     "key": { "remoteJid": "5511999999999@s.whatsapp.net", "fromMe": false, ... },
+      //     "message": { ... },
+      //     "messageTimestamp": "1234567890",
+      //     ...
+      //   }
+      // }
+
+      // Broadcast para todos os clientes WebSocket conectados
+      broadcast({
+        type: "whatsapp_message_received",
+        data: {
+          instance: payload.instance,
+          instanceNumber: payload.instanceNumber,
+          remoteJid: payload.data?.key?.remoteJid,
+          message: payload.data,
+          timestamp: payload.data?.messageTimestamp || Date.now(),
+        }
+      });
+
+      res.status(200).json({ success: true, message: "Webhook processed" });
+    } catch (error: any) {
+      console.error("Error processing Evolution webhook:", error);
+      res.status(500).json({ error: "Erro ao processar webhook" });
+    }
+  });
+
   return httpServer;
 }
