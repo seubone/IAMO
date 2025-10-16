@@ -700,6 +700,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get unread count for a specific chat (for polling after mark-read)
+  app.get("/api/whatsapp/instances/:instanceId/chats/:remoteJid/unread-count", authMiddleware, async (req, res) => {
+    try {
+      const { instanceId, remoteJid } = req.params;
+      const { evolutionPool } = await import("./evolution-db");
+      
+      const result = await evolutionPool.query(`
+        SELECT "unreadMessages"
+        FROM "Chat"
+        WHERE "instanceId" = $1 AND "remoteJid" = $2
+      `, [instanceId, remoteJid]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Chat não encontrado" });
+      }
+      
+      res.json({ 
+        unreadMessages: result.rows[0].unreadMessages || 0 
+      });
+    } catch (error: any) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Erro ao buscar contador de não lidas" });
+    }
+  });
+
   // Get messages for a specific chat
   app.get("/api/whatsapp/instances/:instanceId/chats/:remoteJid/messages", authMiddleware, async (req, res) => {
     try {
