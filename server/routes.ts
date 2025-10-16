@@ -561,26 +561,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Send text message via Uazapi
   app.post("/api/whatsapp/send-message", authMiddleware, async (req, res) => {
     try {
-      const { instanceId, number, text } = req.body;
+      const { instanceNumber, recipientNumber, text } = req.body;
 
       // Validação de campos obrigatórios
-      if (!instanceId || !number || !text) {
+      if (!instanceNumber || !recipientNumber || !text) {
         return res.status(400).json({ 
-          error: "Campos obrigatórios faltando: instanceId, number, text" 
+          error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, text" 
         });
       }
 
-      // Verificar se a instância existe no Evolution DB
+      // Validar formato brasileiro do número da instância (55 + 10-11 dígitos)
+      const brazilNumberPattern = /^55\d{10,11}$/;
+      if (!brazilNumberPattern.test(instanceNumber)) {
+        return res.status(400).json({ 
+          error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)" 
+        });
+      }
+
+      // Verificar se a instância existe no Evolution DB pelo número
       const { evolutionPool } = await import("./evolution-db");
       const instanceResult = await evolutionPool.query(`
         SELECT id, name, number as instance_number, "connectionStatus"
         FROM "Instance"
-        WHERE id = $1
-      `, [instanceId]);
+        WHERE number = $1
+      `, [instanceNumber]);
 
       if (instanceResult.rows.length === 0) {
         return res.status(404).json({ 
-          error: "Instância não encontrada no Evolution Database" 
+          error: "Instância não encontrada no Evolution Database com o número fornecido" 
         });
       }
 
@@ -603,6 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Usar o número da instância para vincular com Uazapi
       const response = await fetch(`${UAZAPI_BASE_URL}/message/text`, {
         method: "POST",
         headers: {
@@ -610,8 +619,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Authorization": `Bearer ${UAZAPI_API_KEY}`,
         },
         body: JSON.stringify({
-          instance: instance.name || instance.instance_number,
-          number: number,
+          instance: instanceNumber, // Número no formato 55XXYYYYYYYY
+          number: recipientNumber,
           text: text,
         }),
       });
