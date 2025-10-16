@@ -336,6 +336,22 @@ export default function WhatsApp() {
     }
   };
 
+  const formatChatTime = (timestamp?: number) => {
+    if (!timestamp) return "";
+    try {
+      const date = new Date(timestamp * 1000);
+      if (isToday(date)) {
+        return format(date, "HH:mm");
+      } else if (isYesterday(date)) {
+        return "Ontem";
+      } else {
+        return format(date, "dd/MM/yyyy");
+      }
+    } catch {
+      return "";
+    }
+  };
+
   const getMessageText = (msg: EvolutionMessage): string => {
     if (msg.message?.conversation) return msg.message.conversation;
     if (msg.message?.imageMessage) return msg.message.imageMessage.caption || "📷 Imagem";
@@ -542,18 +558,18 @@ export default function WhatsApp() {
                               {chat.name || chat.pushName || chat.remoteJid}
                             </h3>
                             <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatTimestamp(chat.last_message_timestamp)}
+                              {formatChatTime(chat.last_message_timestamp)}
                             </span>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-muted-foreground truncate flex-1">
-                              {chat.name || chat.pushName || 'Conversa'}
+                              {chat.last_message || 'Sem mensagens'}
                             </p>
                             {chat.unreadMessages > 0 && (
                               <Badge 
                                 variant="default" 
-                                className="h-5 min-w-5 px-1.5 flex items-center justify-center text-xs"
+                                className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#FBC000] hover:bg-[#FBC000] text-black font-semibold"
                                 data-testid={`badge-unread-${chat.remoteJid}`}
                               >
                                 {chat.unreadMessages}
