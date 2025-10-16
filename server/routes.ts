@@ -21,8 +21,10 @@ const webhookLimiter = rateLimit({
   message: "Limite de requisições excedido",
 });
 
-// WebSocket clients
+// WebSocket clients and active instances tracking
 const wsClients = new Set<WebSocket>();
+const activeInstances = new Map<string, Set<WebSocket>>(); // instanceId -> Set of WebSocket clients
+const lastMessageTimestamps = new Map<string, number>(); // instanceId -> last message timestamp
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -52,9 +54,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`WebSocket client connected: ${decoded.email}`);
       wsClients.add(ws);
 
+      // Handle messages from client
+      ws.on("message", (data) => {
+        try {
+          const message = JSON.parse(data.toString());
+          
+          if (message.type === "register_instance") {
+            const instanceId = message.instanceId;
+            if (!activeInstances.has(instanceId)) {
+              activeInstances.set(instanceId, new Set());
+              console.log(`📱 Started monitoring instance: ${instanceId}`);
+            }
+            activeInstances.get(instanceId)!.add(ws);
+            console.log(`📱 Client registered for instance ${instanceId}. Total monitoring: ${activeInstances.size} instances`);
+          } else if (message.type === "unregister_instance") {
+            const instanceId = message.instanceId;
+            if (activeInstances.has(instanceId)) {
+              activeInstances.get(instanceId)!.delete(ws);
+              if (activeInstances.get(instanceId)!.size === 0) {
+                activeInstances.delete(instanceId);
+                lastMessageTimestamps.delete(instanceId);
+                console.log(`📱 Stopped monitoring instance: ${instanceId}`);
+              }
+            }
+            console.log(`📱 Client unregistered from instance ${instanceId}. Total monitoring: ${activeInstances.size} instances`);
+          }
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+        }
+      });
+
       ws.on("close", () => {
         console.log("WebSocket client disconnected");
         wsClients.delete(ws);
+        
+        // Remove client from all active instances
+        activeInstances.forEach((clients, instanceId) => {
+          clients.delete(ws);
+          if (clients.size === 0) {
+            activeInstances.delete(instanceId);
+            lastMessageTimestamps.delete(instanceId);
+            console.log(`📱 Stopped monitoring instance: ${instanceId} (no more clients)`);
+          }
+        });
       });
     } catch (error) {
       console.log("WebSocket connection rejected: Invalid token");
@@ -71,6 +113,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   }
+
+  // Helper to broadcast to clients monitoring a specific instance
+  function broadcastToInstance(instanceId: string, data: any) {
+    const clients = activeInstances.get(instanceId);
+    if (!clients || clients.size === 0) return;
+    
+    const message = JSON.stringify(data);
+    clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
+
+  // Polling loop to check for new messages in Evolution DB
+  async function pollNewMessages() {
+    if (activeInstances.size === 0) return;
+
+    try {
+      const { evolutionPool } = await import("./evolution-db");
+      
+      for (const [instanceId, clients] of Array.from(activeInstances.entries())) {
+        if (clients.size === 0) continue;
+
+        const lastTimestamp = lastMessageTimestamps.get(instanceId) || Date.now() - 10000; // Last 10 seconds if first check
+        
+        // Query for new messages since last check
+        const result = await evolutionPool.query(`
+          SELECT 
+            m."keyRemoteJid",
+            m."keyId" as "messageId",
+            m."keyFromMe" as "fromMe",
+            m."pushName",
+            m."messageTimestamp",
+            m."messageType",
+            COALESCE(m.message->>'conversation', 
+                     m.message->'extendedTextMessage'->>'text',
+                     '[Mídia]') as message_text
+          FROM "Message" m
+          WHERE m."instanceId" = $1
+            AND m."messageTimestamp" > $2
+          ORDER BY m."messageTimestamp" ASC
+          LIMIT 50
+        `, [instanceId, lastTimestamp]);
+
+        if (result.rows.length > 0) {
+          console.log(`📱 Found ${result.rows.length} new messages for instance ${instanceId}`);
+          
+          // Update last timestamp
+          const latestTimestamp = Math.max(...result.rows.map((row: any) => parseInt(row.messageTimestamp)));
+          lastMessageTimestamps.set(instanceId, latestTimestamp);
+
+          // Broadcast each new message
+          result.rows.forEach((row: any) => {
+            broadcastToInstance(instanceId, {
+              type: "whatsapp_message_received",
+              data: {
+                instanceId,
+                remoteJid: row.keyRemoteJid,
+                messageId: row.messageId,
+                fromMe: row.fromMe,
+                pushName: row.pushName,
+                messageTimestamp: row.messageTimestamp,
+                messageType: row.messageType,
+                message: row.message_text
+              }
+            });
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error polling new messages:", error);
+    }
+  }
+
+  // Start polling loop (every 2 seconds)
+  setInterval(pollNewMessages, 2000);
+  console.log("📱 WhatsApp message polling started (2s interval)");
 
   // ============ AUTH ROUTES ============
   

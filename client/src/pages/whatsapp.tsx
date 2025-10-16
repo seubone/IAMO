@@ -80,9 +80,22 @@ export default function WhatsApp() {
   }, [selectedChatJid, isPageVisible, toast]);
 
   // WebSocket with toast notification for messages in other chats
-  useWebSocket({
+  const { registerInstance, unregisterInstance } = useWebSocket({
     onWhatsAppMessage: handleWhatsAppMessage
   });
+
+  // Register/unregister instance monitoring when selectedInstanceId changes
+  useEffect(() => {
+    if (selectedInstanceId) {
+      console.log(`📱 Registering instance monitoring: ${selectedInstanceId}`);
+      registerInstance(selectedInstanceId);
+      
+      return () => {
+        console.log(`📱 Unregistering instance monitoring: ${selectedInstanceId}`);
+        unregisterInstance(selectedInstanceId);
+      };
+    }
+  }, [selectedInstanceId, registerInstance, unregisterInstance]);
 
   // Fetch instances
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({

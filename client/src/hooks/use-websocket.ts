@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface WebSocketMessage {
@@ -15,11 +15,34 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
   const optionsRef = useRef(options);
+  const pendingMessagesRef = useRef<any[]>([]);
+  const activeInstancesRef = useRef<Set<string>>(new Set());
 
   // Keep options ref updated
   useEffect(() => {
     optionsRef.current = options;
   }, [options]);
+
+  // Method to send messages to WebSocket
+  const sendMessage = useCallback((message: any) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(message));
+    } else {
+      // Queue message if WebSocket is not open yet
+      pendingMessagesRef.current.push(message);
+    }
+  }, []);
+
+  // Methods to register/unregister instance monitoring
+  const registerInstance = useCallback((instanceId: string) => {
+    activeInstancesRef.current.add(instanceId);
+    sendMessage({ type: "register_instance", instanceId });
+  }, [sendMessage]);
+
+  const unregisterInstance = useCallback((instanceId: string) => {
+    activeInstancesRef.current.delete(instanceId);
+    sendMessage({ type: "unregister_instance", instanceId });
+  }, [sendMessage]);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -39,6 +62,18 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     ws.onopen = () => {
       console.log("WebSocket connected");
       setIsConnected(true);
+      
+      // Send all pending messages
+      while (pendingMessagesRef.current.length > 0) {
+        const message = pendingMessagesRef.current.shift();
+        ws.send(JSON.stringify(message));
+      }
+      
+      // Re-register all active instances (in case of reconnect)
+      activeInstancesRef.current.forEach((instanceId) => {
+        console.log(`📱 Re-registering instance after reconnect: ${instanceId}`);
+        ws.send(JSON.stringify({ type: "register_instance", instanceId }));
+      });
     };
 
     ws.onmessage = (event) => {
@@ -116,5 +151,9 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryClient]);
 
-  return { isConnected };
+  return { 
+    isConnected, 
+    registerInstance, 
+    unregisterInstance 
+  };
 }
