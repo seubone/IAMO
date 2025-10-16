@@ -435,8 +435,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(metrics);
   });
 
-  // ============ N8N WEBHOOK ============
+  // ============ WEBHOOKS ============
   
+  // N8N Webhook for error logging
   app.post("/webhooks/n8n/log", webhookLimiter, async (req, res) => {
     try {
       const { iaId, attendanceId, errorType, severity, message, suggestion, origin } = req.body;
@@ -463,6 +464,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ success: true, ticket });
     } catch (error: any) {
       console.error("N8N Webhook error:", error);
+      res.status(500).json({ error: "Erro ao processar webhook" });
+    }
+  });
+
+  // Evolution API Webhook for WhatsApp messages
+  app.post("/webhooks/evolution/message", webhookLimiter, async (req, res) => {
+    try {
+      console.log("📱 Webhook Evolution - Nova mensagem recebida:", JSON.stringify(req.body, null, 2));
+      
+      const { event, instance, data } = req.body;
+      
+      // Eventos possíveis: messages.upsert, messages.update, etc
+      if (event === "messages.upsert" || event === "messages.update") {
+        const messageData = data || req.body;
+        
+        // Broadcast para todos os clientes conectados
+        broadcast({ 
+          type: "whatsapp_message_received", 
+          data: {
+            instance: instance || messageData.instance,
+            remoteJid: messageData.key?.remoteJid || messageData.remoteJid,
+            messageId: messageData.key?.id || messageData.id,
+            fromMe: messageData.key?.fromMe || messageData.fromMe,
+            message: messageData.message,
+            pushName: messageData.pushName,
+            timestamp: messageData.messageTimestamp || Date.now(),
+          }
+        });
+        
+        console.log("✅ Evento WebSocket emitido: whatsapp_message_received");
+      }
+      
+      res.status(200).json({ success: true, message: "Webhook processado" });
+    } catch (error: any) {
+      console.error("Evolution Webhook error:", error);
       res.status(500).json({ error: "Erro ao processar webhook" });
     }
   });
