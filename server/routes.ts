@@ -587,6 +587,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Buscar token da instância no banco
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      if (!uazapiInstance) {
+        return res.status(404).json({ 
+          error: "Instância não cadastrada no Uazapi. Configure o token nas configurações." 
+        });
+      }
+
       // Verificar se a instância existe no Evolution DB pelo número
       const { evolutionPool } = await import("./evolution-db");
       const instanceResult = await evolutionPool.query(`
@@ -610,25 +618,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Chamar API do Uazapi para enviar mensagem
-      const UAZAPI_BASE_URL = process.env.UAZAPI_BASE_URL;
-      const UAZAPI_API_KEY = process.env.UAZAPI_API_KEY;
+      // Chamar API do Uazapi para enviar mensagem usando token específico da instância
+      const UAZAPI_BASE_URL = "https://quatro-cinco.uazapi.com";
 
-      if (!UAZAPI_BASE_URL || !UAZAPI_API_KEY) {
-        return res.status(500).json({ 
-          error: "Configuração da API Uazapi não encontrada" 
-        });
-      }
-
-      // Usar o número da instância para vincular com Uazapi
-      const response = await fetch(`${UAZAPI_BASE_URL}/message/text`, {
+      const response = await fetch(`${UAZAPI_BASE_URL}/send/text`, {
         method: "POST",
         headers: {
+          "Accept": "application/json",
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${UAZAPI_API_KEY}`,
+          "token": uazapiInstance.apiToken, // Token específico da instância
         },
         body: JSON.stringify({
-          instance: instanceNumber, // Número no formato 55XXYYYYYYYY
           number: recipientNumber,
           text: text,
         }),
@@ -652,6 +652,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error sending message:", error);
       res.status(500).json({ error: "Erro ao enviar mensagem" });
+    }
+  });
+
+  // Uazapi Instances - Token Management
+  // Get token for specific instance
+  app.get("/api/uazapi/instances/:number", authMiddleware, async (req, res) => {
+    try {
+      const { number } = req.params;
+      const instance = await storage.getUazapiInstance(number);
+      
+      if (!instance) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+      
+      // Retornar sem expor o token completo (apenas indicar se existe)
+      res.json({ 
+        instanceNumber: instance.instanceNumber,
+        hasToken: !!instance.apiToken,
+        createdAt: instance.createdAt
+      });
+    } catch (error: any) {
+      console.error("Error fetching uazapi instance:", error);
+      res.status(500).json({ error: "Erro ao buscar instância" });
+    }
+  });
+
+  // Create or update token for instance
+  app.post("/api/uazapi/instances", authMiddleware, requireRole(["admin", "operator"]), async (req, res) => {
+    try {
+      const { insertUazapiInstanceSchema } = await import("@shared/schema");
+      const data = insertUazapiInstanceSchema.parse(req.body);
+      
+      // Verificar se já existe
+      const existing = await storage.getUazapiInstance(data.instanceNumber);
+      
+      if (existing) {
+        // Atualizar
+        const updated = await storage.updateUazapiInstance(data.instanceNumber, { apiToken: data.apiToken });
+        res.json(updated);
+      } else {
+        // Criar novo
+        const created = await storage.createUazapiInstance(data);
+        res.json(created);
+      }
+    } catch (error: any) {
+      console.error("Error saving uazapi instance:", error);
+      res.status(400).json({ error: error.message || "Erro ao salvar token" });
+    }
+  });
+
+  // Delete token for instance
+  app.delete("/api/uazapi/instances/:number", authMiddleware, requireRole(["admin", "operator"]), async (req, res) => {
+    try {
+      const { number } = req.params;
+      const deleted = await storage.deleteUazapiInstance(number);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Instância não encontrada" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting uazapi instance:", error);
+      res.status(500).json({ error: "Erro ao deletar token" });
     }
   });
 

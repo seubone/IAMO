@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send } from "lucide-react";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings } from "lucide-react";
+import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
@@ -26,8 +27,10 @@ export default function WhatsApp() {
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState(true);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
   const { toast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch instances
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
@@ -64,6 +67,19 @@ export default function WhatsApp() {
 
   // Get selected instance details to extract phone number
   const selectedInstance = allInstances?.find(i => i.id === selectedInstanceId);
+
+  // Check if instance has Uazapi token
+  const { data: uazapiInstanceData } = useQuery<{ instanceNumber: string; hasToken: boolean }>({
+    queryKey: ["/api/uazapi/instances", selectedInstance?.number],
+    enabled: !!selectedInstance?.number,
+  });
+
+  // Auto-scroll to bottom when messages load or change
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -355,6 +371,14 @@ export default function WhatsApp() {
                         {selectedChat?.remoteJid}
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsSettingsDialogOpen(true)}
+                      data-testid="button-settings"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
                   </div>
 
                   {/* Mensagens */}
@@ -408,6 +432,8 @@ export default function WhatsApp() {
                             </div>
                           );
                         })}
+                        {/* Ref para auto-scroll */}
+                        <div ref={messagesEndRef} />
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -417,34 +443,53 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Input de Mensagem */}
-                  <div className="flex-shrink-0 border-t px-4 py-3 flex items-center gap-2 bg-card">
-                    <Input
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Digite uma mensagem..."
-                      disabled={sendMessageMutation.isPending}
-                      className="flex-1"
-                      data-testid="input-message"
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!messageText.trim() || sendMessageMutation.isPending}
-                      size="icon"
-                      data-testid="button-send-message"
-                    >
-                      {sendMessageMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
+                  {uazapiInstanceData?.hasToken ? (
+                    <div className="flex-shrink-0 border-t px-4 py-3 flex items-center gap-2 bg-card">
+                      <Input
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        placeholder="Digite uma mensagem..."
+                        disabled={sendMessageMutation.isPending}
+                        className="flex-1"
+                        data-testid="input-message"
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!messageText.trim() || sendMessageMutation.isPending}
+                        size="icon"
+                        data-testid="button-send-message"
+                      >
+                        {sendMessageMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 border-t px-4 py-3 bg-card">
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-sm text-muted-foreground">
+                          ⚠️ Instância não cadastrada no Uazapi
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsSettingsDialogOpen(true)}
+                          data-testid="button-configure-uazapi"
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          Configurar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
@@ -471,6 +516,16 @@ export default function WhatsApp() {
           </div>
         )}
       </div>
+
+      {/* Instance Settings Dialog */}
+      {selectedInstance?.number && (
+        <InstanceSettingsDialog
+          open={isSettingsDialogOpen}
+          onOpenChange={setIsSettingsDialogOpen}
+          instanceNumber={selectedInstance.number}
+          instanceName={selectedInstance.name || selectedInstance.number}
+        />
+      )}
     </div>
   );
 }

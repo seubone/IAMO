@@ -104,6 +104,14 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Uazapi Instances (tokens vinculados por número de instância)
+export const uazapiInstances = pgTable("uazapi_instances", {
+  instanceNumber: text("instance_number").primaryKey(), // Número no formato brasileiro 55XXYYYYYYYY
+  apiToken: text("api_token").notNull(), // Token da instância no Uazapi
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertIASchema = createInsertSchema(ias).omit({ id: true, createdAt: true, updatedAt: true });
@@ -113,6 +121,7 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 export const insertMetricSchema = createInsertSchema(metrics).omit({ id: true, createdAt: true });
 export const insertSettingSchema = createInsertSchema(settings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUazapiInstanceSchema = createInsertSchema(uazapiInstances).omit({ createdAt: true, updatedAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -138,3 +147,6 @@ export type Metric = typeof metrics.$inferSelect;
 
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type Setting = typeof settings.$inferSelect;
+
+export type InsertUazapiInstance = z.infer<typeof insertUazapiInstanceSchema>;
+export type UazapiInstance = typeof uazapiInstances.$inferSelect;

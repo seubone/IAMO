@@ -207,6 +207,43 @@ export class DatabaseStorage implements IStorage {
     const result = await db.insert(metrics).values(data).returning();
     return result[0];
   }
+
+  // Uazapi Instances
+  async getUazapiInstance(instanceNumber: string): Promise<import("@shared/schema").UazapiInstance | undefined> {
+    const { uazapiInstances } = await import("@shared/schema");
+    const result = await db
+      .select()
+      .from(uazapiInstances)
+      .where(eq(uazapiInstances.instanceNumber, instanceNumber));
+    return result[0];
+  }
+
+  async createUazapiInstance(data: import("@shared/schema").InsertUazapiInstance): Promise<import("@shared/schema").UazapiInstance> {
+    const { uazapiInstances } = await import("@shared/schema");
+    const result = await db.insert(uazapiInstances).values(data).returning();
+    return result[0];
+  }
+
+  async updateUazapiInstance(
+    instanceNumber: string,
+    data: Partial<import("@shared/schema").InsertUazapiInstance>
+  ): Promise<import("@shared/schema").UazapiInstance | undefined> {
+    const { uazapiInstances } = await import("@shared/schema");
+    const result = await db
+      .update(uazapiInstances)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(uazapiInstances.instanceNumber, instanceNumber))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUazapiInstance(instanceNumber: string): Promise<boolean> {
+    const { uazapiInstances } = await import("@shared/schema");
+    const result = await db
+      .delete(uazapiInstances)
+      .where(eq(uazapiInstances.instanceNumber, instanceNumber));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
 }
 
 export const dbStorage = new DatabaseStorage();

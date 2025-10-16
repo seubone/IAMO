@@ -5,7 +5,8 @@ import type {
   Action, InsertAction,
   Conversation, InsertConversation,
   Message, InsertMessage,
-  Metric, InsertMetric
+  Metric, InsertMetric,
+  UazapiInstance, InsertUazapiInstance
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -50,6 +51,12 @@ export interface IStorage {
   // Metrics
   getMetricsByIA(iaId: string): Promise<Metric[]>;
   createMetric(metric: InsertMetric): Promise<Metric>;
+  
+  // Uazapi Instances
+  getUazapiInstance(instanceNumber: string): Promise<UazapiInstance | undefined>;
+  createUazapiInstance(instance: InsertUazapiInstance): Promise<UazapiInstance>;
+  updateUazapiInstance(instanceNumber: string, instance: Partial<InsertUazapiInstance>): Promise<UazapiInstance | undefined>;
+  deleteUazapiInstance(instanceNumber: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
