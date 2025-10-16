@@ -15,7 +15,7 @@ import {
 import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
 import profileEmptyImage from "@assets/profile empty_1760640302262.png";
@@ -168,6 +168,35 @@ export default function WhatsApp() {
     if (msg.message?.audioMessage) return "🎵 Áudio";
     if (msg.message?.documentMessage) return `📄 ${msg.message.documentMessage.fileName || "Documento"}`;
     return "(mensagem não suportada)";
+  };
+
+  // Format date label for message grouping
+  const getDateLabel = (timestamp: number): string => {
+    const date = new Date(timestamp * 1000);
+    if (isToday(date)) return "Hoje";
+    if (isYesterday(date)) return "Ontem";
+    return format(date, "dd/MM/yyyy", { locale: ptBR });
+  };
+
+  // Group messages by date
+  const groupMessagesByDate = (messages: EvolutionMessage[]) => {
+    const groups: { date: string; messages: EvolutionMessage[] }[] = [];
+    
+    messages.forEach((message) => {
+      const messageDate = startOfDay(new Date(Number(message.messageTimestamp) * 1000)).getTime();
+      const lastGroup = groups[groups.length - 1];
+      
+      if (!lastGroup || lastGroup.date !== messageDate.toString()) {
+        groups.push({
+          date: messageDate.toString(),
+          messages: [message],
+        });
+      } else {
+        lastGroup.messages.push(message);
+      }
+    });
+    
+    return groups;
   };
 
   const MessageStatus = ({ status, fromMe }: { status?: string; fromMe: boolean }) => {
@@ -400,50 +429,64 @@ export default function WhatsApp() {
                     {isLoadingMessages ? (
                       <MessageListSkeleton />
                     ) : messages && messages.length > 0 ? (
-                      <div className="space-y-2">
-                        {messages.map((message) => {
-                          const fromMe = message.key.fromMe;
-                          const text = getMessageText(message);
-                          
-                          return (
-                            <div
-                              key={message.id}
-                              className={`flex ${fromMe ? 'justify-end' : 'justify-start'}`}
-                              data-testid={`message-${message.id}`}
-                            >
-                              <div
-                                className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                                  fromMe
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-card border'
-                                }`}
-                              >
-                                {!fromMe && message.pushName && (
-                                  <p className="text-xs font-medium mb-1 text-primary">
-                                    {message.pushName}
-                                  </p>
-                                )}
-                                
-                                {message.contextInfo?.quotedMessage && (
-                                  <div className="mb-2 pl-2 border-l-4 border-primary/50 text-xs opacity-70">
-                                    <p>Respondendo...</p>
-                                  </div>
-                                )}
-                                
-                                <p className="text-sm whitespace-pre-wrap break-words">
-                                  {text}
-                                </p>
-                                
-                                <div className="flex items-center justify-end gap-1 mt-1">
-                                  <p className="text-xs opacity-70">
-                                    {formatTimestamp(message.messageTimestamp)}
-                                  </p>
-                                  <MessageStatus status={message.status} fromMe={fromMe} />
-                                </div>
+                      <div className="space-y-4">
+                        {groupMessagesByDate(messages).map((group, groupIndex) => (
+                          <div key={group.date} className="space-y-2">
+                            {/* Date separator */}
+                            <div className="flex items-center justify-center my-4">
+                              <div className="bg-accent/20 px-3 py-1 rounded-full">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {getDateLabel(Number(group.messages[0].messageTimestamp))}
+                                </span>
                               </div>
                             </div>
-                          );
-                        })}
+                            
+                            {/* Messages for this date */}
+                            {group.messages.map((message) => {
+                              const fromMe = message.key.fromMe;
+                              const text = getMessageText(message);
+                              
+                              return (
+                                <div
+                                  key={message.id}
+                                  className={`flex ${fromMe ? 'justify-end' : 'justify-start'}`}
+                                  data-testid={`message-${message.id}`}
+                                >
+                                  <div
+                                    className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                                      fromMe
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-card border'
+                                    }`}
+                                  >
+                                    {!fromMe && message.pushName && (
+                                      <p className="text-xs font-medium mb-1 text-primary">
+                                        {message.pushName}
+                                      </p>
+                                    )}
+                                    
+                                    {message.contextInfo?.quotedMessage && (
+                                      <div className="mb-2 pl-2 border-l-4 border-primary/50 text-xs opacity-70">
+                                        <p>Respondendo...</p>
+                                      </div>
+                                    )}
+                                    
+                                    <p className="text-sm whitespace-pre-wrap break-words">
+                                      {text}
+                                    </p>
+                                    
+                                    <div className="flex items-center justify-end gap-1 mt-1">
+                                      <p className="text-xs opacity-70">
+                                        {formatTimestamp(message.messageTimestamp)}
+                                      </p>
+                                      <MessageStatus status={message.status} fromMe={fromMe} />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
                         {/* Ref para auto-scroll */}
                         <div ref={messagesEndRef} />
                       </div>
