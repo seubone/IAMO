@@ -7,8 +7,22 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
 ## Recent Changes
 
 ### January 16, 2025 (Latest)
+- **Real-Time Polling Monitor - Multi-User Architecture Implemented**:
+  - Backend: Polling loop (2s interval) checks Evolution DB for new messages
+  - Smart instance tracking: Only monitors instances actively viewed by any connected user
+  - WebSocket registration system: Clients send register_instance/unregister_instance messages
+  - Backend maintains `activeInstances` Map tracking which clients monitor which instances
+  - Backend maintains `lastMessageTimestamps` Map to detect new messages per instance
+  - Polling loop iterates only over `activeInstances.keys()` - stops when all users close instance
+  - Message queuing system in useWebSocket: Buffers register/unregister messages when WebSocket is CONNECTING
+  - Automatic re-registration on reconnections: `activeInstancesRef` tracks desired subscriptions
+  - When WebSocket.onopen fires: flushes pending queue + re-registers all active instances
+  - Eliminates race condition where register_instance was lost during CONNECTING state
+  - Backend emits `whatsapp_new_messages` event only to clients subscribed to that instance
+  - Frontend invalidates React Query cache on event to trigger UI update
+  - E2E tested: Architect-approved as robust and production-ready
 - **Sistema de Notificações do WhatsApp Implementado**:
-  - Backend: Novo webhook POST /webhooks/evolution/message para receber eventos do Evolution API
+  - Backend: Novo webhook POST /webhooks/evolution/message para receber eventos do Evolution API (LEGACY - polling is now primary)
   - Webhook processa events messages.upsert e messages.update
   - Emite evento WebSocket "whatsapp_message_received" para todos os clientes conectados
   - Frontend: Lógica de notificação corrigida - notifica SEMPRE exceto quando chat está aberto E aba está visível
@@ -18,7 +32,6 @@ Monitor IA is a comprehensive web-based monitoring system for AI agents integrat
   - Solicitação automática de permissão de notificações após 2 segundos (melhor UX)
   - Badge contador no título da página: "(N) Monitor IA - Chat" quando há mensagens não lidas
   - Bug fix: Movida declaração de isPageVisible para evitar erro LSP "used before declaration"
-- **Configuração Necessária**: Evolution API precisa configurar webhook apontando para /webhooks/evolution/message
 
 ### January 15, 2025 (Evening)
 - **Settings Page - IA Management Section**:
