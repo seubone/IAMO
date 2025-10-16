@@ -672,7 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "messageTimestamp" as last_msg_timestamp
           FROM "Message"
           WHERE "instanceId" = $1
-          ORDER BY (key->>'remoteJid'), "messageTimestamp" DESC
+          ORDER BY (key->>'remoteJid') ASC, "messageTimestamp" DESC
         )
         SELECT 
           c.id,

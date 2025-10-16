@@ -208,12 +208,17 @@ export default function WhatsApp() {
             instanceNumber: selectedInstance.number,
             messageIds: unreadMessageIds
           }),
+        }).then(() => {
+          // Invalidar cache de chats para atualizar contador de não lidas
+          queryClient.invalidateQueries({ 
+            queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
+          });
         }).catch(error => {
           console.error("Error marking messages as read:", error);
         });
       }
     }
-  }, [messages, selectedInstance, selectedChatJid]);
+  }, [messages, selectedInstance, selectedChatJid, selectedInstanceId]);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -402,12 +407,9 @@ export default function WhatsApp() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-x-hidden">
-      {/* Header Superior */}
-      <WhatsAppHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* Pills de Instâncias */}
-      <div className="border-b bg-card px-4 py-3">
+      <div className="border-b bg-card px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-4 mb-3">
           <h3 className="text-sm font-medium text-muted-foreground">Instâncias WhatsApp</h3>
           <Button
@@ -522,9 +524,17 @@ export default function WhatsApp() {
         {selectedInstanceId ? (
           <>
             {/* Lista de Conversas (Esquerda) */}
-            <div className="w-[400px] border-r flex flex-col bg-card">
-              <div className="p-3 border-b">
-                <h2 className="font-semibold text-lg">Conversas</h2>
+            <div className="w-[400px] border-r flex flex-col bg-card overflow-hidden">
+              <div className="p-3 border-b flex-shrink-0">
+                <h2 className="font-semibold text-lg mb-3">Conversas</h2>
+                <Input
+                  type="text"
+                  placeholder="Buscar conversas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full"
+                  data-testid="input-search-chats"
+                />
               </div>
               
               <div className="flex-1 overflow-y-auto">
@@ -683,9 +693,51 @@ export default function WhatsApp() {
                                       </div>
                                     )}
                                     
-                                    <p className="text-sm whitespace-pre-wrap break-words">
-                                      {text}
-                                    </p>
+                                    {/* Image Message */}
+                                    {message.message?.imageMessage?.url && (
+                                      <div className="mb-2">
+                                        <img 
+                                          src={message.message.imageMessage.url} 
+                                          alt="Imagem enviada"
+                                          className="rounded-md max-w-full h-auto max-h-96 object-contain cursor-pointer hover:opacity-90"
+                                          onClick={() => window.open(message.message.imageMessage!.url, '_blank')}
+                                          data-testid={`image-${message.id}`}
+                                        />
+                                        {message.message.imageMessage.caption && (
+                                          <p className="text-sm mt-2 whitespace-pre-wrap break-words">
+                                            {message.message.imageMessage.caption}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Document/PDF Message */}
+                                    {message.message?.documentMessage?.url && (
+                                      <a 
+                                        href={message.message.documentMessage.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 p-2 rounded bg-muted/20 hover:bg-muted/40 transition-colors mb-2"
+                                        data-testid={`document-${message.id}`}
+                                      >
+                                        <div className="text-2xl">📄</div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">
+                                            {message.message.documentMessage.fileName || 'Documento'}
+                                          </p>
+                                          <p className="text-xs opacity-70">
+                                            Clique para abrir
+                                          </p>
+                                        </div>
+                                      </a>
+                                    )}
+                                    
+                                    {/* Text Message (only if not image or document with no caption) */}
+                                    {!message.message?.imageMessage && !message.message?.documentMessage && (
+                                      <p className="text-sm whitespace-pre-wrap break-words">
+                                        {text}
+                                      </p>
+                                    )}
                                     
                                     <div className="flex items-center justify-end gap-1 mt-1">
                                       <p className="text-xs opacity-70">
