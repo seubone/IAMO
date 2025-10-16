@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedData } from "./seed";
+import "./evolution-db"; // Initialize Evolution DB connection
 
 const app = express();
 app.use(express.json());
