@@ -498,6 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { instanceId } = req.params;
       const { evolutionPool } = await import("./evolution-db");
       
+      // Simplified query without heavy subqueries - much faster!
       const result = await evolutionPool.query(`
         SELECT 
           c.id,
@@ -508,29 +509,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           c."updatedAt",
           ct."profilePicUrl",
           ct."pushName",
-          (
-            SELECT m.message->>'conversation'
-            FROM "Message" m 
-            WHERE (m.key->>'remoteJid') = c."remoteJid"
-              AND m."instanceId" = c."instanceId"
-            ORDER BY m."messageTimestamp" DESC 
-            LIMIT 1
-          ) as last_message,
-          (
-            SELECT m."messageTimestamp"
-            FROM "Message" m 
-            WHERE (m.key->>'remoteJid') = c."remoteJid"
-              AND m."instanceId" = c."instanceId"
-            ORDER BY m."messageTimestamp" DESC 
-            LIMIT 1
-          ) as last_message_timestamp
+          NULL::text as last_message,
+          NULL::integer as last_message_timestamp
         FROM "Chat" c
         LEFT JOIN "Contact" ct ON ct."remoteJid" = c."remoteJid" AND ct."instanceId" = c."instanceId"
         WHERE c."instanceId" = $1
-        ORDER BY COALESCE(
-          (SELECT m."messageTimestamp" FROM "Message" m WHERE (m.key->>'remoteJid') = c."remoteJid" AND m."instanceId" = c."instanceId" ORDER BY m."messageTimestamp" DESC LIMIT 1),
-          EXTRACT(EPOCH FROM c."updatedAt")::INTEGER
-        ) DESC
+        ORDER BY c."updatedAt" DESC
         LIMIT 100
       `, [instanceId]);
       

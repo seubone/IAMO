@@ -254,7 +254,7 @@ export default function WhatsApp() {
                           
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-muted-foreground truncate flex-1">
-                              {chat.last_message || 'Sem mensagens'}
+                              {chat.name || chat.pushName || 'Conversa'}
                             </p>
                             {chat.unreadMessages > 0 && (
                               <Badge 
