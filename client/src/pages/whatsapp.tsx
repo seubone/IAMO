@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal } from "lucide-react";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
 import profileEmptyImage from "@assets/profile empty_1760640302262.png";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,6 +26,8 @@ export default function WhatsApp() {
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState(true);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const { toast } = useToast();
 
   // Fetch instances
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
@@ -56,6 +61,48 @@ export default function WhatsApp() {
 
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (data: { instanceId: string; number: string; text: string }) => {
+      return await apiRequest("/api/whatsapp/send-message", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mensagem enviada",
+        description: "Mensagem enviada com sucesso!",
+      });
+      setMessageText("");
+      // Invalidate messages to reload
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"] 
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar",
+        description: error.message || "Não foi possível enviar a mensagem",
+      });
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid) return;
+    
+    // Extract phone number from remoteJid (remove @s.whatsapp.net or @g.us)
+    const number = selectedChatJid.split('@')[0];
+    
+    sendMessageMutation.mutate({
+      instanceId: selectedInstanceId,
+      number: number,
+      text: messageText.trim(),
+    });
+  };
 
   const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return "";
@@ -356,8 +403,33 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Input de Mensagem */}
-                  <div className="h-16 border-t px-4 flex items-center gap-2 bg-card">
-                    <p className="text-sm text-muted-foreground">Modo somente leitura - Evolution Database</p>
+                  <div className="border-t px-4 py-3 flex items-center gap-2 bg-card">
+                    <Input
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Digite uma mensagem..."
+                      disabled={sendMessageMutation.isPending}
+                      className="flex-1"
+                      data-testid="input-message"
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!messageText.trim() || sendMessageMutation.isPending}
+                      size="icon"
+                      data-testid="button-send-message"
+                    >
+                      {sendMessageMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
                 </>
               ) : (
