@@ -558,5 +558,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send text message via Uazapi
+  app.post("/api/whatsapp/send-message", authMiddleware, async (req, res) => {
+    try {
+      const { instanceId, number, text } = req.body;
+
+      // Validação de campos obrigatórios
+      if (!instanceId || !number || !text) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios faltando: instanceId, number, text" 
+        });
+      }
+
+      // Verificar se a instância existe no Evolution DB
+      const { evolutionPool } = await import("./evolution-db");
+      const instanceResult = await evolutionPool.query(`
+        SELECT id, name, number as instance_number, "connectionStatus"
+        FROM "Instance"
+        WHERE id = $1
+      `, [instanceId]);
+
+      if (instanceResult.rows.length === 0) {
+        return res.status(404).json({ 
+          error: "Instância não encontrada no Evolution Database" 
+        });
+      }
+
+      const instance = instanceResult.rows[0];
+
+      // Verificar se a instância está ativa
+      if (instance.connectionStatus !== "open") {
+        return res.status(400).json({ 
+          error: "Instância não está conectada. Status: " + instance.connectionStatus 
+        });
+      }
+
+      // Chamar API do Uazapi para enviar mensagem
+      const UAZAPI_BASE_URL = process.env.UAZAPI_BASE_URL;
+      const UAZAPI_API_KEY = process.env.UAZAPI_API_KEY;
+
+      if (!UAZAPI_BASE_URL || !UAZAPI_API_KEY) {
+        return res.status(500).json({ 
+          error: "Configuração da API Uazapi não encontrada" 
+        });
+      }
+
+      const response = await fetch(`${UAZAPI_BASE_URL}/message/text`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${UAZAPI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          instance: instance.name || instance.instance_number,
+          number: number,
+          text: text,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao enviar mensagem via Uazapi",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Mensagem enviada com sucesso",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ error: "Erro ao enviar mensagem" });
+    }
+  });
+
   return httpServer;
 }
