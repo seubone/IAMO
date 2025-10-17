@@ -725,6 +725,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get decrypted media (stickers, images, documents)
+  app.get("/api/whatsapp/media/decrypt/:messageId", authMiddleware, async (req, res) => {
+    try {
+      const { messageId } = req.params;
+      const { evolutionPool } = await import("./evolution-db");
+      const { decryptWhatsAppMedia, bufferToDataUrl } = await import("./whatsapp-media-decrypt");
+      
+      // Buscar mensagem com informações de mídia
+      const result = await evolutionPool.query(`
+        SELECT 
+          "messageType",
+          message
+        FROM "Message"
+        WHERE id = $1
+      `, [messageId]);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Mensagem não encontrada" });
+      }
+      
+      const msg = result.rows[0];
+      const messageType = msg.messageType;
+      const messageData = msg.message;
+      
+      // Determinar tipo de mídia e extrair dados
+      let mediaInfo: any;
+      let mediaTypeKey: 'image' | 'video' | 'audio' | 'document' = 'document';
+      
+      if (messageType === 'stickerMessage' && messageData.stickerMessage) {
+        mediaInfo = messageData.stickerMessage;
+        mediaTypeKey = 'image'; // Stickers são tratados como imagem
+      } else if (messageType === 'imageMessage' && messageData.imageMessage) {
+        mediaInfo = messageData.imageMessage;
+        mediaTypeKey = 'image';
+      } else if (messageType === 'documentMessage' && messageData.documentMessage) {
+        mediaInfo = messageData.documentMessage;
+        mediaTypeKey = 'document';
+      } else if (messageType === 'audioMessage' && messageData.audioMessage) {
+        mediaInfo = messageData.audioMessage;
+        mediaTypeKey = 'audio';
+      } else if (messageType === 'videoMessage' && messageData.videoMessage) {
+        mediaInfo = messageData.videoMessage;
+        mediaTypeKey = 'video';
+      } else {
+        return res.status(400).json({ error: "Tipo de mídia não suportado" });
+      }
+      
+      const { url, mediaKey, mimetype, fileName } = mediaInfo;
+      
+      if (!url || !mediaKey) {
+        return res.status(400).json({ error: "URL ou mediaKey não encontrada" });
+      }
+      
+      // Descriptografar mídia
+      const decryptedBuffer = await decryptWhatsAppMedia(url, mediaKey, mediaTypeKey);
+      
+      // Para stickers, retornar como data URL
+      if (messageType === 'stickerMessage') {
+        const dataUrl = bufferToDataUrl(decryptedBuffer, mimetype || 'image/webp');
+        return res.json({ dataUrl, mimetype: mimetype || 'image/webp' });
+      }
+      
+      // Para documentos, retornar como download
+      res.setHeader('Content-Type', mimetype || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'download'}"`);
+      res.send(decryptedBuffer);
+      
+    } catch (error: any) {
+      console.error("Error decrypting media:", error);
+      res.status(500).json({ error: "Erro ao descriptografar mídia", details: error.message });
+    }
+  });
+
   // Get messages for a specific chat
   app.get("/api/whatsapp/instances/:instanceId/chats/:remoteJid/messages", authMiddleware, async (req, res) => {
     try {

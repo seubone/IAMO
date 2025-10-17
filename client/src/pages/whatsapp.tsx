@@ -27,6 +27,7 @@ import { MessageActions } from "@/components/MessageActions";
 import { useInstancePreferences } from "@/hooks/use-instance-preferences";
 import { usePinnedChats } from "@/hooks/use-pinned-chats";
 import { ContactMetadataDialog } from "@/components/ContactMetadataDialog";
+import { StickerMessage } from "@/components/StickerMessage";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -871,16 +872,8 @@ export default function WhatsApp() {
                                     )}
                                     
                                     {/* Sticker Message */}
-                                    {message.message?.stickerMessage?.url && (
-                                      <div className="mb-2">
-                                        <img 
-                                          src={message.message.stickerMessage.url} 
-                                          alt="Figurinha"
-                                          className="rounded-md max-w-[150px] h-auto object-contain cursor-pointer hover:opacity-90"
-                                          onClick={() => window.open(message.message.stickerMessage!.url, '_blank')}
-                                          data-testid={`sticker-${message.id}`}
-                                        />
-                                      </div>
+                                    {message.message?.stickerMessage && (
+                                      <StickerMessage messageId={message.id} />
                                     )}
                                     
                                     {/* Image Message */}
@@ -902,24 +895,29 @@ export default function WhatsApp() {
                                     )}
                                     
                                     {/* Document/PDF Message */}
-                                    {message.message?.documentMessage?.url && (
-                                      <a 
-                                        href={message.message.documentMessage.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                    {message.message?.documentMessage && (
+                                      <button 
+                                        onClick={() => {
+                                          // Download via endpoint de descriptografia
+                                          const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
+                                          const link = document.createElement('a');
+                                          link.href = downloadUrl;
+                                          link.download = message.message.documentMessage!.fileName || 'documento';
+                                          link.click();
+                                        }}
                                         className="flex items-center gap-2 p-2 rounded bg-muted/20 hover:bg-muted/40 transition-colors mb-2"
                                         data-testid={`document-${message.id}`}
                                       >
                                         <div className="text-2xl">📄</div>
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0 text-left">
                                           <p className="text-sm font-medium truncate">
                                             {message.message.documentMessage.fileName || 'Documento'}
                                           </p>
                                           <p className="text-xs opacity-70">
-                                            Clique para abrir
+                                            Clique para baixar
                                           </p>
                                         </div>
-                                      </a>
+                                      </button>
                                     )}
                                     
                                     {/* Text Message (only if not image/sticker/document) */}
