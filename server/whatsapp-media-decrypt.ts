@@ -70,10 +70,11 @@ function expandMediaKey(mediaKey: Buffer, mediaType: string): Buffer {
     .digest();
   
   // OKM (Output Keying Material) - Expandir para 112 bytes
+  // Cada bloco HMAC-SHA256 gera 32 bytes, então precisamos de 4 blocos (32 * 4 = 128 bytes)
   const okm: Buffer[] = [];
   let previousBlock = Buffer.alloc(0);
   
-  for (let i = 1; okm.length < 112; i++) {
+  for (let i = 1; i <= 4; i++) { // Apenas 4 iterações necessárias
     const hmac = crypto.createHmac('sha256', prk);
     hmac.update(previousBlock);
     hmac.update(info);

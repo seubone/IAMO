@@ -189,6 +189,16 @@ export default function WhatsApp() {
     refetchInterval: selectedChatJid && isPageVisible ? 5000 : 30000,
   });
 
+  // Helper function to extract text from message
+  const getMessageText = (msg: EvolutionMessage): string => {
+    if (msg.message?.conversation) return msg.message.conversation;
+    if (msg.message?.imageMessage) return msg.message.imageMessage.caption || "📷 Imagem";
+    if (msg.message?.stickerMessage) return "🎭 Figurinha";
+    if (msg.message?.audioMessage) return "🎵 Áudio";
+    if (msg.message?.documentMessage) return `📄 ${msg.message.documentMessage.fileName || "Documento"}`;
+    return "(mensagem não suportada)";
+  };
+
   // Filter messages based on search query
   const messages = allMessages?.filter(msg => {
     if (!messageSearchQuery) return true;
@@ -445,15 +455,6 @@ export default function WhatsApp() {
     } catch {
       return "";
     }
-  };
-
-  const getMessageText = (msg: EvolutionMessage): string => {
-    if (msg.message?.conversation) return msg.message.conversation;
-    if (msg.message?.imageMessage) return msg.message.imageMessage.caption || "📷 Imagem";
-    if (msg.message?.stickerMessage) return "🎭 Figurinha";
-    if (msg.message?.audioMessage) return "🎵 Áudio";
-    if (msg.message?.documentMessage) return `📄 ${msg.message.documentMessage.fileName || "Documento"}`;
-    return "(mensagem não suportada)";
   };
 
   // Format date label for message grouping
