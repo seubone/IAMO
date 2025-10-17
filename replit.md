@@ -42,6 +42,44 @@ Preferred communication style: Simple, everyday language.
 
 **WebSocket Integration:** `ws://` or `wss://` protocol with JWT authentication via query parameter or header. Client-side handles auto-reconnection and real-time cache invalidation.
 
+**UazAPI WhatsApp Integration:** Sistema completo de envio de mensagens e mídias via WhatsApp:
+- `POST /api/whatsapp/send-message` - Envio de mensagens de texto
+- `POST /api/whatsapp/send-media` - Envio de mídias (imagens, vídeos, áudios, documentos)
+- Suporta tipos: image, video, document, audio, ptt (push-to-talk), sticker
+- Upload via URL ou base64
+- Legendas opcionais e nomes personalizados para documentos
+
+### Funcionalidade de Envio de Mídias
+
+**Interface do Chat:**
+- Menu de seleção de tipo de mídia (estilo WhatsApp) ao clicar no botão de anexo
+- Preview interativo antes do envio para cada tipo de mídia
+- Campo de legenda opcional
+- Suporte para múltiplos formatos de arquivo
+- Estados de loading/progresso durante upload
+- Exibição de mensagens com mídia no histórico do chat
+
+**Configuração Necessária:**
+Para enviar mídias, os metadados da conversa (`metadata` campo JSONB) devem conter:
+- `instanceNumber`: Número da instância WhatsApp (formato brasileiro: 55XXYYYYYYYY)
+- `phoneNumber`: Número do destinatário
+
+**Tipos de Mídia Suportados:**
+- **Imagens**: JPG, PNG (preferência por JPG)
+- **Vídeos**: MP4
+- **Documentos**: PDF, DOCX, XLSX, TXT
+- **Áudio**: MP3, OGG
+
+**Fluxo de Envio:**
+1. Usuário seleciona tipo de mídia no menu
+2. Sistema abre seletor de arquivo com filtros apropriados
+3. Preview da mídia é exibido em dialog
+4. Usuário pode adicionar legenda opcional
+5. Sistema valida configuração (instanceNumber e phoneNumber)
+6. Mídia é enviada via UazAPI
+7. Mensagem é salva no banco local com referência à mídia
+8. Chat é atualizado em tempo real via WebSocket
+
 ## External Dependencies
 
 ### Third-Party Services
