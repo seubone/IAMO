@@ -194,13 +194,14 @@ export default function UazapiTest() {
   });
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">🧪 Testes UazAPI</h1>
-        <p className="text-muted-foreground mt-2">
-          Validação interna de funcionalidades - Número de teste: {testNumber}
-        </p>
-      </div>
+    <div className="h-full overflow-y-auto">
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">🧪 Testes UazAPI</h1>
+          <p className="text-muted-foreground mt-2">
+            Validação interna de funcionalidades - Número de teste: {testNumber}
+          </p>
+        </div>
 
       {/* Configuration */}
       <Card className="mb-6">
@@ -626,6 +627,7 @@ export default function UazapiTest() {
             </Button>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );
