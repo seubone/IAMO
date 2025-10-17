@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface InstanceSettingsDialogProps {
   open: boolean;
@@ -28,7 +38,14 @@ export function InstanceSettingsDialog({
   instanceName,
 }: InstanceSettingsDialogProps) {
   const [apiToken, setApiToken] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
+
+  // Check if instance has a token
+  const { data: instanceData } = useQuery({
+    queryKey: ["/api/uazapi/instances", instanceNumber],
+    enabled: open && !!instanceNumber,
+  });
 
   const saveTokenMutation = useMutation({
     mutationFn: async (data: { instanceNumber: string; apiToken: string }) => {
@@ -52,6 +69,30 @@ export function InstanceSettingsDialog({
         variant: "destructive",
         title: "Erro ao salvar",
         description: error.message || "Não foi possível salvar o token",
+      });
+    },
+  });
+
+  const deleteTokenMutation = useMutation({
+    mutationFn: async (instanceNumber: string) => {
+      return await apiRequest(`/api/uazapi/instances/${instanceNumber}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Token removido",
+        description: "Token Uazapi removido com sucesso!",
+      });
+      setShowDeleteDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", instanceNumber] });
+      onOpenChange(false);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao remover",
+        description: error.message || "Não foi possível remover o token",
       });
     },
   });
@@ -111,31 +152,76 @@ export function InstanceSettingsDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saveTokenMutation.isPending}
-            data-testid="button-cancel"
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saveTokenMutation.isPending}
-            data-testid="button-save-token"
-          >
-            {saveTokenMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar Token"
-            )}
-          </Button>
+        <div className="flex justify-between items-center gap-2">
+          {instanceData?.hasToken && (
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending}
+              data-testid="button-delete-token"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remover Token
+            </Button>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending}
+              data-testid="button-cancel"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending}
+              data-testid="button-save-token"
+            >
+              {saveTokenMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Token"
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Token Uazapi</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover o token da instância {instanceName || instanceNumber}?
+              A instância ficará sem token e não será possível enviar mensagens via Uazapi até
+              configurar um novo token.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTokenMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTokenMutation.mutate(instanceNumber)}
+              disabled={deleteTokenMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTokenMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Removendo...
+                </>
+              ) : (
+                "Remover"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

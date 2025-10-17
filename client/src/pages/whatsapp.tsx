@@ -190,12 +190,24 @@ export default function WhatsApp() {
   }, [chats]);
 
   // Fetch messages for selected chat com polling otimizado
-  const { data: allMessages, isLoading: isLoadingMessages } = useQuery<EvolutionMessage[]>({
+  const { data: allMessages, isLoading: isLoadingMessages, error: messagesError } = useQuery<EvolutionMessage[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"],
     enabled: !!selectedInstanceId && !!selectedChatJid,
     // Polling otimizado: 15s se página visível, 30s se não
     refetchInterval: selectedChatJid && isPageVisible ? 15000 : 30000,
   });
+
+  // Debug: Log messages data
+  useEffect(() => {
+    console.log('📨 Messages Debug:', {
+      allMessages,
+      count: allMessages?.length,
+      isLoading: isLoadingMessages,
+      error: messagesError,
+      selectedInstanceId,
+      selectedChatJid,
+    });
+  }, [allMessages, isLoadingMessages, messagesError, selectedInstanceId, selectedChatJid]);
 
   // Helper function to extract text from message
   const getMessageText = (msg: EvolutionMessage): string => {

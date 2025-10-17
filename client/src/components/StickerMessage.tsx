@@ -12,7 +12,7 @@ export function StickerMessage({ messageId }: StickerMessageProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center w-[150px] h-[150px] bg-muted/20 rounded-md">
-        <Loader2 className="h-6 w-6 animate-spin" data-testid={loader-sticker-${messageId}} />
+        <Loader2 className="h-6 w-6 animate-spin" data-testid={`loader-sticker-${messageId}`} />
       </div>
     );
   }
@@ -35,7 +35,7 @@ export function StickerMessage({ messageId }: StickerMessageProps) {
           link.download = 'sticker.webp';
           link.click();
         }}
-        data-testid={sticker-${messageId}}
+        data-testid={`sticker-${messageId}`}
       />
     </div>
   );
