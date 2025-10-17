@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X } from "lucide-react";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
@@ -26,6 +26,7 @@ import { MessageStatus } from "@/components/MessageStatus";
 import { MessageActions } from "@/components/MessageActions";
 import { useInstancePreferences } from "@/hooks/use-instance-preferences";
 import { usePinnedChats } from "@/hooks/use-pinned-chats";
+import { ContactMetadataDialog } from "@/components/ContactMetadataDialog";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,6 +35,7 @@ export default function WhatsApp() {
   const [showOnlyActive, setShowOnlyActive] = useState(true);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [isContactMetadataDialogOpen, setIsContactMetadataDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
@@ -770,6 +772,14 @@ export default function WhatsApp() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => setIsContactMetadataDialogOpen(true)}
+                        data-testid="button-contact-metadata"
+                      >
+                        <Tag className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setIsSettingsDialogOpen(true)}
                         data-testid="button-settings"
                       >
@@ -1045,6 +1055,17 @@ export default function WhatsApp() {
           onOpenChange={setIsSettingsDialogOpen}
           instanceNumber={selectedInstance.number}
           instanceName={selectedInstance.name || selectedInstance.number}
+        />
+      )}
+
+      {/* Contact Metadata Dialog */}
+      {selectedInstanceId && selectedChatJid && (
+        <ContactMetadataDialog
+          isOpen={isContactMetadataDialogOpen}
+          onClose={() => setIsContactMetadataDialogOpen(false)}
+          instanceId={selectedInstanceId}
+          remoteJid={selectedChatJid}
+          contactName={selectedChat?.name || selectedChat?.pushName}
         />
       )}
     </div>

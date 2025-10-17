@@ -1078,6 +1078,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ CONTACT METADATA (Tags & Custom Fields) ============
+  
+  // Get contact metadata
+  app.get("/api/contact-metadata/:instanceId/:remoteJid", authMiddleware, async (req, res) => {
+    try {
+      const { instanceId, remoteJid } = req.params;
+      const metadata = await storage.getContactMetadata(instanceId, remoteJid);
+      
+      if (!metadata) {
+        return res.json({ 
+          instanceId, 
+          remoteJid, 
+          tags: [], 
+          customFields: {}, 
+          notes: null 
+        });
+      }
+      
+      res.json(metadata);
+    } catch (error: any) {
+      console.error("Error fetching contact metadata:", error);
+      res.status(500).json({ error: "Erro ao buscar metadados do contato" });
+    }
+  });
+
+  // Create or update contact metadata
+  app.post("/api/contact-metadata", authMiddleware, async (req, res) => {
+    try {
+      const { insertContactMetadataSchema } = await import("@shared/schema");
+      const data = insertContactMetadataSchema.parse(req.body);
+      
+      // Check if metadata already exists
+      const existing = await storage.getContactMetadata(data.instanceId, data.remoteJid);
+      
+      if (existing) {
+        // Update existing
+        const updated = await storage.updateContactMetadata(data.instanceId, data.remoteJid, data);
+        res.json(updated);
+      } else {
+        // Create new
+        const created = await storage.createContactMetadata(data);
+        res.json(created);
+      }
+    } catch (error: any) {
+      console.error("Error saving contact metadata:", error);
+      res.status(400).json({ error: error.message || "Erro ao salvar metadados" });
+    }
+  });
+
+  // Delete contact metadata
+  app.delete("/api/contact-metadata/:instanceId/:remoteJid", authMiddleware, async (req, res) => {
+    try {
+      const { instanceId, remoteJid } = req.params;
+      const deleted = await storage.deleteContactMetadata(instanceId, remoteJid);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Metadados não encontrados" });
+      }
+      
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting contact metadata:", error);
+      res.status(500).json({ error: "Erro ao deletar metadados" });
+    }
+  });
+
   // ============ WEBHOOKS ============
   
   // Evolution API webhook for new messages

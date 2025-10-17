@@ -244,6 +244,62 @@ export class DatabaseStorage implements IStorage {
       .where(eq(uazapiInstances.instanceNumber, instanceNumber));
     return result.rowCount !== null && result.rowCount > 0;
   }
+
+  // Contact Metadata
+  async getContactMetadata(instanceId: string, remoteJid: string): Promise<import("@shared/schema").ContactMetadata | undefined> {
+    const { contactMetadata } = await import("@shared/schema");
+    const { and } = await import("drizzle-orm");
+    const result = await db
+      .select()
+      .from(contactMetadata)
+      .where(
+        and(
+          eq(contactMetadata.instanceId, instanceId),
+          eq(contactMetadata.remoteJid, remoteJid)
+        )
+      );
+    return result[0];
+  }
+
+  async createContactMetadata(data: import("@shared/schema").InsertContactMetadata): Promise<import("@shared/schema").ContactMetadata> {
+    const { contactMetadata } = await import("@shared/schema");
+    const result = await db.insert(contactMetadata).values(data).returning();
+    return result[0];
+  }
+
+  async updateContactMetadata(
+    instanceId: string,
+    remoteJid: string,
+    data: Partial<import("@shared/schema").InsertContactMetadata>
+  ): Promise<import("@shared/schema").ContactMetadata | undefined> {
+    const { contactMetadata } = await import("@shared/schema");
+    const { and } = await import("drizzle-orm");
+    const result = await db
+      .update(contactMetadata)
+      .set({ ...data, updatedAt: new Date() })
+      .where(
+        and(
+          eq(contactMetadata.instanceId, instanceId),
+          eq(contactMetadata.remoteJid, remoteJid)
+        )
+      )
+      .returning();
+    return result[0];
+  }
+
+  async deleteContactMetadata(instanceId: string, remoteJid: string): Promise<boolean> {
+    const { contactMetadata } = await import("@shared/schema");
+    const { and } = await import("drizzle-orm");
+    const result = await db
+      .delete(contactMetadata)
+      .where(
+        and(
+          eq(contactMetadata.instanceId, instanceId),
+          eq(contactMetadata.remoteJid, remoteJid)
+        )
+      );
+    return result.rowCount !== null && result.rowCount > 0;
+  }
 }
 
 export const dbStorage = new DatabaseStorage();
