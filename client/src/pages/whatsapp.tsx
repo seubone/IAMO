@@ -1014,7 +1014,7 @@ export default function WhatsApp() {
 
                   {/* Input de Mensagem - Estilo WhatsApp Web */}
                   {uazapiInstanceData?.hasToken ? (
-                    <div className="flex-shrink-0 border-t px-3 py-2 bg-card relative">
+                    <div className="flex-shrink-0 border-t px-3 py-2 relative bg-[#11111300] text-[#f5f5f5e8]">
                       <div className="flex items-center gap-2">
                         {/* Botão + (Anexos) */}
                         <Button
