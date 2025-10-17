@@ -55,6 +55,35 @@ export interface EvolutionMessage {
       fileName?: string;
       caption?: string;
     };
+    videoMessage?: {
+      url?: string;
+      caption?: string;
+      mimetype?: string;
+      seconds?: number;
+    };
+    locationMessage?: {
+      degreesLatitude?: number;
+      degreesLongitude?: number;
+      name?: string;
+      address?: string;
+    };
+    contactMessage?: {
+      displayName?: string;
+      vcard?: string;
+    };
+    reactionMessage?: {
+      key?: any;
+      text?: string;
+    };
+    editedMessage?: {
+      message?: any;
+      timestampMs?: string;
+    };
+    ptvMessage?: {
+      url?: string;
+      mimetype?: string;
+      seconds?: number;
+    };
   };
   contextInfo?: {
     quotedMessage?: any;

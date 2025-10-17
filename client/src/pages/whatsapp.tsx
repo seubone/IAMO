@@ -30,6 +30,7 @@ import { usePinnedChats } from "@/hooks/use-pinned-chats";
 import { ContactMetadataDialog } from "@/components/ContactMetadataDialog";
 import { StickerMessage } from "@/components/StickerMessage";
 import { ImageMessage } from "@/components/ImageMessage";
+import { VideoMessage } from "@/components/VideoMessage";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 
 export default function WhatsApp() {
@@ -199,7 +200,19 @@ export default function WhatsApp() {
     if (msg.message?.imageMessage) return msg.message.imageMessage.caption || "📷 Imagem";
     if (msg.message?.stickerMessage) return "🎭 Figurinha";
     if (msg.message?.audioMessage) return "🎵 Áudio";
+    if (msg.message?.videoMessage) return msg.message.videoMessage.caption || "🎥 Vídeo";
+    if (msg.message?.ptvMessage) return "🎥 Vídeo redondo";
     if (msg.message?.documentMessage) return `📄 ${msg.message.documentMessage.fileName || "Documento"}`;
+    if (msg.message?.locationMessage) return `📍 ${msg.message.locationMessage.name || "Localização"}`;
+    if (msg.message?.contactMessage) return `👤 ${msg.message.contactMessage.displayName || "Contato"}`;
+    if (msg.message?.reactionMessage) return `${msg.message.reactionMessage.text || "❤️"} Reação`;
+    if (msg.message?.editedMessage) {
+      // Extrair conteúdo real da mensagem editada
+      const editedContent = msg.message.editedMessage.message?.conversation || 
+                           msg.message.editedMessage.message?.imageMessage?.caption ||
+                           msg.message.editedMessage.message?.videoMessage?.caption;
+      return editedContent ? `✏️ ${editedContent}` : "✏️ Mensagem editada";
+    }
     return "(mensagem não suportada)";
   };
 
@@ -909,6 +922,19 @@ export default function WhatsApp() {
                                       />
                                     )}
                                     
+                                    {/* Video Message */}
+                                    {message.message?.videoMessage && (
+                                      <VideoMessage 
+                                        messageId={message.id} 
+                                        caption={message.message.videoMessage.caption}
+                                      />
+                                    )}
+                                    
+                                    {/* PTV Message (video redondo) */}
+                                    {message.message?.ptvMessage && (
+                                      <VideoMessage messageId={message.id} />
+                                    )}
+                                    
                                     {/* Document/PDF Message */}
                                     {message.message?.documentMessage && (
                                       <button 
@@ -935,8 +961,75 @@ export default function WhatsApp() {
                                       </button>
                                     )}
                                     
-                                    {/* Text Message (only if not image/sticker/document) */}
-                                    {!message.message?.imageMessage && !message.message?.stickerMessage && !message.message?.documentMessage && (
+                                    {/* Location Message */}
+                                    {message.message?.locationMessage && (
+                                      <div className="flex flex-col gap-1">
+                                        <div className="text-2xl">📍</div>
+                                        <p className="text-sm font-medium">
+                                          {message.message.locationMessage.name || "Localização"}
+                                        </p>
+                                        {message.message.locationMessage.address && (
+                                          <p className="text-xs opacity-70">{message.message.locationMessage.address}</p>
+                                        )}
+                                        {message.message.locationMessage.degreesLatitude && message.message.locationMessage.degreesLongitude && (
+                                          <a
+                                            href={`https://www.google.com/maps?q=${message.message.locationMessage.degreesLatitude},${message.message.locationMessage.degreesLongitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-primary hover:underline"
+                                          >
+                                            Ver no mapa
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Contact Message */}
+                                    {message.message?.contactMessage && (
+                                      <div className="flex items-center gap-2 p-2 bg-muted/20 rounded">
+                                        <div className="text-2xl">👤</div>
+                                        <div className="flex-1">
+                                          <p className="text-sm font-medium">
+                                            {message.message.contactMessage.displayName || "Contato"}
+                                          </p>
+                                          <p className="text-xs opacity-70">Contato compartilhado</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Reaction Message */}
+                                    {message.message?.reactionMessage && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-2xl">{message.message.reactionMessage.text || "❤️"}</span>
+                                        <p className="text-xs opacity-70">Reagiu a uma mensagem</p>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Edited Message */}
+                                    {message.message?.editedMessage && (
+                                      <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-1 text-xs opacity-70 mb-1">
+                                          <span>✏️</span>
+                                          <span>editada</span>
+                                        </div>
+                                        {message.message.editedMessage.message?.conversation && (
+                                          <p className="text-sm whitespace-pre-wrap break-words">
+                                            {message.message.editedMessage.message.conversation}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Text Message (only if not image/sticker/document/video/location/contact/reaction/edited) */}
+                                    {!message.message?.imageMessage && 
+                                     !message.message?.stickerMessage && 
+                                     !message.message?.documentMessage && 
+                                     !message.message?.videoMessage && 
+                                     !message.message?.ptvMessage &&
+                                     !message.message?.locationMessage &&
+                                     !message.message?.contactMessage &&
+                                     !message.message?.reactionMessage &&
+                                     !message.message?.editedMessage && (
                                       <p className="text-sm whitespace-pre-wrap break-words">
                                         {text}
                                       </p>
