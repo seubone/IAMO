@@ -25,9 +25,9 @@ export default function UazapiTest() {
     onSuccess: (response: any) => {
       toast({
         title: "✅ Mensagem enviada",
-        description: `ID: ${response.data?.key?.id || "N/A"}`,
+        description: `ID: ${response?.data?.key?.id || "N/A"}`,
       });
-      if (response.data?.key?.id) {
+      if (response?.data?.key?.id) {
         setMessageId(response.data.key.id);
       }
     },
@@ -161,7 +161,7 @@ export default function UazapiTest() {
     onSuccess: (response: any) => {
       toast({
         title: "✅ Números verificados",
-        description: `Total: ${response.data?.length || 0} números`,
+        description: `Total: ${response?.data?.length || 0} números`,
       });
       console.log("Resultado da verificação:", response);
     },
@@ -180,7 +180,7 @@ export default function UazapiTest() {
     onSuccess: (response: any) => {
       toast({
         title: "✅ Status obtido",
-        description: `Status: ${response.data?.state || "desconhecido"}`,
+        description: `Status: ${response?.data?.state || "desconhecido"}`,
       });
       console.log("Status da instância:", response);
     },
