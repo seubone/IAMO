@@ -42,7 +42,6 @@ export default function WhatsApp() {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isContactMetadataDialogOpen, setIsContactMetadataDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
-  const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const { toast } = useToast();
@@ -265,77 +264,8 @@ export default function WhatsApp() {
     }
   }, [messages]);
 
-  // Mark messages as read when chat is opened with Evolution verification
-  useEffect(() => {
-    if (messages && messages.length > 0 && selectedInstance?.number && selectedChatJid && selectedInstanceId) {
-      // Filtrar apenas mensagens não lidas que não são minhas
-      const unreadMessageIds = messages
-        .filter(msg => !msg.key.fromMe && msg.status !== 'READ')
-        .map(msg => msg.key.id);
-
-      if (unreadMessageIds.length > 0) {
-        setIsMarkingAsRead(true);
-        
-        // Marcar como lida usando a API Uazapi
-        apiRequest("/api/whatsapp/mark-read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            instanceNumber: selectedInstance.number,
-            messageIds: unreadMessageIds
-          }),
-        }).then(async () => {
-          // Polling no Evolution até confirmar que unreadMessages zerou
-          const maxAttempts = 10; // 10 tentativas (5 segundos total)
-          let attempts = 0;
-          
-          const pollUnreadCount = async (): Promise<void> => {
-            attempts++;
-            
-            try {
-              const response = await apiRequest(
-                `/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/unread-count`,
-                { method: "GET" }
-              );
-              
-              const data = response as { unreadMessages: number };
-              
-              if (data.unreadMessages === 0) {
-                // Evolution confirmou que zerou - atualizar cache
-                setIsMarkingAsRead(false);
-                queryClient.invalidateQueries({ 
-                  queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
-                });
-              } else if (attempts < maxAttempts) {
-                // Ainda tem mensagens não lidas - tentar novamente em 500ms
-                setTimeout(() => pollUnreadCount(), 500);
-              } else {
-                // Timeout - forçar atualização mesmo assim
-                console.warn("Timeout ao aguardar Evolution atualizar unreadMessages, forçando refresh");
-                setIsMarkingAsRead(false);
-                queryClient.invalidateQueries({ 
-                  queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
-                });
-              }
-            } catch (error) {
-              console.error("Error polling unread count:", error);
-              // Em caso de erro, forçar atualização
-              setIsMarkingAsRead(false);
-              queryClient.invalidateQueries({ 
-                queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"] 
-              });
-            }
-          };
-          
-          // Iniciar polling após 500ms (dar tempo para Evolution processar)
-          setTimeout(() => pollUnreadCount(), 500);
-        }).catch(error => {
-          console.error("Error marking messages as read:", error);
-          setIsMarkingAsRead(false);
-        });
-      }
-    }
-  }, [messages, selectedInstance, selectedChatJid, selectedInstanceId]);
+  // Removido: lógica automática de marcar como lida
+  // Agora apenas mostramos o status real do Evolution DB
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -724,11 +654,7 @@ export default function WhatsApp() {
                                   className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#FBC000] hover:bg-[#FBC000] text-black font-semibold"
                                   data-testid={`badge-unread-${chat.remoteJid}`}
                                 >
-                                  {isMarkingAsRead && selectedChatJid === chat.remoteJid ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    chat.unreadMessages
-                                  )}
+                                  {chat.unreadMessages}
                                 </Badge>
                               )}
                             </div>
