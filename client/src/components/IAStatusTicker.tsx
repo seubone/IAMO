@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Circle } from "lucide-react";
+import { getIAStatusConfig } from "@/lib/configs";
 
 export type IAStatus = "active" | "paused" | "inactive";
 
@@ -13,18 +13,12 @@ interface IAStatusTickerProps {
   items: IATickerItem[];
 }
 
-const statusConfig = {
-  active: { icon: Circle, color: "text-chart-3 fill-chart-3", label: "Ativo" },
-  paused: { icon: Circle, color: "text-chart-1 fill-chart-1", label: "Pausado" },
-  inactive: { icon: Circle, color: "text-destructive fill-destructive", label: "Inativo" },
-};
-
 export function IAStatusTicker({ items }: IAStatusTickerProps) {
   return (
     <div className="h-12 border-b bg-card/50 overflow-hidden">
       <div className="flex items-center h-full px-4 gap-3 animate-scroll">
         {items.map((item) => {
-          const config = statusConfig[item.status];
+          const config = getIAStatusConfig(item.status);
           const StatusIcon = config.icon;
           
           return (

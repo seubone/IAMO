@@ -40,9 +40,23 @@ export default function Monitoring() {
   const updateIAStatusMutation = useMutation({
     mutationFn: ({ iaId, status, reason }: { iaId: string; status: string; reason: string }) =>
       iaAPI.updateStatus(iaId, status, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ias"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/actions"] });
+    onSuccess: (_, variables) => {
+      // Invalidação granular: apenas queries relacionadas a esta IA específica
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/ias"],
+        exact: true 
+      });
+      
+      // Invalidar apenas ações relacionadas a esta IA
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && 
+                 key[0] === "/api/actions" && 
+                 (key.length === 1 || key[1] === variables.iaId);
+        }
+      });
+      
       toast({
         title: "Status atualizado",
         description: "O status da IA foi alterado com sucesso.",

@@ -32,6 +32,7 @@ import { StickerMessage } from "@/components/StickerMessage";
 import { ImageMessage } from "@/components/ImageMessage";
 import { VideoMessage } from "@/components/VideoMessage";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+import { useDebounce } from "@/lib/utils";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,6 +49,9 @@ export default function WhatsApp() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
   const { togglePin, isPinned, getPinnedChats } = usePinnedChats(selectedInstanceId);
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const debouncedMessageSearchQuery = useDebounce(messageSearchQuery, 500);
 
   // Detectar se a aba está ativa (Page Visibility API)
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
@@ -160,12 +164,12 @@ export default function WhatsApp() {
     }
   }, []);
 
-  // Fetch chats for selected instance com polling
+  // Fetch chats for selected instance com polling otimizado
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"],
     enabled: !!selectedInstanceId,
-    // Polling: 10s se página visível, 30s se não
-    refetchInterval: selectedInstanceId && isPageVisible ? 10000 : 30000,
+    // Polling otimizado: 15s se página visível, 30s se não
+    refetchInterval: selectedInstanceId && isPageVisible ? 15000 : 30000,
   });
 
   // Calcular total de mensagens não lidas e atualizar título da página
@@ -185,12 +189,12 @@ export default function WhatsApp() {
     };
   }, [chats]);
 
-  // Fetch messages for selected chat com polling inteligente
+  // Fetch messages for selected chat com polling otimizado
   const { data: allMessages, isLoading: isLoadingMessages } = useQuery<EvolutionMessage[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"],
     enabled: !!selectedInstanceId && !!selectedChatJid,
-    // Polling: 5s se chat ativo e página visível, 30s se não
-    refetchInterval: selectedChatJid && isPageVisible ? 5000 : 30000,
+    // Polling otimizado: 15s se página visível, 30s se não
+    refetchInterval: selectedChatJid && isPageVisible ? 15000 : 30000,
   });
 
   // Helper function to extract text from message
@@ -215,11 +219,11 @@ export default function WhatsApp() {
     return "(mensagem não suportada)";
   };
 
-  // Filter messages based on search query
+  // Filter messages based on debounced search query
   const messages = allMessages?.filter(msg => {
-    if (!messageSearchQuery) return true;
+    if (!debouncedMessageSearchQuery) return true;
     
-    const searchLower = messageSearchQuery.toLowerCase();
+    const searchLower = debouncedMessageSearchQuery.toLowerCase();
     const text = getMessageText(msg).toLowerCase();
     
     return text.includes(searchLower) ||
@@ -227,12 +231,12 @@ export default function WhatsApp() {
            msg.message?.imageMessage?.caption?.toLowerCase()?.includes(searchLower);
   });
 
-  // Filter and sort chats: pinned first, then by timestamp
+  // Filter and sort chats using debounced search: pinned first, then by timestamp
   const filteredChats = (chats?.filter(chat => 
-    chat.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.pushName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.last_message?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.remoteJid?.includes(searchQuery)
+    chat.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+    chat.pushName?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+    chat.last_message?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+    chat.remoteJid?.includes(debouncedSearchQuery)
   ) || []).sort((a, b) => {
     const aPinned = isPinned(a.remoteJid);
     const bPinned = isPinned(b.remoteJid);

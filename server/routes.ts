@@ -127,70 +127,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  // Polling loop to check for new messages in Evolution DB
+  // Polling loop to check for new messages in Evolution DB - otimizado
   async function pollNewMessages() {
+    // Skip se não há instâncias sendo monitoradas
     if (activeInstances.size === 0) return;
 
     try {
       const { evolutionPool } = await import("./evolution-db");
       
       for (const [instanceId, clients] of Array.from(activeInstances.entries())) {
+        // Skip instâncias sem clientes conectados
         if (clients.size === 0) continue;
 
-        const lastTimestamp = lastMessageTimestamps.get(instanceId) || Date.now() - 10000; // Last 10 seconds if first check
-        
-        // Query for new messages since last check
-        const result = await evolutionPool.query(`
-          SELECT 
-            m."keyRemoteJid",
-            m."keyId" as "messageId",
-            m."keyFromMe" as "fromMe",
-            m."pushName",
-            m."messageTimestamp",
-            m."messageType",
-            COALESCE(m.message->>'conversation', 
-                     m.message->'extendedTextMessage'->>'text',
-                     '[Mídia]') as message_text
-          FROM "Message" m
-          WHERE m."instanceId" = $1
-            AND m."messageTimestamp" > $2
-          ORDER BY m."messageTimestamp" ASC
-          LIMIT 50
-        `, [instanceId, lastTimestamp]);
-
-        if (result.rows.length > 0) {
-          console.log(`📱 Found ${result.rows.length} new messages for instance ${instanceId}`);
+        try {
+          const lastTimestamp = lastMessageTimestamps.get(instanceId) || Date.now() - 10000;
           
-          // Update last timestamp
-          const latestTimestamp = Math.max(...result.rows.map((row: any) => parseInt(row.messageTimestamp)));
-          lastMessageTimestamps.set(instanceId, latestTimestamp);
+          // Query otimizada para novas mensagens
+          const result = await evolutionPool.query(`
+            SELECT 
+              m."keyRemoteJid",
+              m."keyId" as "messageId",
+              m."keyFromMe" as "fromMe",
+              m."pushName",
+              m."messageTimestamp",
+              m."messageType",
+              COALESCE(m.message->>'conversation', 
+                       m.message->'extendedTextMessage'->>'text',
+                       '[Mídia]') as message_text
+            FROM "Message" m
+            WHERE m."instanceId" = $1
+              AND m."messageTimestamp" > $2
+            ORDER BY m."messageTimestamp" ASC
+            LIMIT 50
+          `, [instanceId, lastTimestamp]);
 
-          // Broadcast each new message
-          result.rows.forEach((row: any) => {
-            broadcastToInstance(instanceId, {
-              type: "whatsapp_message_received",
-              data: {
-                instanceId,
-                remoteJid: row.keyRemoteJid,
-                messageId: row.messageId,
-                fromMe: row.fromMe,
-                pushName: row.pushName,
-                messageTimestamp: row.messageTimestamp,
-                messageType: row.messageType,
-                message: row.message_text
-              }
+          if (result.rows.length > 0) {
+            console.log(`📱 Found ${result.rows.length} new messages for instance ${instanceId}`);
+            
+            const latestTimestamp = Math.max(...result.rows.map((row: any) => parseInt(row.messageTimestamp)));
+            lastMessageTimestamps.set(instanceId, latestTimestamp);
+
+            // Broadcast mensagens
+            result.rows.forEach((row: any) => {
+              broadcastToInstance(instanceId, {
+                type: "whatsapp_message_received",
+                data: {
+                  instanceId,
+                  remoteJid: row.keyRemoteJid,
+                  messageId: row.messageId,
+                  fromMe: row.fromMe,
+                  pushName: row.pushName,
+                  messageTimestamp: row.messageTimestamp,
+                  messageType: row.messageType,
+                  message: row.message_text
+                }
+              });
             });
-          });
+          }
+        } catch (instanceError) {
+          // Log erro mas continua com outras instâncias
+          console.error(`Error polling messages for instance ${instanceId}:`, instanceError);
         }
       }
     } catch (error) {
-      console.error("Error polling new messages:", error);
+      console.error("Error in pollNewMessages:", error);
     }
   }
 
-  // Start polling loop (every 2 seconds)
-  setInterval(pollNewMessages, 2000);
-  console.log("📱 WhatsApp message polling started (2s interval)");
+  // Polling loop otimizado (3s ao invés de 2s)
+  setInterval(pollNewMessages, 3000);
+  console.log("📱 WhatsApp message polling started (3s interval)");
 
   // ============ AUTH ROUTES ============
   

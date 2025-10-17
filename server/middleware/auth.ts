@@ -2,6 +2,11 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import type { User } from "@shared/schema";
 
+// Validação obrigatória do JWT_SECRET em produção
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("JWT_SECRET é obrigatório em produção! Defina a variável de ambiente JWT_SECRET.");
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
 
 export interface AuthRequest extends Request {

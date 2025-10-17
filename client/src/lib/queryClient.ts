@@ -1,9 +1,29 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+interface ApiError extends Error {
+  status: number;
+  statusText: string;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let errorMessage: string;
+    try {
+      const contentType = res.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        const json = await res.json();
+        errorMessage = json.error || json.message || res.statusText;
+      } else {
+        errorMessage = (await res.text()) || res.statusText;
+      }
+    } catch {
+      errorMessage = res.statusText;
+    }
+    
+    const error = new Error(`${res.status}: ${errorMessage}`) as ApiError;
+    error.status = res.status;
+    error.statusText = res.statusText;
+    throw error;
   }
 }
 
@@ -28,7 +48,13 @@ export async function apiRequest<T = any>(
     return null as T;
   }
   
-  return await res.json();
+  // Melhor tratamento de JSON parsing
+  try {
+    return await res.json();
+  } catch (error) {
+    console.error("Failed to parse JSON response:", error);
+    throw new Error("Resposta inválida do servidor");
+  }
 }
 
 function getAuthHeaders(): Record<string, string> {

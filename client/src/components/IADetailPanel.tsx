@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Play, Pause, XCircle, Clock, User } from "lucide-react";
 import type { IAStatus } from "./IAStatusTicker";
+import { getIAStatusConfig } from "@/lib/configs";
 
 export interface IAAction {
   id: string;
@@ -22,12 +23,6 @@ interface IADetailPanelProps {
   actions?: IAAction[];
 }
 
-const statusConfig = {
-  active: { label: "Ativo", color: "bg-chart-3 text-white" },
-  paused: { label: "Pausado", color: "bg-chart-1 text-primary-foreground" },
-  inactive: { label: "Inativo", color: "bg-destructive text-destructive-foreground" },
-};
-
 export function IADetailPanel({ 
   iaName, 
   status, 
@@ -36,6 +31,8 @@ export function IADetailPanel({
   onDeactivate,
   actions = []
 }: IADetailPanelProps) {
+  const statusConfig = getIAStatusConfig(status);
+  
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
@@ -43,8 +40,8 @@ export function IADetailPanel({
           <h2 className="text-lg font-semibold font-heading" data-testid="ia-detail-name">
             {iaName}
           </h2>
-          <Badge className={statusConfig[status].color} data-testid="ia-detail-status">
-            {statusConfig[status].label}
+          <Badge className={statusConfig.badgeColor} data-testid="ia-detail-status">
+            {statusConfig.label}
           </Badge>
         </div>
 

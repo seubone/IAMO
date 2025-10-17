@@ -64,11 +64,12 @@ export default function Login() {
         description: `Bem-vindo, ${response.user.name}`,
       });
       setLocation("/");
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Verifique suas credenciais";
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
-        description: error.message || "Verifique suas credenciais",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -89,11 +90,12 @@ export default function Login() {
         description: `Bem-vindo, ${response.user.name}`,
       });
       setLocation("/");
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Tente novamente mais tarde";
       toast({
         variant: "destructive",
         title: "Erro ao criar conta",
-        description: error.message || "Tente novamente mais tarde",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);

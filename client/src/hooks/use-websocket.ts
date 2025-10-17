@@ -80,57 +80,76 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
         
-        // Handle different message types
-        switch (message.type) {
-          case "ia_created":
-          case "ia_updated":
-            queryClient.invalidateQueries({ queryKey: ["/api/ias"] });
-            break;
-          case "ticket_created":
-          case "ticket_updated":
-            queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
-            break;
-          case "message_created":
-            queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
-            break;
-          case "whatsapp_message_received":
-            // Invalidar queries de WhatsApp de forma mais específica
-            // 1. Invalidar lista de instâncias (caso status mude)
-            queryClient.invalidateQueries({ 
-              queryKey: ["/api/whatsapp/instances"]
-            });
-            
-            // 2. Invalidar TODOS os chats (para atualizar contadores de não lidas)
-            queryClient.invalidateQueries({ 
-              predicate: (query) => {
-                const key = query.queryKey;
-                return Array.isArray(key) && 
-                       key[0] === "/api/whatsapp/instances" && 
-                       key[2] === "chats";
+        // Handle different message types com error handling aprimorado
+        try {
+          switch (message.type) {
+            case "ia_created":
+            case "ia_updated":
+              // Invalidação granular: apenas a lista de IAs, não rotas aninhadas
+              queryClient.invalidateQueries({ 
+                queryKey: ["/api/ias"],
+                exact: true 
+              });
+              break;
+            case "ticket_created":
+            case "ticket_updated":
+              // Invalidação granular: apenas a lista de tickets
+              queryClient.invalidateQueries({ 
+                queryKey: ["/api/tickets"],
+                exact: true 
+              });
+              break;
+            case "message_created":
+              // Invalidação granular: apenas mensagens relacionadas
+              queryClient.invalidateQueries({ 
+                predicate: (query) => {
+                  const key = query.queryKey;
+                  return Array.isArray(key) && key[0] === "/api/messages";
+                }
+              });
+              break;
+            case "whatsapp_message_received":
+              // Invalidar queries de WhatsApp de forma mais específica
+              queryClient.invalidateQueries({ 
+                queryKey: ["/api/whatsapp/instances"]
+              });
+              
+              queryClient.invalidateQueries({ 
+                predicate: (query) => {
+                  const key = query.queryKey;
+                  return Array.isArray(key) && 
+                         key[0] === "/api/whatsapp/instances" && 
+                         key[2] === "chats";
+                }
+              });
+              
+              queryClient.invalidateQueries({ 
+                predicate: (query) => {
+                  const key = query.queryKey;
+                  return Array.isArray(key) && 
+                         key[0] === "/api/whatsapp/instances" && 
+                         key[2] === "chats" &&
+                         key[4] === "messages";
+                }
+              });
+              
+              console.log("📱 WhatsApp message received - invalidating queries");
+              
+              // Call callback if provided (usando ref para evitar dependency issues)
+              if (optionsRef.current?.onWhatsAppMessage) {
+                try {
+                  optionsRef.current.onWhatsAppMessage(message.data);
+                } catch (callbackError) {
+                  console.error("Error in onWhatsAppMessage callback:", callbackError);
+                }
               }
-            });
-            
-            // 3. Invalidar TODAS as mensagens (para atualizar mensagens em chats abertos)
-            queryClient.invalidateQueries({ 
-              predicate: (query) => {
-                const key = query.queryKey;
-                return Array.isArray(key) && 
-                       key[0] === "/api/whatsapp/instances" && 
-                       key[2] === "chats" &&
-                       key[4] === "messages";
-              }
-            });
-            
-            console.log("📱 WhatsApp message received - invalidating all chats and messages queries");
-            
-            // Call callback if provided (using ref to avoid dependency issues)
-            if (optionsRef.current?.onWhatsAppMessage) {
-              optionsRef.current.onWhatsAppMessage(message.data);
-            }
-            break;
+              break;
+          }
+        } catch (handlerError) {
+          console.error("Error handling WebSocket message type:", message.type, handlerError);
         }
-      } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
+      } catch (parseError) {
+        console.error("Error parsing WebSocket message:", parseError);
       }
     };
 

@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Clock, ExternalLink } from "lucide-react";
+import { getTicketSeverityConfig, getTicketTypeConfig } from "@/lib/configs";
 
 export type TicketSeverity = "low" | "medium" | "high" | "critical";
 export type TicketType = "automation" | "prompt" | "negotiation";
@@ -25,23 +26,9 @@ interface TicketCardProps {
   onClick?: () => void;
 }
 
-const severityConfig = {
-  low: { color: "bg-chart-2/10 text-chart-2 border-chart-2/20", label: "Baixa" },
-  medium: { color: "bg-chart-1/10 text-chart-1 border-chart-1/20", label: "Média" },
-  high: { color: "bg-chart-4/10 text-chart-4 border-chart-4/20", label: "Alta" },
-  critical: { color: "bg-destructive/10 text-destructive border-destructive/20", label: "Crítica" },
-};
-
-const typeConfig = {
-  automation: { label: "Falha na Automação", borderColor: "border-l-destructive" },
-  prompt: { label: "Falha no Prompt", borderColor: "border-l-chart-1" },
-  negotiation: { label: "Falha de Negociação", borderColor: "border-l-chart-2" },
-  unknown: { label: "Erro Desconhecido", borderColor: "border-l-muted-foreground" },
-};
-
 export function TicketCard({ ticket, onClick }: TicketCardProps) {
-  const severityStyle = severityConfig[ticket.severity] || severityConfig.medium;
-  const typeStyle = typeConfig[ticket.errorType] || typeConfig.unknown;
+  const severityStyle = getTicketSeverityConfig(ticket.severity);
+  const typeStyle = getTicketTypeConfig(ticket.errorType);
 
   return (
     <Card
