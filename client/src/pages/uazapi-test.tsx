@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { whatsappAPI } from "@/lib/api";
-import { Loader2, Send, CheckCheck, Smile, Trash2, Pin, Archive, Eye, Phone } from "lucide-react";
+import { Loader2, Send, CheckCheck, Smile, Trash2, Pin, Archive, Eye, Phone, Save } from "lucide-react";
 
 export default function UazapiTest() {
   const { toast } = useToast();
   const [instanceNumber, setInstanceNumber] = useState("5584998973484");
   const [testNumber, setTestNumber] = useState("5584998973484");
+  const [apiToken, setApiToken] = useState("");
   const [messageText, setMessageText] = useState("🧪 Teste de funcionalidade - UazAPI");
   const [messageId, setMessageId] = useState("");
   const [emojiText, setEmojiText] = useState("👍");
@@ -193,6 +194,34 @@ export default function UazapiTest() {
     },
   });
 
+  // Save Token Mutation
+  const saveTokenMutation = useMutation({
+    mutationFn: (data: { instanceNumber: string; apiToken: string }) =>
+      whatsappAPI.saveInstanceToken(data),
+    onSuccess: () => {
+      toast({
+        title: "✅ Token salvo",
+        description: "Token UazAPI configurado com sucesso",
+      });
+      // Recarregar o token
+      tokenQuery.refetch();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "❌ Erro ao salvar token",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Load existing token
+  const tokenQuery = useQuery({
+    queryKey: ["/api/uazapi/instances", instanceNumber],
+    queryFn: () => whatsappAPI.getInstanceToken(instanceNumber),
+    enabled: !!instanceNumber,
+  });
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="container mx-auto p-6 max-w-7xl">
@@ -230,6 +259,35 @@ export default function UazapiTest() {
               data-testid="input-test-number"
             />
           </div>
+          <div>
+            <Label htmlFor="api-token">
+              Token UazAPI
+              {tokenQuery.data?.hasToken && (
+                <span className="ml-2 text-xs text-muted-foreground">(configurado)</span>
+              )}
+            </Label>
+            <Input
+              id="api-token"
+              type="password"
+              value={apiToken}
+              onChange={(e) => setApiToken(e.target.value)}
+              placeholder={tokenQuery.data?.hasToken ? "Digite novo token para atualizar" : "Digite o token da UazAPI"}
+              data-testid="input-token"
+            />
+          </div>
+          <Button
+            onClick={() => saveTokenMutation.mutate({ instanceNumber, apiToken })}
+            disabled={saveTokenMutation.isPending || !apiToken}
+            className="w-full"
+            data-testid="button-save-token"
+          >
+            {saveTokenMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Salvar Token
+          </Button>
         </CardContent>
       </Card>
 
