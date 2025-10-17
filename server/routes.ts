@@ -1102,6 +1102,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send media (image, video, audio, document) via Uazapi
+  app.post("/api/whatsapp/send-media", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, recipientNumber, type, file, text, docName } = req.body;
+
+      // Validação de campos obrigatórios
+      if (!instanceNumber || !recipientNumber || !type || !file) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, type, file" 
+        });
+      }
+
+      // Validar tipo de mídia
+      const validTypes = ["image", "video", "document", "audio", "myaudio", "ptt", "sticker"];
+      if (!validTypes.includes(type)) {
+        return res.status(400).json({ 
+          error: `Tipo de mídia inválido. Use: ${validTypes.join(", ")}` 
+        });
+      }
+
+      // Validar formato brasileiro do número da instância (55 + 10-11 dígitos)
+      const brazilNumberPattern = /^55\d{10,11}$/;
+      if (!brazilNumberPattern.test(instanceNumber)) {
+        return res.status(400).json({ 
+          error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)" 
+        });
+      }
+
+      // Validar formato do número do destinatário
+      const recipientNumberPattern = /^\d{8,15}$/;
+      if (!recipientNumberPattern.test(recipientNumber)) {
+        return res.status(400).json({ 
+          error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)" 
+        });
+      }
+
+      // Buscar token da instância no banco
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      if (!uazapiInstance) {
+        return res.status(404).json({ 
+          error: "Instância não cadastrada no Uazapi. Configure o token nas configurações." 
+        });
+      }
+
+      // Verificar se a instância existe no Evolution DB pelo número
+      const { evolutionPool } = await import("./evolution-db");
+      const instanceResult = await evolutionPool.query(`
+        SELECT id, name, number as instance_number, "connectionStatus"
+        FROM "Instance"
+        WHERE number = $1
+      `, [instanceNumber]);
+
+      if (instanceResult.rows.length === 0) {
+        return res.status(404).json({ 
+          error: "Instância não encontrada no Evolution Database com o número fornecido" 
+        });
+      }
+
+      const instance = instanceResult.rows[0];
+
+      // Verificar se a instância está ativa
+      if (instance.connectionStatus !== "open") {
+        return res.status(400).json({ 
+          error: "Instância não está conectada. Status: " + instance.connectionStatus 
+        });
+      }
+
+      // Chamar API do Uazapi para enviar mídia usando token específico da instância
+      const UAZAPI_BASE_URL = "https://quatro-cinco.uazapi.com";
+
+      // Preparar o body da requisição
+      const requestBody: any = {
+        number: recipientNumber,
+        type: type,
+        file: file,
+      };
+
+      // Adicionar campos opcionais
+      if (text) {
+        requestBody.text = text;
+      }
+
+      if (docName && type === "document") {
+        requestBody.docName = docName;
+      }
+
+      const response = await fetch(`${UAZAPI_BASE_URL}/send/media`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi media error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao enviar mídia via Uazapi",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Mídia enviada com sucesso",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error sending media:", error);
+      res.status(500).json({ error: "Erro ao enviar mídia" });
+    }
+  });
+
   // Uazapi Instances - Token Management
   // Get token for specific instance
   app.get("/api/uazapi/instances/:number", authMiddleware, async (req, res) => {

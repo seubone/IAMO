@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +33,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Send,
   Paperclip,
   Search,
@@ -45,9 +51,15 @@ import {
   Ban,
   Clock,
   Plus,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Mic,
+  X,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { conversationAPI, messageAPI, iaAPI } from "@/lib/api";
+import { conversationAPI, messageAPI, iaAPI, whatsappAPI } from "@/lib/api";
 import type { Conversation, Message, IA } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -76,6 +88,13 @@ export default function Chat() {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
+  const [isMediaDialogOpen, setIsMediaDialogOpen] = useState(false);
+  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<string>("");
+  const [mediaCaption, setMediaCaption] = useState("");
+  const [isMediaPopoverOpen, setIsMediaPopoverOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -180,6 +199,74 @@ export default function Chat() {
     },
   });
 
+  const sendMediaMutation = useMutation({
+    mutationFn: async ({ file, caption, type }: { file: string; caption?: string; type: string }) => {
+      // Obter metadados da conversa
+      const metadata = selectedConversation?.metadata as { 
+        phoneNumber?: string;
+        instanceNumber?: string;
+      } | undefined;
+      
+      const instanceNumber = metadata?.instanceNumber;
+      const recipientNumber = metadata?.phoneNumber;
+      
+      // Validar se temos os números necessários
+      if (!instanceNumber || !recipientNumber) {
+        throw new Error(
+          "Configuração incompleta: É necessário configurar o número da instância e do destinatário nos metadados da conversa para enviar mídias."
+        );
+      }
+      
+      // Enviar mídia via UazAPI
+      const uazapiResponse = await whatsappAPI.sendMedia({
+        instanceNumber,
+        recipientNumber,
+        type,
+        file,
+        text: caption,
+        docName: selectedMediaFile?.name,
+      });
+
+      // Criar mensagem local no banco de dados com os dados da API
+      const mediaMessage = await messageAPI.create({
+        conversationId: selectedConversation!.id,
+        sender: "operator",
+        content: caption || `[${type}]`,
+        attachments: { 
+          type, 
+          file, 
+          caption,
+          docName: selectedMediaFile?.name,
+          uazapiMessageId: uazapiResponse?.data?.id 
+        },
+      });
+      
+      return mediaMessage;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/messages/conversation", selectedConversation?.id] 
+      });
+      setIsMediaDialogOpen(false);
+      setSelectedMediaFile(null);
+      setMediaPreview(null);
+      setMediaCaption("");
+      setMediaType("");
+      toast({
+        title: "Mídia enviada",
+        description: "A mídia foi enviada com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Erro ao enviar mídia:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error?.message || "Não foi possível enviar a mídia",
+      });
+    },
+  });
+
   const handleSend = () => {
     if (!message.trim() || !selectedConversation) return;
     sendMessageMutation.mutate(message);
@@ -187,6 +274,71 @@ export default function Chat() {
 
   const onCreateConversation = (data: NewConversationForm) => {
     createConversationMutation.mutate(data);
+  };
+
+  const handleFileSelect = (type: string) => {
+    setMediaType(type);
+    setIsMediaPopoverOpen(false);
+    
+    if (fileInputRef.current) {
+      const input = fileInputRef.current;
+      
+      switch (type) {
+        case "image":
+          input.accept = "image/*";
+          break;
+        case "video":
+          input.accept = "video/mp4,video/*";
+          break;
+        case "document":
+          input.accept = ".pdf,.doc,.docx,.xls,.xlsx,.txt";
+          break;
+        case "audio":
+          input.accept = "audio/mp3,audio/ogg,audio/*";
+          break;
+        default:
+          input.accept = "*";
+      }
+      
+      input.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedMediaFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setMediaPreview(result);
+      setIsMediaDialogOpen(true);
+    };
+    reader.readAsDataURL(file);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSendMedia = () => {
+    if (!selectedMediaFile || !mediaPreview) return;
+    
+    sendMediaMutation.mutate({
+      file: mediaPreview,
+      caption: mediaCaption,
+      type: mediaType,
+    });
+  };
+
+  const handleCancelMedia = () => {
+    setIsMediaDialogOpen(false);
+    setSelectedMediaFile(null);
+    setMediaPreview(null);
+    setMediaCaption("");
+    setMediaType("");
   };
 
   const filteredConversations = conversations.filter((conv) =>
@@ -477,42 +629,93 @@ export default function Chat() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        "flex",
-                        msg.sender === "user" ? "justify-start" : "justify-end"
-                      )}
-                    >
+                  {messages.map((msg) => {
+                    const attachment = msg.attachments as any;
+                    const hasMedia = attachment && attachment.type && attachment.file;
+                    
+                    return (
                       <div
+                        key={msg.id}
                         className={cn(
-                          "max-w-[70%] rounded-lg p-3",
-                          msg.sender === "user"
-                            ? "bg-muted"
-                            : "bg-primary text-primary-foreground"
+                          "flex",
+                          msg.sender === "user" ? "justify-start" : "justify-end"
                         )}
-                        data-testid={`message-${msg.id}`}
                       >
-                        <p className="text-sm">{msg.content}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs opacity-70">
-                            {format(new Date(msg.createdAt), "HH:mm")}
-                          </span>
-                          {msg.tags && msg.tags.length > 0 && (
-                            <>
-                              <Separator orientation="vertical" className="h-3" />
-                              {msg.tags.map((tag, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </>
+                        <div
+                          className={cn(
+                            "max-w-[70%] rounded-lg overflow-hidden",
+                            msg.sender === "user"
+                              ? "bg-muted"
+                              : "bg-primary text-primary-foreground"
                           )}
+                          data-testid={`message-${msg.id}`}
+                        >
+                          {hasMedia && (
+                            <div className="mb-2">
+                              {attachment.type === "image" && (
+                                <img 
+                                  src={attachment.file} 
+                                  alt="Imagem" 
+                                  className="w-full max-w-sm rounded"
+                                  data-testid={`img-attachment-${msg.id}`}
+                                />
+                              )}
+                              {attachment.type === "video" && (
+                                <video 
+                                  src={attachment.file} 
+                                  controls 
+                                  className="w-full max-w-sm rounded"
+                                  data-testid={`video-attachment-${msg.id}`}
+                                />
+                              )}
+                              {attachment.type === "document" && (
+                                <div className="p-3 flex items-center gap-3 bg-background/10 rounded">
+                                  <FileText className="h-8 w-8" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">
+                                      {attachment.docName || "Documento"}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              {attachment.type === "audio" && (
+                                <div className="p-2">
+                                  <audio 
+                                    src={attachment.file} 
+                                    controls 
+                                    className="w-full"
+                                    data-testid={`audio-attachment-${msg.id}`}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {msg.content && !msg.content.startsWith("[") && (
+                            <div className="p-3">
+                              <p className="text-sm">{msg.content}</p>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-2 px-3 pb-2">
+                            <span className="text-xs opacity-70">
+                              {format(new Date(msg.createdAt), "HH:mm")}
+                            </span>
+                            {msg.tags && msg.tags.length > 0 && (
+                              <>
+                                <Separator orientation="vertical" className="h-3" />
+                                {msg.tags.map((tag, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
@@ -520,15 +723,59 @@ export default function Chat() {
             {/* Input de Mensagem */}
             <div className="p-4 border-t">
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  data-testid="button-attach-file"
-                  className="flex-shrink-0"
-                  disabled={sendMessageMutation.isPending}
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  data-testid="input-file-hidden"
+                />
+                
+                <Popover open={isMediaPopoverOpen} onOpenChange={setIsMediaPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      data-testid="button-attach-file"
+                      className="flex-shrink-0"
+                      disabled={sendMessageMutation.isPending}
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" side="top" align="start">
+                    <div className="space-y-1">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3"
+                        onClick={() => handleFileSelect("document")}
+                        data-testid="button-select-document"
+                      >
+                        <FileText className="h-5 w-5 text-blue-500" />
+                        <span>Documento</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3"
+                        onClick={() => handleFileSelect("image")}
+                        data-testid="button-select-image"
+                      >
+                        <ImageIcon className="h-5 w-5 text-purple-500" />
+                        <span>Fotos e vídeos</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start gap-3"
+                        onClick={() => handleFileSelect("audio")}
+                        data-testid="button-select-audio"
+                      >
+                        <Mic className="h-5 w-5 text-orange-500" />
+                        <span>Áudio</span>
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                
                 <Input
                   placeholder="Digite sua mensagem..."
                   value={message}
@@ -571,6 +818,111 @@ export default function Chat() {
           </div>
         )}
       </div>
+
+      {/* Media Preview Dialog */}
+      <Dialog open={isMediaDialogOpen} onOpenChange={setIsMediaDialogOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-media-preview">
+          <DialogHeader>
+            <DialogTitle>Enviar Mídia</DialogTitle>
+            <DialogDescription>
+              Adicione uma legenda opcional e envie o arquivo
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Preview Area */}
+            <div className="bg-muted rounded-lg p-4 flex items-center justify-center min-h-[200px] max-h-[400px] overflow-hidden">
+              {mediaPreview && (
+                <>
+                  {mediaType === "image" && (
+                    <img 
+                      src={mediaPreview} 
+                      alt="Preview" 
+                      className="max-w-full max-h-[350px] object-contain rounded"
+                      data-testid="img-media-preview"
+                    />
+                  )}
+                  {mediaType === "video" && (
+                    <video 
+                      src={mediaPreview} 
+                      controls 
+                      className="max-w-full max-h-[350px] rounded"
+                      data-testid="video-media-preview"
+                    />
+                  )}
+                  {mediaType === "document" && (
+                    <div className="text-center">
+                      <FileText className="h-24 w-24 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-sm font-medium" data-testid="text-document-name">
+                        {selectedMediaFile?.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {(selectedMediaFile?.size || 0 / 1024).toFixed(2)} KB
+                      </p>
+                    </div>
+                  )}
+                  {mediaType === "audio" && (
+                    <div className="text-center w-full">
+                      <Mic className="h-24 w-24 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-sm font-medium mb-4" data-testid="text-audio-name">
+                        {selectedMediaFile?.name}
+                      </p>
+                      <audio 
+                        src={mediaPreview} 
+                        controls 
+                        className="w-full"
+                        data-testid="audio-media-preview"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Caption Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Legenda (opcional)</label>
+              <Textarea
+                placeholder="Adicione uma legenda..."
+                value={mediaCaption}
+                onChange={(e) => setMediaCaption(e.target.value)}
+                className="resize-none"
+                rows={3}
+                data-testid="textarea-media-caption"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleCancelMedia}
+                disabled={sendMediaMutation.isPending}
+                data-testid="button-cancel-media"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSendMedia}
+                disabled={sendMediaMutation.isPending}
+                data-testid="button-send-media"
+              >
+                {sendMediaMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Enviar
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

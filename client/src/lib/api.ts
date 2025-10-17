@@ -169,3 +169,27 @@ export const metricsAPI = {
       headers: getAuthHeaders(),
     }),
 };
+
+// WhatsApp API
+export const whatsappAPI = {
+  sendMessage: (data: { instanceNumber: string; recipientNumber: string; text: string }) =>
+    apiRequest("/api/whatsapp/send-message", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  sendMedia: (data: { 
+    instanceNumber: string; 
+    recipientNumber: string; 
+    type: string; 
+    file: string; 
+    text?: string; 
+    docName?: string 
+  }) =>
+    apiRequest("/api/whatsapp/send-media", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+};
