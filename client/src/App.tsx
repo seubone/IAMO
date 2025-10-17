@@ -17,6 +17,7 @@ import Dashboard from "@/pages/dashboard";
 import Audit from "@/pages/audit";
 import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
+import UazapiTest from "@/pages/uazapi-test";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -66,6 +67,7 @@ function ProtectedRoutes() {
               <Route path="/audit" component={Audit} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
+              <Route path="/uazapi-test" component={UazapiTest} />
               <Route component={NotFound} />
             </Switch>
           </main>

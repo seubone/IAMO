@@ -1,4 +1,4 @@
-import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User } from "lucide-react";
+import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, FlaskConical } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -46,6 +46,11 @@ const menuItems = [
     title: "Configurações",
     url: "/settings",
     icon: Settings,
+  },
+  {
+    title: "🧪 Testes UazAPI",
+    url: "/uazapi-test",
+    icon: FlaskConical,
   },
 ];
 

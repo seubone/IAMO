@@ -192,4 +192,68 @@ export const whatsappAPI = {
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     }),
+
+  // Message actions
+  markRead: (data: { instanceNumber: string; messageIds: string[] }) =>
+    apiRequest("/api/whatsapp/mark-read", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  react: (data: { instanceNumber: string; number: string; text: string; id: string }) =>
+    apiRequest("/api/whatsapp/react", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  delete: (data: { instanceNumber: string; id: string }) =>
+    apiRequest("/api/whatsapp/delete", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  presence: (data: { instanceNumber: string; number: string; presence: string; delay?: number }) =>
+    apiRequest("/api/whatsapp/presence", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  // Chat actions
+  archiveChat: (data: { instanceNumber: string; number: string; archive: boolean }) =>
+    apiRequest("/api/whatsapp/chat/archive", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  pinChat: (data: { instanceNumber: string; number: string; pin: boolean }) =>
+    apiRequest("/api/whatsapp/chat/pin", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  readChat: (data: { instanceNumber: string; number: string; read: boolean }) =>
+    apiRequest("/api/whatsapp/chat/read", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  checkNumbers: (data: { instanceNumber: string; numbers: string[] }) =>
+    apiRequest("/api/whatsapp/chat/check", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  // Instance info
+  getStatus: (instanceNumber: string) =>
+    apiRequest(`/api/whatsapp/instance/status/${instanceNumber}`, {
+      headers: getAuthHeaders(),
+    }),
 };
