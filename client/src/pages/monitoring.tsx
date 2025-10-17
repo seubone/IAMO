@@ -4,6 +4,7 @@ import { IAStatusTicker, type IATickerItem } from "@/components/IAStatusTicker";
 import { TicketCard, type Ticket as TicketCardType } from "@/components/TicketCard";
 import { IADetailPanel, type IAAction } from "@/components/IADetailPanel";
 import { IAStatusDialog } from "@/components/IAStatusDialog";
+import { TicketListSkeleton, IADetailSkeleton } from "@/components/MonitoringSkeletons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Filter } from "lucide-react";
@@ -25,15 +26,15 @@ export default function Monitoring() {
   const [pendingAction, setPendingAction] = useState<"activate" | "pause" | "deactivate" | null>(null);
   const { toast } = useToast();
 
-  const { data: ias = [] } = useQuery<IA[]>({
+  const { data: ias = [], isLoading: iasLoading } = useQuery<IA[]>({
     queryKey: ["/api/ias"],
   });
 
-  const { data: tickets = [] } = useQuery<Ticket[]>({
+  const { data: tickets = [], isLoading: ticketsLoading } = useQuery<Ticket[]>({
     queryKey: ["/api/tickets"],
   });
 
-  const { data: actions = [] } = useQuery<Action[]>({
+  const { data: actions = [], isLoading: actionsLoading } = useQuery<Action[]>({
     queryKey: ["/api/actions"],
   });
 
@@ -174,28 +175,42 @@ export default function Monitoring() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {ticketCards.map((ticket) => (
-              <TicketCard
-                key={ticket.id}
-                ticket={ticket}
-                onClick={() => setSelectedTicket(ticket)}
-              />
-            ))}
+            {ticketsLoading ? (
+              <TicketListSkeleton />
+            ) : ticketCards.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground" data-testid="text-no-tickets">
+                  Nenhum ticket encontrado
+                </p>
+              </div>
+            ) : (
+              ticketCards.map((ticket) => (
+                <TicketCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  onClick={() => setSelectedTicket(ticket)}
+                />
+              ))
+            )}
           </div>
         </div>
 
-        {selectedTicket && selectedIA && (
+        {selectedTicket && selectedIA ? (
           <div className="w-96 border-l bg-card">
-            <IADetailPanel
-              iaName={selectedIA.name}
-              status={selectedIA.status as "active" | "paused" | "inactive"}
-              onActivate={() => handleStatusAction("activate")}
-              onPause={() => handleStatusAction("pause")}
-              onDeactivate={() => handleStatusAction("deactivate")}
-              actions={selectedIAActions}
-            />
+            {actionsLoading ? (
+              <IADetailSkeleton />
+            ) : (
+              <IADetailPanel
+                iaName={selectedIA.name}
+                status={selectedIA.status as "active" | "paused" | "inactive"}
+                onActivate={() => handleStatusAction("activate")}
+                onPause={() => handleStatusAction("pause")}
+                onDeactivate={() => handleStatusAction("deactivate")}
+                actions={selectedIAActions}
+              />
+            )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {selectedIA && (
