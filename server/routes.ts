@@ -772,10 +772,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tipo de mídia não suportado" });
       }
       
-      const { url, mediaKey, mimetype, fileName } = mediaInfo;
+      let { url, mediaKey, mimetype, fileName } = mediaInfo;
       
       if (!url || !mediaKey) {
         return res.status(400).json({ error: "URL ou mediaKey não encontrada" });
+      }
+      
+      // Se mediaKey for um objeto Buffer vindo do PostgreSQL, converter para base64
+      if (typeof mediaKey === 'object' && !Buffer.isBuffer(mediaKey)) {
+        // PostgreSQL retorna Buffer como objeto com propriedades numéricas
+        const buffer = Buffer.from(Object.values(mediaKey) as number[]);
+        mediaKey = buffer.toString('base64');
+      } else if (Buffer.isBuffer(mediaKey)) {
+        mediaKey = mediaKey.toString('base64');
       }
       
       // Descriptografar mídia

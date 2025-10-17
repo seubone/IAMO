@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag } from "lucide-react";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
@@ -972,35 +972,77 @@ export default function WhatsApp() {
                     )}
                   </div>
 
-                  {/* Input de Mensagem */}
+                  {/* Input de Mensagem - Estilo WhatsApp Web */}
                   {uazapiInstanceData?.hasToken ? (
-                    <div className="flex-shrink-0 border-t px-4 py-3 flex items-center gap-2 bg-card">
-                      <Input
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
-                          }
-                        }}
-                        placeholder="Digite uma mensagem..."
-                        disabled={sendMessageMutation.isPending}
-                        className="flex-1"
-                        data-testid="input-message"
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!messageText.trim() || sendMessageMutation.isPending}
-                        size="icon"
-                        data-testid="button-send-message"
-                      >
-                        {sendMessageMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                    <div className="flex-shrink-0 border-t px-3 py-2 bg-card">
+                      <div className="flex items-center gap-2">
+                        {/* Botão + (Anexos) */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          data-testid="button-attachment"
+                          title="Anexar arquivo"
+                        >
+                          <Plus className="h-5 w-5" />
+                        </Button>
+
+                        {/* Input de Texto com fundo escuro arredondado */}
+                        <div className="flex-1 relative">
+                          <Input
+                            value={messageText}
+                            onChange={(e) => setMessageText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                              }
+                            }}
+                            placeholder="Digite uma mensagem"
+                            disabled={sendMessageMutation.isPending}
+                            className="pr-10 rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary"
+                            data-testid="input-message"
+                          />
+                          
+                          {/* Botão Emoji dentro do input */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
+                            data-testid="button-emoji"
+                            title="Emoji"
+                          >
+                            <SmilePlus className="h-5 w-5" />
+                          </Button>
+                        </div>
+
+                        {/* Botão Microfone ou Enviar */}
+                        {messageText.trim() ? (
+                          <Button
+                            onClick={handleSendMessage}
+                            disabled={sendMessageMutation.isPending}
+                            size="icon"
+                            className="shrink-0 rounded-full"
+                            data-testid="button-send-message"
+                          >
+                            {sendMessageMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                          </Button>
                         ) : (
-                          <Send className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                            data-testid="button-voice"
+                            title="Mensagem de voz"
+                          >
+                            <Mic className="h-5 w-5" />
+                          </Button>
                         )}
-                      </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex-shrink-0 border-t px-4 py-3 bg-card">
