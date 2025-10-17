@@ -256,4 +256,23 @@ export const whatsappAPI = {
     apiRequest(`/api/whatsapp/instance/status/${instanceNumber}`, {
       headers: getAuthHeaders(),
     }),
+
+  // Token management
+  getInstanceToken: (instanceNumber: string) =>
+    apiRequest(`/api/uazapi/instances/${instanceNumber}`, {
+      headers: getAuthHeaders(),
+    }),
+
+  saveInstanceToken: (data: { instanceNumber: string; apiToken: string }) =>
+    apiRequest("/api/uazapi/instances", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  deleteInstanceToken: (instanceNumber: string) =>
+    apiRequest(`/api/uazapi/instances/${instanceNumber}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    }),
 };
