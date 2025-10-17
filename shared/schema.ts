@@ -112,6 +112,18 @@ export const uazapiInstances = pgTable("uazapi_instances", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Contact Metadata (tags and custom fields for WhatsApp contacts)
+export const contactMetadata = pgTable("contact_metadata", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  instanceId: text("instance_id").notNull(), // Evolution instance ID
+  remoteJid: text("remote_jid").notNull(), // WhatsApp JID (unique per instance)
+  tags: text("tags").array(), // Array of tags
+  customFields: jsonb("custom_fields"), // Flexible custom fields as JSON
+  notes: text("notes"), // Additional notes
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertIASchema = createInsertSchema(ias).omit({ id: true, createdAt: true, updatedAt: true });
@@ -122,10 +134,13 @@ export const insertMessageSchema = createInsertSchema(messages).omit({ id: true,
 export const insertMetricSchema = createInsertSchema(metrics).omit({ id: true, createdAt: true });
 export const insertSettingSchema = createInsertSchema(settings).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUazapiInstanceSchema = createInsertSchema(uazapiInstances).omit({ createdAt: true, updatedAt: true });
+export const insertContactMetadataSchema = createInsertSchema(contactMetadata).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertContactMetadata = z.infer<typeof insertContactMetadataSchema>;
+export type ContactMetadata = typeof contactMetadata.$inferSelect;
 
 export type InsertIA = z.infer<typeof insertIASchema>;
 export type IA = typeof ias.$inferSelect;

@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings } from "lucide-react";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
@@ -24,6 +24,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { MessageStatus } from "@/components/MessageStatus";
 import { MessageActions } from "@/components/MessageActions";
+import { useInstancePreferences } from "@/hooks/use-instance-preferences";
+import { usePinnedChats } from "@/hooks/use-pinned-chats";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,8 +36,11 @@ export default function WhatsApp() {
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
+  const { togglePin, isPinned, getPinnedChats } = usePinnedChats(selectedInstanceId);
 
   // Detectar se a aba está ativa (Page Visibility API)
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
@@ -103,10 +108,26 @@ export default function WhatsApp() {
     queryKey: ["/api/whatsapp/instances"],
   });
 
-  // Filter instances based on status
-  const instances = showOnlyActive 
+  // Filter instances based on status and sort by favorites + recents
+  const instances = (showOnlyActive 
     ? allInstances?.filter(i => i.connectionStatus === "open") 
-    : allInstances;
+    : allInstances)?.sort((a, b) => {
+      // Favoritos primeiro
+      const aFav = isFavorite(a.id);
+      const bFav = isFavorite(b.id);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      
+      // Depois recentes
+      const aRecent = recentInstances.indexOf(a.id);
+      const bRecent = recentInstances.indexOf(b.id);
+      if (aRecent !== -1 && bRecent === -1) return -1;
+      if (aRecent === -1 && bRecent !== -1) return 1;
+      if (aRecent !== -1 && bRecent !== -1) return aRecent - bRecent;
+      
+      // Por último, alfabético
+      return (a.name || a.number).localeCompare(b.name || b.number);
+    });
 
   // Monitor página visibilidade
   useEffect(() => {
@@ -158,20 +179,42 @@ export default function WhatsApp() {
   }, [chats]);
 
   // Fetch messages for selected chat com polling inteligente
-  const { data: messages, isLoading: isLoadingMessages } = useQuery<EvolutionMessage[]>({
+  const { data: allMessages, isLoading: isLoadingMessages } = useQuery<EvolutionMessage[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"],
     enabled: !!selectedInstanceId && !!selectedChatJid,
     // Polling: 5s se chat ativo e página visível, 30s se não
     refetchInterval: selectedChatJid && isPageVisible ? 5000 : 30000,
   });
 
-  // Filter chats based on search
-  const filteredChats = chats?.filter(chat => 
+  // Filter messages based on search query
+  const messages = allMessages?.filter(msg => {
+    if (!messageSearchQuery) return true;
+    
+    const searchLower = messageSearchQuery.toLowerCase();
+    const text = getMessageText(msg).toLowerCase();
+    
+    return text.includes(searchLower) ||
+           msg.pushName?.toLowerCase()?.includes(searchLower) ||
+           msg.message?.imageMessage?.caption?.toLowerCase()?.includes(searchLower);
+  });
+
+  // Filter and sort chats: pinned first, then by timestamp
+  const filteredChats = (chats?.filter(chat => 
     chat.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.pushName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.last_message?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.remoteJid?.includes(searchQuery)
-  ) || [];
+  ) || []).sort((a, b) => {
+    const aPinned = isPinned(a.remoteJid);
+    const bPinned = isPinned(b.remoteJid);
+    
+    // Fixadas primeiro
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    
+    // Depois por timestamp
+    return (b.last_message_timestamp || 0) - (a.last_message_timestamp || 0);
+  });
 
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
@@ -404,6 +447,7 @@ export default function WhatsApp() {
   const getMessageText = (msg: EvolutionMessage): string => {
     if (msg.message?.conversation) return msg.message.conversation;
     if (msg.message?.imageMessage) return msg.message.imageMessage.caption || "📷 Imagem";
+    if (msg.message?.stickerMessage) return "🎭 Figurinha";
     if (msg.message?.audioMessage) return "🎵 Áudio";
     if (msg.message?.documentMessage) return `📄 ${msg.message.documentMessage.fileName || "Documento"}`;
     return "(mensagem não suportada)";
@@ -478,22 +522,36 @@ export default function WhatsApp() {
             {instances.slice(0, 6).map((instance) => {
               const isActive = instance.connectionStatus === "open";
               return (
-                <button
-                  key={instance.id}
-                  onClick={() => {
-                    setSelectedInstanceId(instance.id);
-                    setSelectedChatJid(null);
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2 flex-shrink-0 ${
-                    selectedInstanceId === instance.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted hover-elevate'
-                  }`}
-                  data-testid={`instance-pill-${instance.id}`}
-                >
-                  <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-                  {instance.number || instance.name || instance.id}
-                </button>
+                <div key={instance.id} className="relative group">
+                  <button
+                    onClick={() => {
+                      setSelectedInstanceId(instance.id);
+                      setSelectedChatJid(null);
+                      addToRecent(instance.id);
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-2 flex-shrink-0 ${
+                      selectedInstanceId === instance.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover-elevate'
+                    }`}
+                    data-testid={`instance-pill-${instance.id}`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                    {instance.number || instance.name || instance.id}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(instance.id);
+                    }}
+                    className="absolute -top-1 -right-1 p-1 bg-background rounded-full border opacity-0 group-hover:opacity-100 transition-opacity"
+                    data-testid={`button-favorite-${instance.id}`}
+                  >
+                    <Star
+                      className={`h-3 w-3 ${isFavorite(instance.id) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`}
+                    />
+                  </button>
+                </div>
               );
             })}
             
@@ -518,37 +576,51 @@ export default function WhatsApp() {
                     {instances.map((instance) => {
                       const isActive = instance.connectionStatus === "open";
                       return (
-                        <button
-                          key={instance.id}
-                          onClick={() => {
-                            setSelectedInstanceId(instance.id);
-                            setSelectedChatJid(null);
-                            setIsInstanceDialogOpen(false);
-                          }}
-                          className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors hover-elevate ${
-                            selectedInstanceId === instance.id ? 'bg-accent' : ''
-                          }`}
-                          data-testid={`instance-dialog-item-${instance.id}`}
-                        >
-                          <Avatar className="h-12 w-12 flex-shrink-0">
-                            <AvatarImage src={instance.profilePicUrl || profileEmptyImage} />
-                            <AvatarFallback>
-                              {(instance.name || instance.number || '?')[0].toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center gap-2">
-                              <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-                              <h3 className="font-medium">
-                                {instance.name || instance.number || instance.id}
-                              </h3>
+                        <div key={instance.id} className="relative group">
+                          <button
+                            onClick={() => {
+                              setSelectedInstanceId(instance.id);
+                              setSelectedChatJid(null);
+                              addToRecent(instance.id);
+                              setIsInstanceDialogOpen(false);
+                            }}
+                            className={`w-full p-3 rounded-lg flex items-center gap-3 transition-colors hover-elevate ${
+                              selectedInstanceId === instance.id ? 'bg-accent' : ''
+                            }`}
+                            data-testid={`instance-dialog-item-${instance.id}`}
+                          >
+                            <Avatar className="h-12 w-12 flex-shrink-0">
+                              <AvatarImage src={instance.profilePicUrl || profileEmptyImage} />
+                              <AvatarFallback>
+                                {(instance.name || instance.number || '?')[0].toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <h3 className="font-medium">
+                                  {instance.name || instance.number || instance.id}
+                                </h3>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {instance.number || instance.id}
+                              </p>
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              {instance.number || instance.id}
-                            </p>
-                          </div>
-                        </button>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(instance.id);
+                            }}
+                            className="absolute top-3 right-3"
+                            data-testid={`button-favorite-dialog-${instance.id}`}
+                          >
+                            <Star
+                              className={`h-5 w-5 ${isFavorite(instance.id) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`}
+                            />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -591,51 +663,69 @@ export default function WhatsApp() {
                 ) : (
                   <div className="divide-y">
                     {filteredChats.map((chat) => (
-                      <button
-                        key={chat.id}
-                        onClick={() => setSelectedChatJid(chat.remoteJid)}
-                        className={`w-full p-3 flex items-start gap-3 hover-elevate text-left ${
-                          selectedChatJid === chat.remoteJid ? 'bg-accent/50' : ''
-                        }`}
-                        data-testid={`chat-item-${chat.remoteJid}`}
-                      >
-                        <Avatar className="h-12 w-12 flex-shrink-0">
-                          <AvatarImage src={chat.profilePicUrl || profileEmptyImage} />
-                          <AvatarFallback>
-                            {(chat.name || chat.pushName || '?')[0].toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h3 className="font-medium truncate">
-                              {chat.name || chat.pushName || chat.remoteJid}
-                            </h3>
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatChatTime(chat.last_message_timestamp)}
-                            </span>
-                          </div>
+                      <div key={chat.id} className="relative group">
+                        <button
+                          onClick={() => setSelectedChatJid(chat.remoteJid)}
+                          className={`w-full p-3 flex items-start gap-3 hover-elevate text-left ${
+                            selectedChatJid === chat.remoteJid ? 'bg-accent/50' : ''
+                          }`}
+                          data-testid={`chat-item-${chat.remoteJid}`}
+                        >
+                          <Avatar className="h-12 w-12 flex-shrink-0">
+                            <AvatarImage src={chat.profilePicUrl || profileEmptyImage} />
+                            <AvatarFallback>
+                              {(chat.name || chat.pushName || '?')[0].toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
                           
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm text-muted-foreground truncate flex-1">
-                              {chat.last_message || 'Sem mensagens'}
-                            </p>
-                            {chat.unreadMessages > 0 && (
-                              <Badge 
-                                variant="default" 
-                                className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#FBC000] hover:bg-[#FBC000] text-black font-semibold"
-                                data-testid={`badge-unread-${chat.remoteJid}`}
-                              >
-                                {isMarkingAsRead && selectedChatJid === chat.remoteJid ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  chat.unreadMessages
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-1 flex-1 min-w-0">
+                                {isPinned(chat.remoteJid) && (
+                                  <Pin className="h-3 w-3 text-[#FBC000] flex-shrink-0" />
                                 )}
-                              </Badge>
-                            )}
+                                <h3 className="font-medium truncate">
+                                  {chat.name || chat.pushName || chat.remoteJid}
+                                </h3>
+                              </div>
+                              <span className="text-xs text-muted-foreground flex-shrink-0">
+                                {formatChatTime(chat.last_message_timestamp)}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground truncate flex-1">
+                                {chat.last_message || 'Sem mensagens'}
+                              </p>
+                              {chat.unreadMessages > 0 && (
+                                <Badge 
+                                  variant="default" 
+                                  className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#FBC000] hover:bg-[#FBC000] text-black font-semibold"
+                                  data-testid={`badge-unread-${chat.remoteJid}`}
+                                >
+                                  {isMarkingAsRead && selectedChatJid === chat.remoteJid ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    chat.unreadMessages
+                                  )}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePin(chat.remoteJid);
+                          }}
+                          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-testid={`button-pin-${chat.remoteJid}`}
+                        >
+                          <Pin
+                            className={`h-4 w-4 ${isPinned(chat.remoteJid) ? 'text-[#FBC000] fill-[#FBC000]' : 'text-muted-foreground'}`}
+                          />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -647,29 +737,58 @@ export default function WhatsApp() {
               {selectedChatJid ? (
                 <>
                   {/* Header do Chat */}
-                  <div className="h-16 flex-shrink-0 border-b px-4 flex items-center gap-3 bg-card">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={selectedChat?.profilePicUrl || profileEmptyImage} />
-                      <AvatarFallback>
-                        {(selectedChat?.name || selectedChat?.pushName || '?')[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h3 className="font-medium" data-testid="text-chat-name">
-                        {selectedChat?.name || selectedChat?.pushName || selectedChat?.remoteJid}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedChat?.remoteJid}
-                      </p>
+                  <div className="border-b bg-card flex-shrink-0">
+                    <div className="h-16 px-4 flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={selectedChat?.profilePicUrl || profileEmptyImage} />
+                        <AvatarFallback>
+                          {(selectedChat?.name || selectedChat?.pushName || '?')[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-medium" data-testid="text-chat-name">
+                          {selectedChat?.name || selectedChat?.pushName || selectedChat?.remoteJid}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedChat?.remoteJid}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (messageSearchQuery) {
+                            setMessageSearchQuery("");
+                          } else {
+                            document.getElementById('message-search-input')?.focus();
+                          }
+                        }}
+                        data-testid="button-search-messages"
+                      >
+                        {messageSearchQuery ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsSettingsDialogOpen(true)}
+                        data-testid="button-settings"
+                      >
+                        <Settings className="h-5 w-5" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsSettingsDialogOpen(true)}
-                      data-testid="button-settings"
-                    >
-                      <Settings className="h-5 w-5" />
-                    </Button>
+                    {messageSearchQuery !== null && (
+                      <div className="px-4 pb-3">
+                        <Input
+                          id="message-search-input"
+                          type="text"
+                          placeholder="Buscar mensagens..."
+                          value={messageSearchQuery}
+                          onChange={(e) => setMessageSearchQuery(e.target.value)}
+                          className="w-full"
+                          data-testid="input-search-messages"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Mensagens */}
@@ -741,6 +860,19 @@ export default function WhatsApp() {
                                       </div>
                                     )}
                                     
+                                    {/* Sticker Message */}
+                                    {message.message?.stickerMessage?.url && (
+                                      <div className="mb-2">
+                                        <img 
+                                          src={message.message.stickerMessage.url} 
+                                          alt="Figurinha"
+                                          className="rounded-md max-w-[150px] h-auto object-contain cursor-pointer hover:opacity-90"
+                                          onClick={() => window.open(message.message.stickerMessage!.url, '_blank')}
+                                          data-testid={`sticker-${message.id}`}
+                                        />
+                                      </div>
+                                    )}
+                                    
                                     {/* Image Message */}
                                     {message.message?.imageMessage?.url && (
                                       <div className="mb-2">
@@ -780,8 +912,8 @@ export default function WhatsApp() {
                                       </a>
                                     )}
                                     
-                                    {/* Text Message (only if not image or document with no caption) */}
-                                    {!message.message?.imageMessage && !message.message?.documentMessage && (
+                                    {/* Text Message (only if not image/sticker/document) */}
+                                    {!message.message?.imageMessage && !message.message?.stickerMessage && !message.message?.documentMessage && (
                                       <p className="text-sm whitespace-pre-wrap break-words">
                                         {text}
                                       </p>

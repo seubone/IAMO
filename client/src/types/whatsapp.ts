@@ -40,6 +40,10 @@ export interface EvolutionMessage {
       caption?: string;
       mimetype?: string;
     };
+    stickerMessage?: {
+      url?: string;
+      mimetype?: string;
+    };
     audioMessage?: {
       url?: string;
       mimetype?: string;
