@@ -1219,6 +1219,333 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Show typing or recording presence via Uazapi
+  app.post("/api/whatsapp/presence", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, number, presence, delay } = req.body;
+
+      // Validação
+      if (!instanceNumber || !number || !presence) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, number, presence (composing/recording/paused)" 
+        });
+      }
+
+      // Validar tipo de presença
+      const validPresences = ["composing", "recording", "paused"];
+      if (!validPresences.includes(presence)) {
+        return res.status(400).json({ 
+          error: `Presença inválida. Use: ${validPresences.join(", ")}` 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const requestBody: any = { number, presence };
+      if (delay) requestBody.delay = delay;
+
+      const response = await fetch(`${baseUrl}/message/presence`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi presence error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao atualizar presença",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Presença atualizada",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error updating presence:", error);
+      res.status(500).json({ error: "Erro ao atualizar presença" });
+    }
+  });
+
+  // Archive or unarchive chat via Uazapi
+  app.post("/api/whatsapp/chat/archive", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, number, archive } = req.body;
+
+      // Validação
+      if (!instanceNumber || !number || typeof archive !== "boolean") {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, number, archive (boolean)" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/chat/archive`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ number, archive }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi archive error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao arquivar/desarquivar chat",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: archive ? "Chat arquivado" : "Chat desarquivado",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error archiving chat:", error);
+      res.status(500).json({ error: "Erro ao arquivar chat" });
+    }
+  });
+
+  // Pin or unpin chat via Uazapi
+  app.post("/api/whatsapp/chat/pin", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, number, pin } = req.body;
+
+      // Validação
+      if (!instanceNumber || !number || typeof pin !== "boolean") {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, number, pin (boolean)" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/chat/pin`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ number, pin }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi pin error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao fixar/desafixar chat",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: pin ? "Chat fixado" : "Chat desfixado",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error pinning chat:", error);
+      res.status(500).json({ error: "Erro ao fixar chat" });
+    }
+  });
+
+  // Mark chat as read or unread via Uazapi
+  app.post("/api/whatsapp/chat/read", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, number, read } = req.body;
+
+      // Validação
+      if (!instanceNumber || !number || typeof read !== "boolean") {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, number, read (boolean)" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/chat/read`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ number, read }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi chat read error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao marcar chat como lido/não lido",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: read ? "Chat marcado como lido" : "Chat marcado como não lido",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error marking chat as read:", error);
+      res.status(500).json({ error: "Erro ao marcar chat como lido" });
+    }
+  });
+
+  // Check if numbers are registered on WhatsApp via Uazapi
+  app.post("/api/whatsapp/chat/check", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, numbers } = req.body;
+
+      // Validação
+      if (!instanceNumber || !numbers || !Array.isArray(numbers)) {
+        return res.status(400).json({ 
+          error: "Campos obrigatórios: instanceNumber, numbers (array)" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/chat/check`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+        body: JSON.stringify({ numbers }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi check error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao verificar números",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Números verificados",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error checking numbers:", error);
+      res.status(500).json({ error: "Erro ao verificar números" });
+    }
+  });
+
+  // Get instance status and QR code via Uazapi
+  app.get("/api/whatsapp/instance/status/:instanceNumber", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber } = req.params;
+
+      // Validação
+      if (!instanceNumber) {
+        return res.status(400).json({ 
+          error: "Número da instância obrigatório" 
+        });
+      }
+
+      // Buscar token da instância
+      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      
+      if (!uazapiInstance || !uazapiInstance.apiToken) {
+        return res.status(404).json({ 
+          error: "Token não configurado para esta instância" 
+        });
+      }
+
+      const baseUrl = process.env.UAZAPI_BASE_URL || "https://quatro-cinco.uazapi.com";
+      const response = await fetch(`${baseUrl}/instance/status`, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "token": uazapiInstance.apiToken,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Uazapi status error:", data);
+        return res.status(response.status).json({ 
+          error: "Erro ao buscar status da instância",
+          details: data
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Status obtido com sucesso",
+        data 
+      });
+    } catch (error: any) {
+      console.error("Error getting instance status:", error);
+      res.status(500).json({ error: "Erro ao buscar status" });
+    }
+  });
+
   // Uazapi Instances - Token Management
   // Get token for specific instance
   app.get("/api/uazapi/instances/:number", authMiddleware, async (req, res) => {
