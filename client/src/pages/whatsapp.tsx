@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,8 @@ import { useInstancePreferences } from "@/hooks/use-instance-preferences";
 import { usePinnedChats } from "@/hooks/use-pinned-chats";
 import { ContactMetadataDialog } from "@/components/ContactMetadataDialog";
 import { StickerMessage } from "@/components/StickerMessage";
+import { ImageMessage } from "@/components/ImageMessage";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,6 +43,7 @@ export default function WhatsApp() {
   const [messageText, setMessageText] = useState("");
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
@@ -821,14 +825,34 @@ export default function WhatsApp() {
                             </div>
                             
                             {/* Messages for this date */}
-                            {group.messages.map((message) => {
+                            {group.messages.map((message, messageIndex) => {
                               const fromMe = message.key.fromMe;
                               const text = getMessageText(message);
+                              
+                              // Helper para identificar remetente único (funciona em 1:1 e grupos)
+                              const getSenderId = (msg: EvolutionMessage) => {
+                                if (msg.key.fromMe) return 'me';
+                                // Prioridade: participant (grupos) > pushName (fallback) > remoteJid (último recurso)
+                                // Combinar múltiplos campos garante distinção mesmo sem participant
+                                return msg.key.participant || `${msg.pushName || 'unknown'}_${msg.key.remoteJid}`;
+                              };
+                              
+                              // Detectar se mensagem anterior é do mesmo remetente (para agrupar)
+                              const prevMessage = messageIndex > 0 ? group.messages[messageIndex - 1] : null;
+                              const isSameSenderAsPrevious = prevMessage && 
+                                getSenderId(prevMessage) === getSenderId(message);
+                              
+                              // Próxima mensagem para decidir quando mostrar timestamp
+                              const nextMessage = messageIndex < group.messages.length - 1 ? group.messages[messageIndex + 1] : null;
+                              const isSameSenderAsNext = nextMessage && 
+                                getSenderId(nextMessage) === getSenderId(message);
                               
                               return (
                                 <div
                                   key={message.id}
-                                  className={`flex gap-2 group ${fromMe ? 'justify-end' : 'justify-start'}`}
+                                  className={`flex gap-2 group ${fromMe ? 'justify-end' : 'justify-start'} ${
+                                    isSameSenderAsPrevious ? 'mt-0.5' : 'mt-3'
+                                  }`}
                                   data-testid={`message-${message.id}`}
                                 >
                                   {/* Message Actions (shows on hover) - antes da mensagem se for minha */}
@@ -854,13 +878,13 @@ export default function WhatsApp() {
                                   )}
                                   
                                   <div
-                                    className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                                    className={`max-w-[65%] rounded-lg px-4 py-2 ${
                                       fromMe
                                         ? 'bg-primary text-primary-foreground'
                                         : 'bg-card border'
                                     }`}
                                   >
-                                    {!fromMe && message.pushName && (
+                                    {!fromMe && message.pushName && !isSameSenderAsPrevious && (
                                       <p className="text-xs font-medium mb-1 text-primary">
                                         {message.pushName}
                                       </p>
@@ -878,21 +902,11 @@ export default function WhatsApp() {
                                     )}
                                     
                                     {/* Image Message */}
-                                    {message.message?.imageMessage?.url && (
-                                      <div className="mb-2">
-                                        <img 
-                                          src={message.message.imageMessage.url} 
-                                          alt="Imagem enviada"
-                                          className="rounded-md max-w-full h-auto max-h-96 object-contain cursor-pointer hover:opacity-90"
-                                          onClick={() => window.open(message.message.imageMessage!.url, '_blank')}
-                                          data-testid={`image-${message.id}`}
-                                        />
-                                        {message.message.imageMessage.caption && (
-                                          <p className="text-sm mt-2 whitespace-pre-wrap break-words">
-                                            {message.message.imageMessage.caption}
-                                          </p>
-                                        )}
-                                      </div>
+                                    {message.message?.imageMessage && (
+                                      <ImageMessage 
+                                        messageId={message.id} 
+                                        caption={message.message.imageMessage.caption}
+                                      />
                                     )}
                                     
                                     {/* Document/PDF Message */}
@@ -928,12 +942,15 @@ export default function WhatsApp() {
                                       </p>
                                     )}
                                     
-                                    <div className="flex items-center justify-end gap-1 mt-1">
-                                      <p className="text-xs opacity-70">
-                                        {formatTimestamp(message.messageTimestamp)}
-                                      </p>
-                                      <MessageStatus status={message.status} fromMe={fromMe} />
-                                    </div>
+                                    {/* Timestamp - mostrar apenas se for última do grupo ou on hover */}
+                                    {!isSameSenderAsNext && (
+                                      <div className="flex items-center justify-end gap-1 mt-1">
+                                        <p className="text-[10px] opacity-60">
+                                          {formatTimestamp(message.messageTimestamp)}
+                                        </p>
+                                        <MessageStatus status={message.status} fromMe={fromMe} />
+                                      </div>
+                                    )}
                                   </div>
                                   
                                   {/* Message Actions (shows on hover) - depois da mensagem se não for minha */}
@@ -974,7 +991,7 @@ export default function WhatsApp() {
 
                   {/* Input de Mensagem - Estilo WhatsApp Web */}
                   {uazapiInstanceData?.hasToken ? (
-                    <div className="flex-shrink-0 border-t px-3 py-2 bg-card">
+                    <div className="flex-shrink-0 border-t px-3 py-2 bg-card relative">
                       <div className="flex items-center gap-2">
                         {/* Botão + (Anexos) */}
                         <Button
@@ -989,7 +1006,7 @@ export default function WhatsApp() {
 
                         {/* Input de Texto com fundo escuro arredondado */}
                         <div className="flex-1 relative">
-                          <Input
+                          <Textarea
                             value={messageText}
                             onChange={(e) => setMessageText(e.target.value)}
                             onKeyDown={(e) => {
@@ -1000,7 +1017,17 @@ export default function WhatsApp() {
                             }}
                             placeholder="Digite uma mensagem"
                             disabled={sendMessageMutation.isPending}
-                            className="pr-10 rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary"
+                            rows={1}
+                            className="pr-10 min-h-[40px] max-h-32 rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary resize-none"
+                            style={{
+                              height: 'auto',
+                              overflowY: messageText.split('\n').length > 4 ? 'auto' : 'hidden'
+                            }}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement;
+                              target.style.height = 'auto';
+                              target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+                            }}
                             data-testid="input-message"
                           />
                           
@@ -1008,7 +1035,8 @@ export default function WhatsApp() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+                            className="absolute right-1 bottom-1 h-7 w-7 text-muted-foreground hover:text-foreground"
                             data-testid="button-emoji"
                             title="Emoji"
                           >
@@ -1043,6 +1071,20 @@ export default function WhatsApp() {
                           </Button>
                         )}
                       </div>
+
+                      {/* Emoji Picker */}
+                      {isEmojiPickerOpen && (
+                        <div className="absolute bottom-full right-3 mb-2 z-50">
+                          <EmojiPicker
+                            onEmojiClick={(emojiData: EmojiClickData) => {
+                              setMessageText(prev => prev + emojiData.emoji);
+                              setIsEmojiPickerOpen(false);
+                            }}
+                            width={350}
+                            height={450}
+                          />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex-shrink-0 border-t px-4 py-3 bg-card">
