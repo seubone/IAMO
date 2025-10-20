@@ -3,6 +3,10 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 interface ApiError extends Error {
   status: number;
   statusText: string;
+  response?: {
+    status: number;
+    statusText: string;
+  };
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -19,10 +23,15 @@ async function throwIfResNotOk(res: Response) {
     } catch {
       errorMessage = res.statusText;
     }
-    
+
     const error = new Error(`${res.status}: ${errorMessage}`) as ApiError;
     error.status = res.status;
     error.statusText = res.statusText;
+    // Adicionar response para compatibilidade com verificações de status
+    error.response = {
+      status: res.status,
+      statusText: res.statusText,
+    };
     throw error;
   }
 }

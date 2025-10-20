@@ -52,13 +52,13 @@ export function ChatMessageComponent({ message }: ChatMessageProps) {
 
       <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? "items-end" : "items-start"}`}>
         <div
-          className={`rounded-lg px-4 py-2 ${
+          className={`rounded-lg px-4 py-2 break-words overflow-hidden ${
             isIA
               ? "bg-muted/50"
               : "bg-primary/10 border border-primary/20"
           }`}
         >
-          <p className="text-sm">{message.content}</p>
+          <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{message.content}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

@@ -615,7 +615,7 @@ export default function Chat() {
             </div>
 
             {/* Mensagens */}
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea className="flex-1 p-4 overflow-x-hidden">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-muted-foreground">Carregando mensagens...</p>
@@ -643,7 +643,7 @@ export default function Chat() {
                       >
                         <div
                           className={cn(
-                            "max-w-[70%] rounded-lg overflow-hidden",
+                            "max-w-[70%] rounded-lg overflow-hidden break-words",
                             msg.sender === "user"
                               ? "bg-muted"
                               : "bg-primary text-primary-foreground"
@@ -653,18 +653,18 @@ export default function Chat() {
                           {hasMedia && (
                             <div className="mb-2">
                               {attachment.type === "image" && (
-                                <img 
-                                  src={attachment.file} 
-                                  alt="Imagem" 
-                                  className="w-full max-w-sm rounded"
+                                <img
+                                  src={attachment.file}
+                                  alt="Imagem"
+                                  className="w-full max-w-full rounded object-contain"
                                   data-testid={`img-attachment-${msg.id}`}
                                 />
                               )}
                               {attachment.type === "video" && (
-                                <video 
-                                  src={attachment.file} 
-                                  controls 
-                                  className="w-full max-w-sm rounded"
+                                <video
+                                  src={attachment.file}
+                                  controls
+                                  className="w-full max-w-full rounded"
                                   data-testid={`video-attachment-${msg.id}`}
                                 />
                               )}
@@ -690,10 +690,10 @@ export default function Chat() {
                               )}
                             </div>
                           )}
-                          
+
                           {msg.content && !msg.content.startsWith("[") && (
                             <div className="p-3">
-                              <p className="text-sm">{msg.content}</p>
+                              <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{msg.content}</p>
                             </div>
                           )}
                           

@@ -36,6 +36,7 @@ import { ContactMetadataDialog } from "@/components/ContactMetadataDialog";
 import { StickerMessage } from "@/components/StickerMessage";
 import { ImageMessage } from "@/components/ImageMessage";
 import { VideoMessage } from "@/components/VideoMessage";
+import { AudioMessage } from "@/components/AudioMessage";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 
@@ -554,7 +555,7 @@ export default function WhatsApp() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen w-full flex flex-col overflow-hidden">
       {/* Pills de Instâncias */}
       <div className="border-b bg-card px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-4 mb-3">
@@ -695,7 +696,7 @@ export default function WhatsApp() {
       </div>
 
       {/* Main Content - WhatsApp Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex w-full overflow-hidden">
         {selectedInstanceId ? (
           <>
             {/* Lista de Conversas (Esquerda) */}
@@ -788,7 +789,7 @@ export default function WhatsApp() {
             </div>
 
             {/* Área de Mensagens (Direita) */}
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 w-full overflow-x-hidden">
               {selectedChatJid ? (
                 <>
                   {/* Header do Chat */}
@@ -855,14 +856,14 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Mensagens */}
-                  <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/5">
+                  <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden p-4 bg-muted/5">
                     {isLoadingMessages ? (
                       <MessageListSkeleton />
                     ) : messages && messages.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-4 w-full overflow-x-hidden">
                         {/* CORRIGIDO: Backend retorna DESC (mais recentes primeiro), invertemos para exibir corretamente */}
                         {groupMessagesByDate([...messages].reverse()).map((group, groupIndex) => (
-                          <div key={group.date} className="space-y-2">
+                          <div key={group.date} className="space-y-2 w-full overflow-x-hidden">
                             {/* Date separator */}
                             <div className="flex items-center justify-center my-4">
                               <div className="bg-accent/20 px-3 py-1 rounded-full">
@@ -898,7 +899,7 @@ export default function WhatsApp() {
                               return (
                                 <div
                                   key={message.id}
-                                  className={`flex gap-2 group ${fromMe ? 'justify-end' : 'justify-start'} ${
+                                  className={`flex gap-2 group w-full ${fromMe ? 'justify-end' : 'justify-start'} ${
                                     isSameSenderAsPrevious ? 'mt-0.5' : 'mt-3'
                                   }`}
                                   data-testid={`message-${message.id}`}
@@ -926,11 +927,12 @@ export default function WhatsApp() {
                                   )}
                                   
                                   <div
-                                    className={`max-w-[65%] rounded-lg px-4 py-2 ${
+                                    className={`max-w-[65%] min-w-0 rounded-lg px-4 py-2 break-words overflow-hidden ${
                                       fromMe
                                         ? 'bg-primary text-primary-foreground'
                                         : 'bg-card border'
                                     }`}
+                                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                                   >
                                     {!fromMe && message.pushName && !isSameSenderAsPrevious && (
                                       <p className="text-xs font-medium mb-1 text-primary">
@@ -969,7 +971,12 @@ export default function WhatsApp() {
                                     {message.message?.ptvMessage && (
                                       <VideoMessage messageId={message.id} />
                                     )}
-                                    
+
+                                    {/* Audio Message */}
+                                    {message.message?.audioMessage && (
+                                      <AudioMessage messageId={message.id} />
+                                    )}
+
                                     {/* Document/PDF Message */}
                                     {message.message?.documentMessage && (
                                       <button 
@@ -1048,24 +1055,25 @@ export default function WhatsApp() {
                                           <span>editada</span>
                                         </div>
                                         {message.message.editedMessage.message?.conversation && (
-                                          <p className="text-sm whitespace-pre-wrap break-words">
+                                          <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
                                             {message.message.editedMessage.message.conversation}
                                           </p>
                                         )}
                                       </div>
                                     )}
                                     
-                                    {/* Text Message (only if not image/sticker/document/video/location/contact/reaction/edited) */}
-                                    {!message.message?.imageMessage && 
-                                     !message.message?.stickerMessage && 
-                                     !message.message?.documentMessage && 
-                                     !message.message?.videoMessage && 
+                                    {/* Text Message (only if not image/sticker/document/video/audio/location/contact/reaction/edited) */}
+                                    {!message.message?.imageMessage &&
+                                     !message.message?.stickerMessage &&
+                                     !message.message?.documentMessage &&
+                                     !message.message?.videoMessage &&
                                      !message.message?.ptvMessage &&
+                                     !message.message?.audioMessage &&
                                      !message.message?.locationMessage &&
                                      !message.message?.contactMessage &&
                                      !message.message?.reactionMessage &&
                                      !message.message?.editedMessage && (
-                                      <p className="text-sm whitespace-pre-wrap break-words">
+                                      <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
                                         {text}
                                       </p>
                                     )}

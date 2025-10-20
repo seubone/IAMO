@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "context": {
+            "type": "stdio",
+            "command": "cmd",
+            "args": [
+                "/C",
+                "npx",
+                "-y",
+                "@upstash/context7-mcpclaude"
+            ],
+            "env": {}
+        }
+    }
+}

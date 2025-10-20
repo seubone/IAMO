@@ -795,16 +795,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Descriptografar mídia
       const decryptedBuffer = await decryptWhatsAppMedia(url, mediaKey, mediaTypeKey);
 
-      // Para stickers, retornar como data URL
-      if (messageType === 'stickerMessage') {
-        const dataUrl = bufferToDataUrl(decryptedBuffer, mimetype || 'image/webp');
-        return res.json({ dataUrl, mimetype: mimetype || 'image/webp' });
+      // Para documentos, retornar como download (manter comportamento de download)
+      if (messageType === 'documentMessage') {
+        res.setHeader('Content-Type', mimetype || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'download'}"`);
+        return res.send(decryptedBuffer);
       }
 
-      // Para documentos, retornar como download
-      res.setHeader('Content-Type', mimetype || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'download'}"`);
-      res.send(decryptedBuffer);
+      // Para todas as outras mídias (stickers, imagens, vídeos, áudios), retornar como dataUrl
+      const dataUrl = bufferToDataUrl(decryptedBuffer, mimetype || 'application/octet-stream');
+      return res.json({ dataUrl, mimetype: mimetype || 'application/octet-stream' });
 
     } catch (error: any) {
       // Importar MediaExpiredError para verificação

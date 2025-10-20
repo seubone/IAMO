@@ -24,11 +24,11 @@ export function StickerMessage({ messageId }: StickerMessageProps) {
     );
   }
   return (
-    <div className="mb-2">
-      <img 
-        src={data.dataUrl} 
+    <div className="mb-2 overflow-hidden">
+      <img
+        src={data.dataUrl}
         alt="Figurinha"
-        className="rounded-md max-w-[150px] h-auto object-contain cursor-pointer hover:opacity-90"
+        className="rounded-md max-w-full w-auto max-h-[150px] object-contain cursor-pointer hover:opacity-90"
         onClick={() => {
           const link = document.createElement('a');
           link.href = data.dataUrl;
