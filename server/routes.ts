@@ -5,6 +5,7 @@ import { dbStorage as storage } from "./db-storage";
 import { authMiddleware, generateToken, type AuthRequest } from "./middleware/auth";
 import { requirePermission, requireRole } from "./middleware/rbac";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { insertUserSchema, insertIASchema, insertTicketSchema, insertActionSchema, insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
 
@@ -29,8 +30,18 @@ const lastMessageTimestamps = new Map<string, number>(); // instanceId -> last m
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Health check endpoint (no auth required)
+  app.get("/health", (req, res) => {
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development",
+    });
+  });
+
   // WebSocket setup with authentication
-  const wss = new WebSocketServer({ 
+  const wss = new WebSocketServer({
     server: httpServer,
     path: "/ws"
   });
@@ -49,8 +60,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Verify JWT token
       const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
-      const decoded = require("jsonwebtoken").verify(token, JWT_SECRET);
-      
+      const decoded = jwt.verify(token, JWT_SECRET) as { email: string; userId: string };
+
       console.log(`WebSocket client connected: ${decoded.email}`);
       wsClients.add(ws);
 
@@ -98,9 +109,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       });
-    } catch (error) {
-      console.log("WebSocket connection rejected: Invalid token");
-      ws.close(1008, "Invalid token");
+    } catch (error: any) {
+      const errorMsg = error.name === "TokenExpiredError"
+        ? "Token expired"
+        : error.name === "JsonWebTokenError"
+        ? "Invalid token format"
+        : "Invalid token";
+
+      console.log(`WebSocket connection rejected: ${errorMsg}`, error.message);
+      ws.close(1008, errorMsg);
     }
   });
 
@@ -144,20 +161,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Query otimizada para novas mensagens
           const result = await evolutionPool.query(`
-            SELECT 
-              m."keyRemoteJid",
-              m."keyId" as "messageId",
-              m."keyFromMe" as "fromMe",
-              m."pushName",
-              m."messageTimestamp",
-              m."messageType",
-              COALESCE(m.message->>'conversation', 
-                       m.message->'extendedTextMessage'->>'text',
+            SELECT
+              (key->>'remoteJid') as "keyRemoteJid",
+              (key->>'id') as "messageId",
+              (key->>'fromMe')::boolean as "fromMe",
+              "pushName",
+              "messageTimestamp",
+              "messageType",
+              COALESCE(message->>'conversation',
+                       message->'extendedTextMessage'->>'text',
                        '[Mídia]') as message_text
-            FROM "Message" m
-            WHERE m."instanceId" = $1
-              AND m."messageTimestamp" > $2
-            ORDER BY m."messageTimestamp" ASC
+            FROM "Message"
+            WHERE "instanceId" = $1
+              AND "messageTimestamp" > $2::bigint
+            ORDER BY "messageTimestamp" ASC
             LIMIT 50
           `, [instanceId, lastTimestamp]);
 
@@ -331,8 +348,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Senhas inválidas" });
       }
 
-      if (newPassword.length < 6) {
-        return res.status(400).json({ error: "A nova senha deve ter no mínimo 6 caracteres" });
+      if (newPassword.length < 12) {
+        return res.status(400).json({ error: "A nova senha deve ter no mínimo 12 caracteres" });
+      }
+
+      // Validar complexidade da senha (pelo menos uma letra maiúscula, uma minúscula e um número)
+      const hasUpperCase = /[A-Z]/.test(newPassword);
+      const hasLowerCase = /[a-z]/.test(newPassword);
+      const hasNumber = /[0-9]/.test(newPassword);
+
+      if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+        return res.status(400).json({
+          error: "A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número"
+        });
       }
       
       const user = await storage.getUser(req.user!.id);
@@ -594,40 +622,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Evolution API Webhook for WhatsApp messages
-  app.post("/webhooks/evolution/message", webhookLimiter, async (req, res) => {
-    try {
-      console.log("📱 Webhook Evolution - Nova mensagem recebida:", JSON.stringify(req.body, null, 2));
-      
-      const { event, instance, data } = req.body;
-      
-      // Eventos possíveis: messages.upsert, messages.update, etc
-      if (event === "messages.upsert" || event === "messages.update") {
-        const messageData = data || req.body;
-        
-        // Broadcast para todos os clientes conectados
-        broadcast({ 
-          type: "whatsapp_message_received", 
-          data: {
-            instance: instance || messageData.instance,
-            remoteJid: messageData.key?.remoteJid || messageData.remoteJid,
-            messageId: messageData.key?.id || messageData.id,
-            fromMe: messageData.key?.fromMe || messageData.fromMe,
-            message: messageData.message,
-            pushName: messageData.pushName,
-            timestamp: messageData.messageTimestamp || Date.now(),
-          }
-        });
-        
-        console.log("✅ Evento WebSocket emitido: whatsapp_message_received");
-      }
-      
-      res.status(200).json({ success: true, message: "Webhook processado" });
-    } catch (error: any) {
-      console.error("Evolution Webhook error:", error);
-      res.status(500).json({ error: "Erro ao processar webhook" });
-    }
-  });
 
   // ============ WHATSAPP/EVOLUTION ROUTES ============
   
@@ -660,18 +654,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { instanceId } = req.params;
       const { evolutionPool } = await import("./evolution-db");
       
-      // Query with last message preview
+      // Query with last message preview - CORRIGIDO: filtra mensagens por instância
+      // IMPORTANTE: DISTINCT ON requer que os campos estejam no início do ORDER BY
       const result = await evolutionPool.query(`
         WITH LastMessages AS (
           SELECT DISTINCT ON ((key->>'remoteJid'))
             (key->>'remoteJid') as remote_jid,
             COALESCE(
               message->>'conversation',
-              CASE 
+              message->'extendedTextMessage'->>'text',
+              CASE
+                WHEN message->'stickerMessage' IS NOT NULL THEN '🎨 Sticker'
                 WHEN message->'imageMessage' IS NOT NULL THEN '📷 Imagem'
                 WHEN message->'audioMessage' IS NOT NULL THEN '🎵 Áudio'
                 WHEN message->'documentMessage' IS NOT NULL THEN '📄 ' || COALESCE(message->'documentMessage'->>'fileName', 'Documento')
                 WHEN message->'videoMessage' IS NOT NULL THEN '🎥 Vídeo'
+                WHEN message->'contactMessage' IS NOT NULL THEN '👤 Contato'
+                WHEN message->'locationMessage' IS NOT NULL THEN '📍 Localização'
                 ELSE '(mensagem não suportada)'
               END
             ) as last_message_text,
@@ -680,7 +679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           WHERE "instanceId" = $1
           ORDER BY (key->>'remoteJid') ASC, "messageTimestamp" DESC
         )
-        SELECT 
+        SELECT
           c.id,
           c."remoteJid",
           c.name,
@@ -736,29 +735,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { messageId } = req.params;
       const { evolutionPool } = await import("./evolution-db");
-      const { decryptWhatsAppMedia, bufferToDataUrl } = await import("./whatsapp-media-decrypt");
-      
+      const { decryptWhatsAppMedia, bufferToDataUrl, MediaExpiredError } = await import("./whatsapp-media-decrypt");
+
       // Buscar mensagem com informações de mídia
       const result = await evolutionPool.query(`
-        SELECT 
+        SELECT
           "messageType",
           message
         FROM "Message"
         WHERE id = $1
       `, [messageId]);
-      
+
       if (result.rows.length === 0) {
         return res.status(404).json({ error: "Mensagem não encontrada" });
       }
-      
+
       const msg = result.rows[0];
       const messageType = msg.messageType;
       const messageData = msg.message;
-      
+
       // Determinar tipo de mídia e extrair dados
       let mediaInfo: any;
       let mediaTypeKey: 'image' | 'video' | 'audio' | 'document' = 'document';
-      
+
       if (messageType === 'stickerMessage' && messageData.stickerMessage) {
         mediaInfo = messageData.stickerMessage;
         mediaTypeKey = 'image'; // Stickers são tratados como imagem
@@ -777,13 +776,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         return res.status(400).json({ error: "Tipo de mídia não suportado" });
       }
-      
+
       let { url, mediaKey, mimetype, fileName } = mediaInfo;
-      
+
       if (!url || !mediaKey) {
         return res.status(400).json({ error: "URL ou mediaKey não encontrada" });
       }
-      
+
       // Se mediaKey for um objeto Buffer vindo do PostgreSQL, converter para base64
       if (typeof mediaKey === 'object' && !Buffer.isBuffer(mediaKey)) {
         // PostgreSQL retorna Buffer como objeto com propriedades numéricas
@@ -792,23 +791,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (Buffer.isBuffer(mediaKey)) {
         mediaKey = mediaKey.toString('base64');
       }
-      
+
       // Descriptografar mídia
       const decryptedBuffer = await decryptWhatsAppMedia(url, mediaKey, mediaTypeKey);
-      
+
       // Para stickers, retornar como data URL
       if (messageType === 'stickerMessage') {
         const dataUrl = bufferToDataUrl(decryptedBuffer, mimetype || 'image/webp');
         return res.json({ dataUrl, mimetype: mimetype || 'image/webp' });
       }
-      
+
       // Para documentos, retornar como download
       res.setHeader('Content-Type', mimetype || 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName || 'download'}"`);
       res.send(decryptedBuffer);
-      
+
     } catch (error: any) {
-      console.error("Error decrypting media:", error);
+      // Importar MediaExpiredError para verificação
+      const { MediaExpiredError } = await import("./whatsapp-media-decrypt");
+
+      // Tratar erro de mídia expirada com HTTP 410 (Gone)
+      if (error instanceof MediaExpiredError || error.name === 'MediaExpiredError') {
+        console.log(`⏰ Mídia expirada para messageId ${req.params.messageId}: ${error.message}`);
+        return res.status(410).json({
+          error: "Mídia expirada",
+          message: "Esta mídia não está mais disponível. As URLs de mídia do WhatsApp expiram após alguns dias.",
+          expired: true
+        });
+      }
+
+      // Outros erros
+      console.error("❌ Erro ao descriptografar mídia:", error.message);
       res.status(500).json({ error: "Erro ao descriptografar mídia", details: error.message });
     }
   });
@@ -821,8 +834,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = parseInt(req.query.offset as string) || 0;
       const { evolutionPool } = await import("./evolution-db");
       
+      // CORRIGIDO: Usa DESC para pegar mensagens mais recentes primeiro
+      // O frontend inverte o array para exibir corretamente (mais antiga → mais recente)
       const result = await evolutionPool.query(`
-        SELECT 
+        SELECT
           id,
           key,
           "pushName",
@@ -835,7 +850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM "Message"
         WHERE (key->>'remoteJid') = $1
           AND "instanceId" = $2
-        ORDER BY "messageTimestamp" ASC
+        ORDER BY "messageTimestamp" DESC
         LIMIT $3 OFFSET $4
       `, [remoteJid, instanceId, limit, offset]);
       

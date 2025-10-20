@@ -2,6 +2,53 @@ import crypto from 'crypto';
 import axios from 'axios';
 
 /**
+ * Erro customizado para mídia expirada
+ */
+export class MediaExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MediaExpiredError';
+  }
+}
+
+/**
+ * Helper para retry com exponential backoff
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelay: number = 1000
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+
+      // Não fazer retry em erros HTTP 403, 404, 410 (mídia expirada/não encontrada)
+      if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 410) {
+        throw new MediaExpiredError(`Mídia expirada ou inacessível (HTTP ${error.response.status})`);
+      }
+
+      // Não fazer retry em erros que não são de rede
+      if (error.code !== 'ENOTFOUND' && error.code !== 'ETIMEDOUT' && error.code !== 'ECONNRESET') {
+        throw error;
+      }
+
+      if (attempt < maxRetries - 1) {
+        const delay = initialDelay * Math.pow(2, attempt);
+        console.log(`⚠️  Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms for URL error: ${error.message}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Descriptografa mídia do WhatsApp usando a mediaKey
  * WhatsApp usa AES-256-CBC para criptografar arquivos de mídia
  */
@@ -11,12 +58,19 @@ export async function decryptWhatsAppMedia(
   mediaType: 'image' | 'video' | 'audio' | 'document'
 ): Promise<Buffer> {
   try {
-    // 1. Download do arquivo criptografado (.enc)
-    const response = await axios.get(encryptedUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000,
+    // Validar URL antes de tentar download
+    if (!encryptedUrl || !encryptedUrl.startsWith('http')) {
+      throw new Error(`URL inválida ou expirada: ${encryptedUrl}`);
+    }
+
+    // 1. Download do arquivo criptografado (.enc) com retry
+    const response = await retryWithBackoff(async () => {
+      return await axios.get(encryptedUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000,
+      });
     });
-    
+
     const encryptedData = Buffer.from(response.data);
     
     // 2. Decodificar mediaKey de base64

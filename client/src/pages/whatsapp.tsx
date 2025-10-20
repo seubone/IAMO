@@ -13,7 +13,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
@@ -45,8 +50,14 @@ export default function WhatsApp() {
   const [messageText, setMessageText] = useState("");
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [isAttachmentPopoverOpen, setIsAttachmentPopoverOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
+  const [fileCaption, setFileCaption] = useState("");
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
   const { togglePin, isPinned, getPinnedChats } = usePinnedChats(selectedInstanceId);
   
@@ -164,12 +175,14 @@ export default function WhatsApp() {
     }
   }, []);
 
-  // Fetch chats for selected instance com polling otimizado
+  // Fetch chats for selected instance com polling ULTRA otimizado
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"],
     enabled: !!selectedInstanceId,
-    // Polling otimizado: 15s se página visível, 30s se não
-    refetchInterval: selectedInstanceId && isPageVisible ? 15000 : 30000,
+    // Polling RÁPIDO: 3s para lista de chats (precisa ser mais lento que mensagens)
+    // WebSocket atualiza em tempo real, polling é backup
+    refetchInterval: selectedInstanceId && isPageVisible ? 3000 : false,
+    staleTime: 2000, // Cache de 2s
   });
 
   // Calcular total de mensagens não lidas e atualizar título da página
@@ -189,12 +202,15 @@ export default function WhatsApp() {
     };
   }, [chats]);
 
-  // Fetch messages for selected chat com polling otimizado
+  // Fetch messages for selected chat com polling ULTRA otimizado
   const { data: allMessages, isLoading: isLoadingMessages, error: messagesError } = useQuery<EvolutionMessage[]>({
     queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"],
     enabled: !!selectedInstanceId && !!selectedChatJid,
-    // Polling otimizado: 15s se página visível, 30s se não
-    refetchInterval: selectedChatJid && isPageVisible ? 15000 : 30000,
+    // Polling RÁPIDO: 2s se página visível (para mensagens instantâneas), desligado se não
+    // WebSocket cuida do tempo real, polling é backup
+    refetchInterval: selectedChatJid && isPageVisible ? 2000 : false,
+    // Cache mais agressivo para performance
+    staleTime: 1000, // Dados ficam "fresh" por 1s
   });
 
   // Debug: Log messages data
@@ -377,19 +393,95 @@ export default function WhatsApp() {
       });
       return;
     }
-    
+
     // Extract recipient phone number from remoteJid
     // Format: 5511999999999@s.whatsapp.net or 5511999999999:16@s.whatsapp.net
     // We need to remove both the suffix after ':' and after '@'
     let recipientNumber = selectedChatJid.split('@')[0]; // Remove @s.whatsapp.net
     recipientNumber = recipientNumber.split(':')[0]; // Remove :16 or other suffixes
-    
+
     // Use instance number in Brazilian format (55XXYYYYYYYY)
     sendMessageMutation.mutate({
       instanceNumber: selectedInstance.number,
       recipientNumber: recipientNumber,
       text: messageText.trim(),
     });
+  };
+
+  // Manipulação de arquivos
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const processFile = (file: File) => {
+    setSelectedFile(file);
+
+    // Criar preview URL
+    const url = URL.createObjectURL(file);
+    setFilePreviewUrl(url);
+    setIsFilePreviewOpen(true);
+    setFileCaption("");
+  };
+
+  // Ctrl+V para colar imagem
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          processFile(file);
+          break;
+        }
+      }
+    }
+  }, []);
+
+  // Adicionar listener de paste quando chat estiver selecionado
+  useEffect(() => {
+    if (selectedChatJid) {
+      document.addEventListener('paste', handlePaste);
+      return () => document.removeEventListener('paste', handlePaste);
+    }
+  }, [selectedChatJid, handlePaste]);
+
+  const handleSendFile = () => {
+    if (!selectedFile || !selectedInstanceId || !selectedChatJid || !selectedInstance?.number) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Selecione um arquivo para enviar",
+      });
+      return;
+    }
+
+    // TODO: Implementar envio via API
+    toast({
+      title: "Funcionalidade em desenvolvimento",
+      description: `Arquivo ${selectedFile.name} será enviado em breve`,
+    });
+
+    // Limpar estado
+    setIsFilePreviewOpen(false);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+    setFileCaption("");
+  };
+
+  const closeFilePreview = () => {
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+    }
+    setIsFilePreviewOpen(false);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+    setFileCaption("");
   };
 
   const formatTimestamp = (timestamp?: number) => {
@@ -768,7 +860,8 @@ export default function WhatsApp() {
                       <MessageListSkeleton />
                     ) : messages && messages.length > 0 ? (
                       <div className="space-y-4">
-                        {groupMessagesByDate(messages).map((group, groupIndex) => (
+                        {/* CORRIGIDO: Backend retorna DESC (mais recentes primeiro), invertemos para exibir corretamente */}
+                        {groupMessagesByDate([...messages].reverse()).map((group, groupIndex) => (
                           <div key={group.date} className="space-y-2">
                             {/* Date separator */}
                             <div className="flex items-center justify-center my-4">
@@ -1024,22 +1117,44 @@ export default function WhatsApp() {
                     )}
                   </div>
 
-                  {/* Input de Mensagem - Estilo WhatsApp Web */}
+                  {/* Input de Mensagem - Estilo WhatsApp Web CORRIGIDO */}
                   {uazapiInstanceData?.hasToken ? (
                     <div className="flex-shrink-0 border-t px-3 py-2 relative bg-[#11111300] text-[#f5f5f5e8]">
+                      {/* Input file oculto */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+
                       <div className="flex items-center gap-2">
-                        {/* Botão + (Anexos) */}
+                        {/* Botão Anexar */}
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => fileInputRef.current?.click()}
                           className="shrink-0 text-muted-foreground hover:text-foreground"
-                          data-testid="button-attachment"
-                          title="Anexar arquivo"
+                          data-testid="button-attach"
+                          title="Anexar arquivo (ou Ctrl+V)"
                         >
                           <Plus className="h-5 w-5" />
                         </Button>
 
-                        {/* Input de Texto com fundo escuro arredondado */}
+                        {/* Botão Emoji */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          data-testid="button-emoji"
+                          title="Emoji"
+                        >
+                          <Smile className="h-5 w-5" />
+                        </Button>
+
+                        {/* Input de Texto LIMPO (sem botão emoji dentro) */}
                         <div className="flex-1 relative">
                           <Textarea
                             value={messageText}
@@ -1053,7 +1168,7 @@ export default function WhatsApp() {
                             placeholder="Digite uma mensagem"
                             disabled={sendMessageMutation.isPending}
                             rows={1}
-                            className="pr-10 min-h-[40px] max-h-32 rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary resize-none"
+                            className="min-h-[40px] max-h-32 rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary resize-none"
                             style={{
                               height: 'auto',
                               overflowY: messageText.split('\n').length > 4 ? 'auto' : 'hidden'
@@ -1065,18 +1180,6 @@ export default function WhatsApp() {
                             }}
                             data-testid="input-message"
                           />
-                          
-                          {/* Botão Emoji dentro do input */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                            className="absolute right-1 bottom-1 h-7 w-7 text-muted-foreground hover:text-foreground"
-                            data-testid="button-emoji"
-                            title="Emoji"
-                          >
-                            <SmilePlus className="h-5 w-5" />
-                          </Button>
                         </div>
 
                         {/* Botão Microfone ou Enviar */}
@@ -1100,7 +1203,8 @@ export default function WhatsApp() {
                             size="icon"
                             className="shrink-0 text-muted-foreground hover:text-foreground"
                             data-testid="button-voice"
-                            title="Mensagem de voz"
+                            title="Mensagem de voz (em breve)"
+                            onClick={() => toast({ title: "Gravação de áudio em desenvolvimento" })}
                           >
                             <Mic className="h-5 w-5" />
                           </Button>
@@ -1109,17 +1213,90 @@ export default function WhatsApp() {
 
                       {/* Emoji Picker */}
                       {isEmojiPickerOpen && (
-                        <div className="absolute bottom-full right-3 mb-2 z-50">
-                          <EmojiPicker
-                            onEmojiClick={(emojiData: EmojiClickData) => {
-                              setMessageText(prev => prev + emojiData.emoji);
-                              setIsEmojiPickerOpen(false);
-                            }}
-                            width={350}
-                            height={450}
-                          />
+                        <div className="absolute bottom-full left-3 mb-2 z-50">
+                          <div className="relative">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-md z-10"
+                              onClick={() => setIsEmojiPickerOpen(false)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                            <EmojiPicker
+                              onEmojiClick={(emojiData: EmojiClickData) => {
+                                setMessageText(prev => prev + emojiData.emoji);
+                              }}
+                              width={350}
+                              height={450}
+                            />
+                          </div>
                         </div>
                       )}
+
+                      {/* Dialog de Preview de Arquivo */}
+                      <Dialog open={isFilePreviewOpen} onOpenChange={(open) => !open && closeFilePreview()}>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Enviar Arquivo</DialogTitle>
+                          </DialogHeader>
+
+                          <div className="space-y-4">
+                            {/* Preview do arquivo */}
+                            <div className="relative bg-muted rounded-lg overflow-hidden min-h-[300px] flex items-center justify-center">
+                              {selectedFile && (
+                                <>
+                                  {selectedFile.type.startsWith('image/') && filePreviewUrl && (
+                                    <img
+                                      src={filePreviewUrl}
+                                      alt="Preview"
+                                      className="max-w-full max-h-[500px] object-contain"
+                                    />
+                                  )}
+                                  {selectedFile.type.startsWith('video/') && filePreviewUrl && (
+                                    <video
+                                      src={filePreviewUrl}
+                                      controls
+                                      className="max-w-full max-h-[500px]"
+                                    />
+                                  )}
+                                  {!selectedFile.type.startsWith('image/') && !selectedFile.type.startsWith('video/') && (
+                                    <div className="text-center p-8">
+                                      <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                                      <p className="font-medium">{selectedFile.name}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                      </p>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+
+                            {/* Legenda opcional */}
+                            <div>
+                              <Textarea
+                                placeholder="Adicione uma legenda (opcional)"
+                                value={fileCaption}
+                                onChange={(e) => setFileCaption(e.target.value)}
+                                className="resize-none"
+                                rows={3}
+                              />
+                            </div>
+
+                            {/* Botões */}
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={closeFilePreview}>
+                                Cancelar
+                              </Button>
+                              <Button onClick={handleSendFile}>
+                                <Send className="h-4 w-4 mr-2" />
+                                Enviar
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   ) : (
                     <div className="flex-shrink-0 border-t px-4 py-3 bg-card">
