@@ -89,12 +89,14 @@ export function ImageMessage({ messageId, caption }: ImageMessageProps) {
 
       {/* Lightbox Modal */}
       <Dialog open={isLightboxOpen} onOpenChange={setIsLightboxOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 border-0">
-          <img 
-            src={data.dataUrl} 
-            alt="Imagem em tela cheia"
-            className="w-full h-full object-contain"
-          />
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-0 overflow-hidden bg-black/95">
+          <div className="w-full h-full flex items-center justify-center p-4">
+            <img
+              src={data.dataUrl}
+              alt="Imagem em tela cheia"
+              className="max-w-full max-h-[90vh] w-auto h-auto object-contain"
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </>

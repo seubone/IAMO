@@ -700,9 +700,9 @@ export default function WhatsApp() {
         {selectedInstanceId ? (
           <>
             {/* Lista de Conversas (Esquerda) */}
-            <div className="w-[400px] border-r flex flex-col bg-card overflow-hidden">
-              <div className="p-3 border-b flex-shrink-0">
-                <h2 className="font-semibold text-lg mb-3">Conversas</h2>
+            <div className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} w-full md:w-[400px] flex-col bg-card/40 backdrop-blur-sm overflow-hidden md:border-r border-border/30`}>
+              <div className="p-3 md:p-4 flex-shrink-0">
+                <h2 className="font-semibold text-lg mb-3 md:mb-4">Conversas</h2>
                 <Input
                   type="text"
                   placeholder="Buscar conversas..."
@@ -789,12 +789,21 @@ export default function WhatsApp() {
             </div>
 
             {/* Área de Mensagens (Direita) */}
-            <div className="flex-1 flex flex-col min-h-0 w-full overflow-x-hidden">
+            <div className={`${selectedChatJid ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 w-full overflow-x-hidden`}>
               {selectedChatJid ? (
                 <>
                   {/* Header do Chat */}
-                  <div className="border-b bg-card flex-shrink-0">
-                    <div className="h-16 px-4 flex items-center gap-3">
+                  <div className="bg-card/30 backdrop-blur-md flex-shrink-0 border-b border-border/30">
+                    <div className="h-14 md:h-16 px-3 md:px-4 flex items-center gap-2 md:gap-3">
+                      {/* Botão Voltar Mobile */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="md:hidden"
+                        onClick={() => setSelectedChatJid(null)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                      </Button>
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={selectedChat?.profilePicUrl || profileEmptyImage} />
                         <AvatarFallback>

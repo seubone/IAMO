@@ -16,20 +16,19 @@ export function WhatsAppHeader({ searchQuery, onSearchChange }: WhatsAppHeaderPr
   const { user } = useAuth();
 
   return (
-    <header className="h-16 border-b flex items-center justify-between px-6 gap-4 bg-card">
+    <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-6 gap-2 md:gap-4 bg-card/30 backdrop-blur-md">
       {/* Logo/Title */}
-      <div className="flex items-center gap-3">
-        <div className="text-2xl font-bold text-primary">Monitor IA</div>
-        <div className="text-sm text-muted-foreground hidden md:block">WhatsApp Business</div>
+      <div className="flex items-center gap-2 md:gap-3">
+        <div className="text-xs md:text-sm font-medium text-muted-foreground hidden sm:block">WhatsApp Business</div>
       </div>
 
       {/* Search Bar */}
       <div className="flex-1 max-w-2xl relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Search className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
-          placeholder="Buscar conversas ou mensagens..."
-          className="pl-10 bg-muted/50"
+          placeholder="Buscar..."
+          className="pl-8 md:pl-10 bg-muted/50 text-sm"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           data-testid="input-global-search"
@@ -37,7 +36,7 @@ export function WhatsAppHeader({ searchQuery, onSearchChange }: WhatsAppHeaderPr
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 md:gap-2">
         {/* Theme Toggle */}
         <Button
           variant="ghost"

@@ -52,14 +52,13 @@ function ProtectedRoutes() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-between h-12 px-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center gap-2">
+          <header className="flex items-center justify-between h-14 px-6 bg-background/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <h1 className="text-sm font-semibold font-heading">Monitor IA</h1>
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
             <Switch>
               <Route path="/" component={Monitoring} />
               <Route path="/chat" component={WhatsApp} />
