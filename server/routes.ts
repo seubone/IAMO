@@ -282,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Login (Supabase + Local DB sync)
+  // Login (Supabase + Local DB sync + Legacy support)
   app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -291,29 +291,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email e senha são obrigatórios" });
       }
 
-      // Authenticate with Supabase
+      // Try Supabase first (new auth method)
       const { data: sessionData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (authError || !sessionData.session) {
+      if (sessionData?.session) {
+        // Supabase auth successful
+        let localUser = await storage.getUserByEmail(email);
+        if (!localUser) {
+          // Create user in local DB if doesn't exist
+          const supabaseUser = sessionData.session.user;
+          localUser = await storage.createUser({
+            id: supabaseUser.id,
+            name: supabaseUser.user_metadata?.name || email.split("@")[0],
+            email,
+            password: "", // Don't store password locally
+            role: "viewer", // Default role
+          });
+        }
+
+        return res.json({
+          user: {
+            id: localUser.id,
+            name: localUser.name,
+            email: localUser.email,
+            role: localUser.role,
+          },
+          token: sessionData.session.access_token,
+        });
+      }
+
+      // Fallback to legacy local DB auth (for existing users)
+      const localUser = await storage.getUserByEmail(email);
+      if (!localUser) {
         return res.status(401).json({ error: "Credenciais inválidas" });
       }
 
-      // Get or sync user in local DB
-      let localUser = await storage.getUserByEmail(email);
-      if (!localUser) {
-        // Create user in local DB if doesn't exist
-        const supabaseUser = sessionData.session.user;
-        localUser = await storage.createUser({
-          id: supabaseUser.id,
-          name: supabaseUser.user_metadata?.name || email.split("@")[0],
-          email,
-          password: "", // Don't store password locally
-          role: "viewer", // Default role
-        });
+      const validPassword = await bcrypt.compare(password, localUser.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Credenciais inválidas" });
       }
+
+      // Generate JWT token for legacy users
+      const token = generateToken(localUser);
 
       res.json({
         user: {
@@ -322,7 +344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: localUser.email,
           role: localUser.role,
         },
-        token: sessionData.session.access_token,
+        token,
       });
     } catch (error: any) {
       console.error("Login error:", error);
