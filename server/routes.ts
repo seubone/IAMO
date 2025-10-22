@@ -218,7 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ AUTH ROUTES ============
 
-  // Register (Supabase + Local DB sync)
+  // Register (Supabase + Local DB sync + Email Verification)
   app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const { name, email, password } = req.body;
@@ -227,7 +227,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nome, email e senha são obrigatórios" });
       }
 
-      // Create user in Supabase Auth
+      // Validate password strength
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Senha deve ter no mínimo 6 caracteres" });
+      }
+
+      // Create user in Supabase Auth (with email verification enabled)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -235,6 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           data: {
             name,
           },
+          emailRedirectTo: `${process.env.FRONTEND_URL || "http://localhost:5000"}/auth/callback`,
         },
       });
 
@@ -257,24 +263,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         localUser = existingLocalUser;
       }
 
-      // Get access token
-      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (sessionError || !sessionData.session) {
-        return res.status(400).json({ error: "Erro ao gerar token" });
-      }
-
-      res.json({
+      // Return success message - user needs to confirm email
+      res.status(201).json({
+        success: true,
+        message: "Usuário registrado com sucesso! Verifique seu email para confirmar o cadastro.",
         user: {
           id: localUser.id,
           name: localUser.name,
           email: localUser.email,
           role: localUser.role,
         },
-        token: sessionData.session.access_token,
+        requiresEmailConfirmation: true,
       });
     } catch (error: any) {
       console.error("Register error:", error);

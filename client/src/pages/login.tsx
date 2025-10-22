@@ -84,12 +84,24 @@ export default function Login() {
         email: data.email,
         password: data.password,
       });
-      setAuth(response.user, response.token);
-      toast({
-        title: "Cadastro realizado com sucesso!",
-        description: `Bem-vindo, ${response.user.name}`,
-      });
-      setLocation("/");
+
+      // Check if email confirmation is required
+      if (response.requiresEmailConfirmation) {
+        toast({
+          title: "Cadastro realizado com sucesso! 📧",
+          description: `Verifique o email "${data.email}" para confirmar sua conta. Pode levar alguns minutos para chegar.`,
+        });
+        // Reset form
+        registerForm.reset();
+      } else {
+        // Direct login (if email verification is disabled)
+        setAuth(response.user, response.token);
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: `Bem-vindo, ${response.user.name}`,
+        });
+        setLocation("/");
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Tente novamente mais tarde";
       toast({
@@ -168,13 +180,11 @@ export default function Login() {
                 </form>
               </Form>
 
-              <div className="mt-6 p-4 bg-muted rounded-lg space-y-2">
-                <p className="text-sm font-medium">Credenciais de teste:</p>
-                <div className="text-xs space-y-1">
-                  <p><strong>Admin:</strong> admin@monitor.ia / admin123</p>
-                  <p><strong>Operador:</strong> operador@monitor.ia / operator123</p>
-                  <p><strong>Visualizador:</strong> viewer@monitor.ia / viewer123</p>
-                </div>
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg space-y-2 border border-blue-200 dark:border-blue-800">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">ℹ️ Novo sistema de autenticação</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Utilize a aba "Cadastrar" para criar uma nova conta. Você receberá um email de confirmação para ativar sua conta.
+                </p>
               </div>
             </TabsContent>
 
