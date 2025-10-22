@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useLoadSupabaseConfig } from "@/hooks/use-supabase-config";
 import { useEffect } from "react";
 import Monitoring from "@/pages/monitoring";
 import WhatsApp from "@/pages/whatsapp";
@@ -79,6 +80,9 @@ function ProtectedRoutes() {
 }
 
 export default function App() {
+  // Load Supabase configuration from server
+  useLoadSupabaseConfig();
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

@@ -216,6 +216,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setInterval(pollNewMessages, 3000);
   console.log("📱 WhatsApp message polling started (3s interval)");
 
+  // ============ PUBLIC CONFIG ROUTES ============
+
+  // Expose public configuration (Supabase credentials for client)
+  app.get("/api/config/public", (_req, res) => {
+    res.json({
+      supabaseUrl: process.env.SUPABASE_URL,
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+    });
+  });
+
   // ============ AUTH ROUTES ============
 
   // Register (Supabase + Local DB sync + Email Verification)
