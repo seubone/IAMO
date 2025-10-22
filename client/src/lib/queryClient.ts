@@ -36,11 +36,24 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Helper function to get the API base URL
+function getApiUrl(path: string): string {
+  // In development, the API server runs on port 5050 while Vite serves on 5000
+  // In production, both are served from the same origin
+  if (import.meta.env.DEV) {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:5050${path}`;
+  }
+  return path;
+}
+
 export async function apiRequest<T = any>(
   url: string,
   options?: RequestInit
 ): Promise<T> {
-  const res = await fetch(url, {
+  const fullUrl = getApiUrl(url);
+  const res = await fetch(fullUrl, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -80,7 +93,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const path = queryKey.join("/") as string;
+    const fullUrl = getApiUrl(path);
+    const res = await fetch(fullUrl, {
       credentials: "include",
       headers: getAuthHeaders(),
     });
