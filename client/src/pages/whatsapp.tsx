@@ -44,7 +44,7 @@ export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
-  const [showOnlyActive, setShowOnlyActive] = useState(true);
+  const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isContactMetadataDialogOpen, setIsContactMetadataDialogOpen] = useState(false);
@@ -576,7 +576,11 @@ export default function WhatsApp() {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Carregando instâncias...</span>
           </div>
-        ) : instances && instances.length > 0 ? (
+        ) : !instances || instances.length === 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Nenhuma instância cadastrada. Verifique suas configurações.</span>
+          </div>
+        ) : instances.length > 0 ? (
           <div className="flex gap-2 items-center">
             {/* Mostrar apenas as primeiras 6 instâncias */}
             {instances.slice(0, 6).map((instance) => {

@@ -38,12 +38,12 @@ async function throwIfResNotOk(res: Response) {
 
 // Helper function to get the API base URL
 function getApiUrl(path: string): string {
-  // In development, the API server runs on port 5050 while Vite serves on 5000
+  // In development, the API server runs on port 5051 while Vite serves on 5000
   // In production, both are served from the same origin
   if (import.meta.env.DEV) {
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:5050${path}`;
+    return `${protocol}//${hostname}:5051${path}`;
   }
   return path;
 }

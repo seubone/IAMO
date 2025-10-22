@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, insertIASchema, insertTicketSchema, insertActionSchema, insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
+import { supabase } from "./supabase";
 
 // Rate limiters
 const authLimiter = rateLimit({
@@ -216,71 +217,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log("📱 WhatsApp message polling started (3s interval)");
 
   // ============ AUTH ROUTES ============
-  
-  // Register
+
+  // Register (Supabase + Local DB sync)
   app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
-      const data = insertUserSchema.parse(req.body);
-      
-      // Check if user exists
-      const existing = await storage.getUserByEmail(data.email);
-      if (existing) {
-        return res.status(400).json({ error: "Email já cadastrado" });
+      const { name, email, password } = req.body;
+
+      if (!name || !email || !password) {
+        return res.status(400).json({ error: "Nome, email e senha são obrigatórios" });
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(data.password, 10);
-      
-      // Create user
-      const user = await storage.createUser({
-        ...data,
-        password: hashedPassword,
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
+        },
       });
 
-      const token = generateToken(user);
-      
+      if (authError || !authData.user) {
+        return res.status(400).json({ error: authError?.message || "Erro ao registrar usuário" });
+      }
+
+      // Create user in local DB for role management
+      const existingLocalUser = await storage.getUserByEmail(email);
+      let localUser;
+      if (!existingLocalUser) {
+        localUser = await storage.createUser({
+          id: authData.user.id,
+          name,
+          email,
+          password: "", // Don't store password locally - use Supabase
+          role: "viewer", // Default role
+        });
+      } else {
+        localUser = existingLocalUser;
+      }
+
+      // Get access token
+      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (sessionError || !sessionData.session) {
+        return res.status(400).json({ error: "Erro ao gerar token" });
+      }
+
       res.json({
         user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
+          id: localUser.id,
+          name: localUser.name,
+          email: localUser.email,
+          role: localUser.role,
         },
-        token,
+        token: sessionData.session.access_token,
       });
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      console.error("Register error:", error);
+      res.status(400).json({ error: error.message || "Erro ao registrar" });
     }
   });
 
-  // Login
+  // Login (Supabase + Local DB sync)
   app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
-      
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email e senha são obrigatórios" });
+      }
+
+      // Authenticate with Supabase
+      const { data: sessionData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError || !sessionData.session) {
         return res.status(401).json({ error: "Credenciais inválidas" });
       }
 
-      const validPassword = await bcrypt.compare(password, user.password);
-      if (!validPassword) {
-        return res.status(401).json({ error: "Credenciais inválidas" });
+      // Get or sync user in local DB
+      let localUser = await storage.getUserByEmail(email);
+      if (!localUser) {
+        // Create user in local DB if doesn't exist
+        const supabaseUser = sessionData.session.user;
+        localUser = await storage.createUser({
+          id: supabaseUser.id,
+          name: supabaseUser.user_metadata?.name || email.split("@")[0],
+          email,
+          password: "", // Don't store password locally
+          role: "viewer", // Default role
+        });
       }
 
-      const token = generateToken(user);
-      
       res.json({
         user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
+          id: localUser.id,
+          name: localUser.name,
+          email: localUser.email,
+          role: localUser.role,
         },
-        token,
+        token: sessionData.session.access_token,
       });
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      console.error("Login error:", error);
+      res.status(400).json({ error: error.message || "Erro ao fazer login" });
     }
   });
 
