@@ -298,9 +298,6 @@ export default function WhatsApp() {
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
 
-  // Get selected instance details to extract phone number
-  const selectedInstance = allInstances?.find(i => i.id === selectedInstanceId);
-
   // Check if instance has Uazapi token
   const { data: uazapiInstanceData } = useQuery<{ instanceNumber: string; hasToken: boolean }>({
     queryKey: ["/api/uazapi/instances", selectedInstance?.number],
