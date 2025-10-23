@@ -32,12 +32,20 @@ const menuItems = [
 
 const footerItems = [
   {
-    title: "Perfil",
+    title: "Configurações",
+    url: "/settings",
+    icon: Settings,
+  },
+];
+
+const userMenuItems = [
+  {
+    title: "Meu Perfil",
     url: "/profile",
     icon: User,
   },
   {
-    title: "Configurações",
+    title: "Configurações da Conta",
     url: "/settings",
     icon: Settings,
   },
@@ -46,6 +54,7 @@ const footerItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
     <div
@@ -85,49 +94,80 @@ export function AppSidebar() {
           )}
         </div>
 
-        {/* User Profile Card */}
+        {/* User Profile Card - Dropdown Menu */}
         {!isCollapsed && (
-          <div
-            className="w-full rounded-[8px] dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 p-2 mb-4 flex items-center gap-2"
-            style={{
-              backgroundColor: "rgba(52, 66, 173, 0.12)",
-            }}
-          >
-            {/* Avatar */}
-            <div
-              className="w-10 h-10 rounded-[8px] flex-shrink-0 bg-[#FFA78D] flex items-center justify-center text-white font-bold text-xs"
+          <div className="relative mb-4">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="w-full rounded-[8px] dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 p-2 flex items-center gap-2 transition-all hover:dark:bg-opacity-30 hover:bg-opacity-20"
               style={{
-                backgroundImage: "url(DSC05189.jpg)",
-                backgroundSize: "cover",
+                backgroundColor: "rgba(52, 66, 173, 0.12)",
+                textDecoration: "none",
               }}
             >
-              CM
-            </div>
-
-            {/* User Info */}
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-xs dark:text-gray-300 text-[#373737] font-medium leading-none"
+              {/* Avatar */}
+              <div
+                className="w-10 h-10 rounded-[8px] flex-shrink-0 bg-[#FFA78D] flex items-center justify-center text-white font-bold text-xs"
                 style={{
-                  fontFamily: "Poppins",
-                  fontWeight: 500,
+                  backgroundImage: "url(DSC05189.jpg)",
+                  backgroundSize: "cover",
                 }}
               >
-                Bem vindo
-              </p>
-              <h3
-                className="text-xs dark:text-white text-[#373737] font-medium truncate"
-                style={{
-                  fontFamily: "Poppins",
-                  fontWeight: 500,
-                }}
-              >
-                Cainan Maia
-              </h3>
-            </div>
+                CM
+              </div>
 
-            {/* Dropdown Arrow */}
-            <ChevronDown className="w-3 h-3 dark:text-gray-400 text-[#373737] flex-shrink-0" />
+              {/* User Info */}
+              <div className="flex-1 min-w-0 text-left">
+                <p
+                  className="text-xs dark:text-gray-300 text-[#373737] font-medium leading-none"
+                  style={{
+                    fontFamily: "Poppins",
+                    fontWeight: 500,
+                  }}
+                >
+                  Bem vindo
+                </p>
+                <h3
+                  className="text-xs dark:text-white text-[#373737] font-medium truncate"
+                  style={{
+                    fontFamily: "Poppins",
+                    fontWeight: 500,
+                  }}
+                >
+                  Cainan Maia
+                </h3>
+              </div>
+
+              {/* Dropdown Arrow */}
+              <ChevronDown
+                className={`w-4 h-4 dark:text-gray-400 text-[#373737] flex-shrink-0 transition-transform ${
+                  showUserMenu ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                {userMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.title}
+                      href={item.url}
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm dark:text-gray-200 text-[#373737] hover:dark:bg-slate-700 hover:bg-gray-100 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                      style={{
+                        textDecoration: "none",
+                      }}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.title}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
