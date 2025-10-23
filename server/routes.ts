@@ -706,8 +706,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/instances", authMiddleware, async (req, res) => {
     try {
       const { evolutionPool } = await import("./evolution-db");
+      const showInactive = req.query.inactive === "true"; // param para mostrar inativas também
+
+      let whereClause = "";
+      if (!showInactive) {
+        // Por padrão, só trazer instâncias ativas
+        whereClause = `WHERE "connectionStatus" = 'open'`;
+      }
+
       const result = await evolutionPool.query(`
-        SELECT 
+        SELECT
           id,
           name,
           number,
@@ -715,9 +723,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "profileName",
           "connectionStatus"
         FROM "Instance"
+        ${whereClause}
         ORDER BY "createdAt" DESC
       `);
-      
+
       res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching instances:", error);

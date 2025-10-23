@@ -57,11 +57,15 @@ import {
   Mic,
   X,
   Loader2,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { conversationAPI, messageAPI, iaAPI, whatsappAPI } from "@/lib/api";
 import type { Conversation, Message, IA } from "@shared/schema";
+import type { EvolutionInstance } from "@/types/whatsapp";
 import { useToast } from "@/hooks/use-toast";
+import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
+import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,9 +98,11 @@ export default function Chat() {
   const [mediaType, setMediaType] = useState<string>("");
   const [mediaCaption, setMediaCaption] = useState("");
   const [isMediaPopoverOpen, setIsMediaPopoverOpen] = useState(false);
+  const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedInstance, setSelectedInstance } = useSelectedInstance();
 
   const form = useForm<NewConversationForm>({
     resolver: zodResolver(newConversationSchema),
@@ -552,6 +558,21 @@ export default function Chat() {
       <div className="flex-1 flex flex-col">
         {selectedConversation ? (
           <>
+            {/* Botão Selecionar Instância - Superior */}
+            <div className="p-3 border-b bg-muted/30">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsInstanceSelectorOpen(true)}
+                className="gap-2"
+              >
+                <Smartphone className="h-4 w-4" />
+                {selectedInstance
+                  ? `Instância: ${selectedInstance.name || selectedInstance.number}`
+                  : "Selecionar Instância"}
+              </Button>
+            </div>
+
             {/* Header do Contato */}
             <div className="p-4 border-b flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -923,6 +944,14 @@ export default function Chat() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Instance Selector Modal */}
+      <InstanceSelectorModal
+        open={isInstanceSelectorOpen}
+        onOpenChange={setIsInstanceSelectorOpen}
+        onSelectInstance={(instance) => setSelectedInstance(instance)}
+        selectedInstanceId={selectedInstance?.id}
+      />
     </div>
   );
 }
