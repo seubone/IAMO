@@ -1,13 +1,4 @@
-import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
+import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 
@@ -49,150 +40,183 @@ const menuItems = [
   },
 ];
 
-const logoutItem = {
-  title: "Sair",
-  url: "/logout",
-  icon: LogOut,
-};
-
 export function AppSidebar() {
   const [location] = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const handleLogout = (e: React.MouseEvent) => {
-    e.preventDefault();
-    // TODO: Implementar lógica de logout
-    console.log("Logout clicked");
-  };
-
   return (
-    <Sidebar
-      className={`transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
-      } bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800`}
+    <div
+      className={`fixed left-0 top-0 h-screen transition-all duration-300 ${
+        isCollapsed ? "w-28" : "w-[455px]"
+      } bg-[#1B1B1B] rounded-[32px] flex flex-col overflow-hidden`}
+      style={{
+        padding: isCollapsed ? "66px 20px" : "66px 68px",
+      }}
     >
-      <SidebarContent className="flex flex-col h-full p-0">
-        {/* Header com logo e toggle */}
-        <div className="flex items-center justify-between px-4 py-6 border-b border-gray-200 dark:border-gray-800">
-          {/* Logo */}
-          <div className="flex items-center gap-2 min-w-0">
-            {!isCollapsed && (
-              <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-600 whitespace-nowrap">
-                stmoniA
-              </div>
-            )}
-            {isCollapsed && (
-              <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-600">
-                s
-              </div>
-            )}
-          </div>
-
-          {/* Toggle button */}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-lg transition-colors flex-shrink-0"
-            aria-label="Toggle sidebar"
-          >
-            <svg
-              className="w-5 h-5 text-gray-600 dark:text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d={isCollapsed ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"}
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* User Info Card */}
-        <div
-          className={`px-4 py-4 mx-4 mt-6 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex-shrink-0 ${
-            isCollapsed ? "flex justify-center" : ""
-          }`}
-        >
+      {/* Content Frame */}
+      <div className="w-full flex flex-col" style={{ gap: "10px" }}>
+        {/* Logo */}
+        <div className="w-full mb-8">
           {!isCollapsed && (
-            <div className="space-y-1">
-              <p className="text-xs text-gray-500 dark:text-gray-500">Bem vindo de volta</p>
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-white">Cainan Maia</h3>
+            <div
+              className="text-5xl font-bold bg-gradient-to-r from-[#3441AD] to-[#A9B2F4] bg-clip-text text-transparent"
+              style={{
+                fontFamily: "Inter",
+                fontWeight: 700,
+              }}
+            >
+              stmoniA
             </div>
           )}
           {isCollapsed && (
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-              CM
+            <div
+              className="text-3xl font-bold bg-gradient-to-r from-[#3441AD] to-[#A9B2F4] bg-clip-text text-transparent text-center"
+              style={{
+                fontFamily: "Inter",
+                fontWeight: 700,
+              }}
+            >
+              s
             </div>
           )}
         </div>
 
-        {/* Navigation Menu */}
-        <SidebarGroup className="flex-1 px-4 py-6">
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {menuItems.map((item) => {
-                const isActive = location === item.url;
+        {/* User Profile Card */}
+        {!isCollapsed && (
+          <div
+            className="w-full rounded-[8px] bg-opacity-5 border border-[#3442AD] border-opacity-20 p-[10px] mb-8 flex items-center gap-4"
+            style={{
+              backgroundColor: "rgba(52, 66, 173, 0.05)",
+            }}
+          >
+            {/* Avatar */}
+            <div
+              className="w-16 h-16 rounded-[13.3333px] flex-shrink-0 bg-[#FFA78D] flex items-center justify-center text-white font-bold"
+              style={{
+                backgroundImage: "url(DSC05189.jpg)",
+                backgroundSize: "cover",
+              }}
+            >
+              CM
+            </div>
 
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      className={`relative px-4 py-3 rounded-lg transition-all duration-200 ${
-                        isActive
-                          ? "bg-blue-500 text-white dark:bg-blue-600 shadow-md"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900"
-                      }`}
-                    >
-                      <a
-                        href={item.url}
-                        data-testid={`link-${item.title.toLowerCase()}`}
-                        className="flex items-center gap-3 w-full"
-                      >
-                        <item.icon className="w-5 h-5 flex-shrink-0" />
-                        {!isCollapsed && (
-                          <span className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                            {item.title}
-                          </span>
-                        )}
-                      </a>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            {/* User Info */}
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-[15px] text-[#9A9A9A] font-medium"
+                style={{
+                  fontFamily: "Poppins",
+                  fontWeight: 500,
+                }}
+              >
+                Bem vindo de volta
+              </p>
+              <h3
+                className="text-[25px] text-[#9A9A9A] font-medium truncate"
+                style={{
+                  fontFamily: "Poppins",
+                  fontWeight: 500,
+                }}
+              >
+                Cainan Maia
+              </h3>
+            </div>
+
+            {/* Dropdown Arrow */}
+            <ChevronDown className="w-6 h-6 text-[#9A9A9A] flex-shrink-0" />
+          </div>
+        )}
+
+        {/* Collapsed User Avatar */}
+        {isCollapsed && (
+          <div
+            className="w-12 h-12 rounded-[8px] bg-[#FFA78D] flex items-center justify-center text-white font-bold mx-auto mb-8"
+            style={{
+              backgroundImage: "url(DSC05189.jpg)",
+              backgroundSize: "cover",
+            }}
+          >
+            CM
+          </div>
+        )}
+
+        {/* Menu Items */}
+        <nav className="flex-1 space-y-4">
+          {menuItems.map((item) => {
+            const isActive = location === item.url;
+            const Icon = item.icon;
+
+            return (
+              <a
+                key={item.title}
+                href={item.url}
+                className={`w-full flex items-center gap-6 px-6 py-4 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#3442AD] bg-opacity-20"
+                    : "hover:bg-[#3442AD] hover:bg-opacity-10"
+                }`}
+                style={{
+                  textDecoration: "none",
+                }}
+              >
+                {/* Icon */}
+                <Icon
+                  className={`w-8 h-8 flex-shrink-0 transition-colors ${
+                    isActive ? "text-[#3442AD]" : "text-[#9A9A9A] group-hover:text-[#3442AD]"
+                  }`}
+                  strokeWidth={2.5}
+                />
+
+                {/* Label */}
+                {!isCollapsed && (
+                  <span
+                    className={`text-[30px] font-normal transition-colors truncate ${
+                      isActive ? "text-[#3442AD]" : "text-[#9A9A9A] group-hover:text-[#3442AD]"
+                    }`}
+                    style={{
+                      fontFamily: "Inter",
+                      fontWeight: 400,
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                )}
+              </a>
+            );
+          })}
+        </nav>
 
         {/* Logout Button */}
-        <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                className={`relative px-4 py-3 rounded-lg transition-all duration-200 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20`}
+        <div className="border-t border-[#3442AD] border-opacity-20 pt-4 mt-auto">
+          <a
+            href="/logout"
+            onClick={(e) => {
+              e.preventDefault();
+              console.log("Logout clicked");
+            }}
+            className="w-full flex items-center gap-6 px-6 py-4 rounded-lg transition-all duration-200 group hover:bg-red-500 hover:bg-opacity-10"
+            style={{
+              textDecoration: "none",
+            }}
+          >
+            {/* Icon */}
+            <LogOut className="w-8 h-8 flex-shrink-0 text-[#AD3436] group-hover:text-red-500 transition-colors" />
+
+            {/* Label */}
+            {!isCollapsed && (
+              <span
+                className="text-[30px] font-normal text-[#AD3436] group-hover:text-red-500 transition-colors truncate"
+                style={{
+                  fontFamily: "Inter",
+                  fontWeight: 400,
+                }}
               >
-                <a
-                  href={logoutItem.url}
-                  onClick={handleLogout}
-                  data-testid="link-sair"
-                  className="flex items-center gap-3 w-full"
-                >
-                  <logoutItem.icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && (
-                    <span className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                      {logoutItem.title}
-                    </span>
-                  )}
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+                Sair
+              </span>
+            )}
+          </a>
         </div>
-      </SidebarContent>
-    </Sidebar>
+      </div>
+    </div>
   );
 }
