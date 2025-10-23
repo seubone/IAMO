@@ -94,12 +94,16 @@ export function AppSidebar() {
           )}
         </div>
 
-        {/* User Profile Card - Dropdown Menu */}
+        {/* User Profile Card - Expandable */}
         {!isCollapsed && (
-          <div className="relative mb-4">
+          <div className="mb-4">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-full rounded-[8px] dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 p-2 flex items-center gap-2 transition-all hover:dark:bg-opacity-30 hover:bg-opacity-20"
+              className={`w-full rounded-[8px] dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 p-2 flex items-center gap-2 transition-all hover:dark:bg-opacity-30 hover:bg-opacity-20 ${
+                showUserMenu
+                  ? "dark:bg-opacity-30 bg-opacity-20 rounded-b-none"
+                  : ""
+              }`}
               style={{
                 backgroundColor: "rgba(52, 66, 173, 0.12)",
                 textDecoration: "none",
@@ -146,23 +150,31 @@ export function AppSidebar() {
               />
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Expandable Menu Options */}
             {showUserMenu && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
-                {userMenuItems.map((item) => {
+              <div className="dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 border-t-0 rounded-b-[8px]"
+                style={{
+                  backgroundColor: "rgba(52, 66, 173, 0.12)",
+                }}
+              >
+                {userMenuItems.map((item, index) => {
                   const Icon = item.icon;
                   return (
                     <a
                       key={item.title}
                       href={item.url}
                       onClick={() => setShowUserMenu(false)}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm dark:text-gray-200 text-[#373737] hover:dark:bg-slate-700 hover:bg-gray-100 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                      className={`w-full flex items-center gap-3 px-2 py-2 text-sm dark:text-gray-200 text-[#373737] hover:dark:bg-[#3442AD] hover:dark:bg-opacity-30 hover:bg-[#3442AD] hover:bg-opacity-20 transition-colors dark:hover:text-white hover:text-white ${
+                        index !== userMenuItems.length - 1
+                          ? "border-b border-[#3442AD] border-opacity-10"
+                          : ""
+                      }`}
                       style={{
                         textDecoration: "none",
                       }}
                     >
-                      <Icon className="w-4 h-4" />
-                      {item.title}
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span>{item.title}</span>
                     </a>
                   );
                 })}
