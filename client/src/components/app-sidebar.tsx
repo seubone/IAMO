@@ -28,6 +28,9 @@ const menuItems = [
     url: "/audit",
     icon: Shield,
   },
+];
+
+const footerItems = [
   {
     title: "Perfil",
     url: "/profile",
@@ -48,9 +51,9 @@ export function AppSidebar() {
     <div
       className={`fixed left-0 top-0 h-screen transition-all duration-300 ${
         isCollapsed ? "w-20" : "w-64"
-      } bg-[#1B1B1B] rounded-[32px] flex flex-col overflow-hidden`}
+      } dark:bg-[#1B1B1B] bg-[#EEEEEE] dark:text-white text-[#373737] rounded-[0x] flex flex-col overflow-hidden`}
       style={{
-        padding: isCollapsed ? "48px 16px" : "48px 32px",
+        padding: isCollapsed ? "32px 8px" : "32px 12px",
       }}
     >
       {/* Content Frame */}
@@ -85,14 +88,14 @@ export function AppSidebar() {
         {/* User Profile Card */}
         {!isCollapsed && (
           <div
-            className="w-full rounded-[8px] bg-opacity-5 border border-[#3442AD] border-opacity-20 p-3 mb-6 flex items-center gap-3"
+            className="w-full rounded-[8px] dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 p-2 mb-4 flex items-center gap-2"
             style={{
-              backgroundColor: "rgba(52, 66, 173, 0.05)",
+              backgroundColor: "rgba(52, 66, 173, 0.12)",
             }}
           >
             {/* Avatar */}
             <div
-              className="w-12 h-12 rounded-[8px] flex-shrink-0 bg-[#FFA78D] flex items-center justify-center text-white font-bold text-sm"
+              className="w-10 h-10 rounded-[8px] flex-shrink-0 bg-[#FFA78D] flex items-center justify-center text-white font-bold text-xs"
               style={{
                 backgroundImage: "url(DSC05189.jpg)",
                 backgroundSize: "cover",
@@ -104,16 +107,16 @@ export function AppSidebar() {
             {/* User Info */}
             <div className="flex-1 min-w-0">
               <p
-                className="text-xs text-[#9A9A9A] font-medium"
+                className="text-xs dark:text-gray-300 text-[#373737] font-medium leading-none"
                 style={{
                   fontFamily: "Poppins",
                   fontWeight: 500,
                 }}
               >
-                Bem vindo de volta
+                Bem vindo
               </p>
               <h3
-                className="text-sm text-[#9A9A9A] font-medium truncate"
+                className="text-xs dark:text-white text-[#373737] font-medium truncate"
                 style={{
                   fontFamily: "Poppins",
                   fontWeight: 500,
@@ -124,7 +127,7 @@ export function AppSidebar() {
             </div>
 
             {/* Dropdown Arrow */}
-            <ChevronDown className="w-4 h-4 text-[#9A9A9A] flex-shrink-0" />
+            <ChevronDown className="w-3 h-3 dark:text-gray-400 text-[#373737] flex-shrink-0" />
           </div>
         )}
 
@@ -142,7 +145,7 @@ export function AppSidebar() {
         )}
 
         {/* Menu Items */}
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-1">
           {menuItems.map((item) => {
             const isActive = location === item.url;
             const Icon = item.icon;
@@ -151,10 +154,10 @@ export function AppSidebar() {
               <a
                 key={item.title}
                 href={item.url}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
                   isActive
-                    ? "bg-[#3442AD] bg-opacity-20"
-                    : "hover:bg-[#3442AD] hover:bg-opacity-10"
+                    ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
+                    : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
                 }`}
                 style={{
                   textDecoration: "none",
@@ -163,7 +166,9 @@ export function AppSidebar() {
                 {/* Icon */}
                 <Icon
                   className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                    isActive ? "text-[#3442AD]" : "text-[#9A9A9A] group-hover:text-[#3442AD]"
+                    isActive
+                      ? "text-[#3442AD]"
+                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
                   }`}
                   strokeWidth={2}
                 />
@@ -172,7 +177,9 @@ export function AppSidebar() {
                 {!isCollapsed && (
                   <span
                     className={`text-sm font-normal transition-colors truncate ${
-                      isActive ? "text-[#3442AD]" : "text-[#9A9A9A] group-hover:text-[#3442AD]"
+                      isActive
+                        ? "text-[#3442AD] dark:text-[#A9B2F4]"
+                        : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
                     }`}
                     style={{
                       fontFamily: "Inter",
@@ -187,26 +194,75 @@ export function AppSidebar() {
           })}
         </nav>
 
-        {/* Logout Button */}
-        <div className="border-t border-[#3442AD] border-opacity-20 pt-3 mt-auto">
+        {/* Footer Items (Perfil, Configurações, Sair) */}
+        <div className="space-y-1 mt-auto pt-2 border-t dark:border-gray-700 border-gray-200">
+          {/* Footer Menu Items */}
+          {footerItems.map((item) => {
+            const isActive = location === item.url;
+            const Icon = item.icon;
+
+            return (
+              <a
+                key={item.title}
+                href={item.url}
+                className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
+                    : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
+                }`}
+                style={{
+                  textDecoration: "none",
+                }}
+              >
+                {/* Icon */}
+                <Icon
+                  className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                    isActive
+                      ? "text-[#3442AD]"
+                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
+                  }`}
+                  strokeWidth={2}
+                />
+
+                {/* Label */}
+                {!isCollapsed && (
+                  <span
+                    className={`text-sm font-normal transition-colors truncate ${
+                      isActive
+                        ? "text-[#3442AD] dark:text-[#A9B2F4]"
+                        : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
+                    }`}
+                    style={{
+                      fontFamily: "Inter",
+                      fontWeight: 400,
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                )}
+              </a>
+            );
+          })}
+
+          {/* Logout Button */}
           <a
             href="/logout"
             onClick={(e) => {
               e.preventDefault();
               console.log("Logout clicked");
             }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group hover:bg-red-500 hover:bg-opacity-10"
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-red-500 dark:hover:bg-opacity-20 hover:bg-red-500 hover:bg-opacity-12"
             style={{
               textDecoration: "none",
             }}
           >
             {/* Icon */}
-            <LogOut className="w-5 h-5 flex-shrink-0 text-[#AD3436] group-hover:text-red-500 transition-colors" />
+            <LogOut className="w-5 h-5 flex-shrink-0 text-[#AD3436] dark:group-hover:text-red-400 group-hover:text-white transition-colors" />
 
             {/* Label */}
             {!isCollapsed && (
               <span
-                className="text-sm font-normal text-[#AD3436] group-hover:text-red-500 transition-colors truncate"
+                className="text-sm font-normal text-[#AD3436] dark:group-hover:text-red-300 group-hover:text-white transition-colors truncate"
                 style={{
                   fontFamily: "Inter",
                   fontWeight: 400,
