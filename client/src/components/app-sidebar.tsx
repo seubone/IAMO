@@ -1,4 +1,4 @@
-import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown } from "lucide-react";
+import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown, ChevronLeft } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 
@@ -36,6 +36,12 @@ const footerItems = [
     url: "/settings",
     icon: Settings,
   },
+  {
+    title: "Sair",
+    url: "/logout",
+    icon: LogOut,
+    isLogout: true,
+  },
 ];
 
 const userMenuItems = [
@@ -66,7 +72,20 @@ export function AppSidebar() {
       }}
     >
       {/* Content Frame */}
-      <div className="w-full flex flex-col" style={{ gap: "10px" }}>
+      <div className="w-full flex flex-col h-full" style={{ gap: "10px" }}>
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="w-full flex items-center justify-center p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all"
+          title={isCollapsed ? "Expandir" : "Retrair"}
+        >
+          <ChevronLeft
+            className={`w-5 h-5 dark:text-gray-300 text-[#373737] transition-transform ${
+              isCollapsed ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
         {/* Logo */}
         <div className="w-full mb-6 flex justify-center">
           {!isCollapsed && (
@@ -164,7 +183,7 @@ export function AppSidebar() {
                       key={item.title}
                       href={item.url}
                       onClick={() => setShowUserMenu(false)}
-                      className="w-full flex items-center gap-3 px-2 py-2 text-sm dark:text-gray-200 text-[#373737] hover:dark:bg-[#3442AD] hover:dark:bg-opacity-30 hover:bg-[#3442AD] hover:bg-opacity-20 transition-colors dark:hover:text-white hover:text-white"
+                      className="w-full flex items-center gap-2 px-2 py-2 text-sm dark:text-gray-200 text-[#373737] hover:dark:bg-[#3442AD] hover:dark:bg-opacity-30 hover:bg-[#3442AD] hover:bg-opacity-20 transition-colors dark:hover:text-white hover:text-white"
                       style={{
                         textDecoration: "none",
                       }}
@@ -242,19 +261,27 @@ export function AppSidebar() {
           })}
         </nav>
 
-        {/* Footer Items (Perfil, Configurações, Sair) */}
+        {/* Footer Items (Configurações, Sair) */}
         <div className="space-y-1 mt-auto pt-2 border-t dark:border-gray-700 border-gray-200">
-          {/* Footer Menu Items */}
           {footerItems.map((item) => {
             const isActive = location === item.url;
             const Icon = item.icon;
+            const isLogout = item.isLogout;
 
             return (
               <a
                 key={item.title}
                 href={item.url}
+                onClick={(e) => {
+                  if (isLogout) {
+                    e.preventDefault();
+                    console.log("Logout clicked");
+                  }
+                }}
                 className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
-                  isActive
+                  isLogout
+                    ? "dark:hover:bg-red-500 dark:hover:bg-opacity-20 hover:bg-red-500 hover:bg-opacity-12"
+                    : isActive
                     ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
                     : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
                 }`}
@@ -265,7 +292,9 @@ export function AppSidebar() {
                 {/* Icon */}
                 <Icon
                   className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                    isActive
+                    isLogout
+                      ? "text-[#AD3436] dark:group-hover:text-red-400 group-hover:text-white"
+                      : isActive
                       ? "text-[#3442AD]"
                       : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
                   }`}
@@ -276,7 +305,9 @@ export function AppSidebar() {
                 {!isCollapsed && (
                   <span
                     className={`text-sm font-normal transition-colors truncate ${
-                      isActive
+                      isLogout
+                        ? "text-[#AD3436] dark:group-hover:text-red-300 group-hover:text-white"
+                        : isActive
                         ? "text-[#3442AD] dark:text-[#A9B2F4]"
                         : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
                     }`}
@@ -291,35 +322,6 @@ export function AppSidebar() {
               </a>
             );
           })}
-
-          {/* Logout Button */}
-          <a
-            href="/logout"
-            onClick={(e) => {
-              e.preventDefault();
-              console.log("Logout clicked");
-            }}
-            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-red-500 dark:hover:bg-opacity-20 hover:bg-red-500 hover:bg-opacity-12"
-            style={{
-              textDecoration: "none",
-            }}
-          >
-            {/* Icon */}
-            <LogOut className="w-5 h-5 flex-shrink-0 text-[#AD3436] dark:group-hover:text-red-400 group-hover:text-white transition-colors" />
-
-            {/* Label */}
-            {!isCollapsed && (
-              <span
-                className="text-sm font-normal text-[#AD3436] dark:group-hover:text-red-300 group-hover:text-white transition-colors truncate"
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: 400,
-                }}
-              >
-                Sair
-              </span>
-            )}
-          </a>
         </div>
       </div>
     </div>
