@@ -18,6 +18,7 @@ import {
 import { queryClient } from "@/lib/queryClient";
 import { iaAPI, actionsAPI } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useClearCache } from "@/hooks/use-clear-cache";
 import type { IA, Ticket, Action } from "@shared/schema";
 
 export default function Monitoring() {
@@ -25,6 +26,9 @@ export default function Monitoring() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"activate" | "pause" | "deactivate" | null>(null);
   const { toast } = useToast();
+
+  // Clear cache when component mounts to refresh data
+  useClearCache([["/api/ias"], ["/api/tickets"], ["/api/actions"]]);
 
   const { data: ias = [], isLoading: iasLoading } = useQuery<IA[]>({
     queryKey: ["/api/ias"],

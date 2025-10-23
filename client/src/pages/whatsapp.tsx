@@ -32,6 +32,7 @@ import { MessageStatus } from "@/components/MessageStatus";
 import { MessageActions } from "@/components/MessageActions";
 import { useInstancePreferences } from "@/hooks/use-instance-preferences";
 import { usePinnedChats } from "@/hooks/use-pinned-chats";
+import { useClearCache } from "@/hooks/use-clear-cache";
 import { ContactMetadataDialog } from "@/components/ContactMetadataDialog";
 import { StickerMessage } from "@/components/StickerMessage";
 import { ImageMessage } from "@/components/ImageMessage";
@@ -113,12 +114,15 @@ export default function WhatsApp() {
     onWhatsAppMessage: handleWhatsAppMessage
   });
 
+  // Clear cache when component mounts to refresh instances
+  useClearCache([["/api/whatsapp/instances"]]);
+
   // Register/unregister instance monitoring when selectedInstanceId changes
   useEffect(() => {
     if (selectedInstanceId) {
       console.log(`📱 Registering instance monitoring: ${selectedInstanceId}`);
       registerInstance(selectedInstanceId);
-      
+
       return () => {
         console.log(`📱 Unregistering instance monitoring: ${selectedInstanceId}`);
         unregisterInstance(selectedInstanceId);
@@ -226,13 +230,21 @@ export default function WhatsApp() {
     });
   }, [allMessages, isLoadingMessages, messagesError, selectedInstanceId, selectedChatJid]);
 
+  // Helper function to clean markdown formatting from text
+  const cleanMarkdownFormatting = (text: string): string => {
+    if (!text) return text;
+    // Remove asterisks that are used for bold formatting (*text*)
+    // Keep single asterisks that might be intentional (emoji-like)
+    return text.replace(/\*([^\*]+)\*/g, '$1');
+  };
+
   // Helper function to extract text from message
   const getMessageText = (msg: EvolutionMessage): string => {
-    if (msg.message?.conversation) return msg.message.conversation;
+    if (msg.message?.conversation) return cleanMarkdownFormatting(msg.message.conversation);
     if (msg.message?.imageMessage) return msg.message.imageMessage.caption || "📷 Imagem";
     if (msg.message?.stickerMessage) return "🎭 Figurinha";
     if (msg.message?.audioMessage) return "🎵 Áudio";
-    if (msg.message?.videoMessage) return msg.message.videoMessage.caption || "🎥 Vídeo";
+    if (msg.message?.videoMessage) return cleanMarkdownFormatting(msg.message.videoMessage.caption) || "🎥 Vídeo";
     if (msg.message?.ptvMessage) return "🎥 Vídeo redondo";
     if (msg.message?.documentMessage) return `📄 ${msg.message.documentMessage.fileName || "Documento"}`;
     if (msg.message?.locationMessage) return `📍 ${msg.message.locationMessage.name || "Localização"}`;
@@ -240,10 +252,10 @@ export default function WhatsApp() {
     if (msg.message?.reactionMessage) return `${msg.message.reactionMessage.text || "❤️"} Reação`;
     if (msg.message?.editedMessage) {
       // Extrair conteúdo real da mensagem editada
-      const editedContent = msg.message.editedMessage.message?.conversation || 
+      const editedContent = msg.message.editedMessage.message?.conversation ||
                            msg.message.editedMessage.message?.imageMessage?.caption ||
                            msg.message.editedMessage.message?.videoMessage?.caption;
-      return editedContent ? `✏️ ${editedContent}` : "✏️ Mensagem editada";
+      return editedContent ? `✏️ ${cleanMarkdownFormatting(editedContent)}` : "✏️ Mensagem editada";
     }
     return "(mensagem não suportada)";
   };
@@ -1069,7 +1081,7 @@ export default function WhatsApp() {
                                         </div>
                                         {message.message.editedMessage.message?.conversation && (
                                           <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-                                            {message.message.editedMessage.message.conversation}
+                                            {cleanMarkdownFormatting(message.message.editedMessage.message.conversation)}
                                           </p>
                                         )}
                                       </div>
@@ -1087,7 +1099,7 @@ export default function WhatsApp() {
                                      !message.message?.reactionMessage &&
                                      !message.message?.editedMessage && (
                                       <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-                                        {text}
+                                        {cleanMarkdownFormatting(message.message?.conversation || "")}
                                       </p>
                                     )}
                                     
@@ -1365,14 +1377,12 @@ export default function WhatsApp() {
       </div>
 
       {/* Instance Settings Dialog */}
-      {selectedInstance?.number && (
-        <InstanceSettingsDialog
-          open={isSettingsDialogOpen}
-          onOpenChange={setIsSettingsDialogOpen}
-          instanceNumber={selectedInstance.number}
-          instanceName={selectedInstance.name || selectedInstance.number}
-        />
-      )}
+      <InstanceSettingsDialog
+        open={isSettingsDialogOpen}
+        onOpenChange={setIsSettingsDialogOpen}
+        instanceNumber={selectedInstance?.number || ""}
+        instanceName={selectedInstance?.name || selectedInstance?.number || ""}
+      />
 
       {/* Contact Metadata Dialog */}
       {selectedInstanceId && selectedChatJid && (
