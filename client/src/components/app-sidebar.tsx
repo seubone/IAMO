@@ -1,6 +1,6 @@
-import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown, ChevronLeft } from "lucide-react";
+import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown, ChevronLeft, Moon, Sun } from "lucide-react";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const menuItems = [
   {
@@ -61,6 +61,25 @@ export function AppSidebar() {
   const [location] = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // Check if dark mode is enabled on mount
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  const toggleTheme = () => {
+    const html = document.documentElement;
+    if (html.classList.contains("dark")) {
+      html.classList.remove("dark");
+      setIsDark(false);
+      localStorage.setItem("theme", "light");
+    } else {
+      html.classList.add("dark");
+      setIsDark(true);
+      localStorage.setItem("theme", "dark");
+    }
+  };
 
   return (
     <div
@@ -247,8 +266,35 @@ export function AppSidebar() {
           })}
         </nav>
 
-        {/* Footer Items (Configurações, Sair) */}
+        {/* Footer Items (Tema, Configurações, Sair) */}
         <div className={`mt-auto pt-2 ${!isCollapsed ? "border-t-0" : ""} dark:border-gray-700 border-gray-200 ${isCollapsed ? "flex flex-col items-center gap-4" : "space-y-1"}`}>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-yellow-500 dark:hover:bg-opacity-20 hover:bg-yellow-500 hover:bg-opacity-12`}
+            title={isDark ? "Modo claro" : "Modo escuro"}
+          >
+            {/* Icon */}
+            {isDark ? (
+              <Sun className="w-5 h-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400 dark:group-hover:text-yellow-300 group-hover:text-yellow-600 transition-colors" />
+            ) : (
+              <Moon className="w-5 h-5 flex-shrink-0 text-blue-600 dark:text-blue-400 dark:group-hover:text-blue-300 group-hover:text-blue-600 transition-colors" />
+            )}
+
+            {/* Label */}
+            {!isCollapsed && (
+              <span
+                className="text-sm font-normal text-gray-700 dark:text-gray-300 dark:group-hover:text-white group-hover:text-white transition-colors truncate"
+                style={{
+                  fontFamily: "Inter",
+                  fontWeight: 400,
+                }}
+              >
+                {isDark ? "Claro" : "Escuro"}
+              </span>
+            )}
+          </button>
+
           {/* Settings + Toggle Row (only when expanded) */}
           {!isCollapsed && (
             <div className="w-full flex items-center gap-2">
