@@ -249,58 +249,76 @@ export function AppSidebar() {
 
         {/* Footer Items (Configurações, Sair) */}
         <div className={`mt-auto pt-2 ${!isCollapsed ? "border-t-0" : ""} dark:border-gray-700 border-gray-200 ${isCollapsed ? "flex flex-col items-center gap-4" : "space-y-1"}`}>
-          {/* Settings Item */}
-          <a
-            href={footerItems[0].url}
-            className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
-              location === footerItems[0].url
-                ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
-                : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
-            }`}
-            style={{
-              textDecoration: "none",
-            }}
-          >
-            {/* Icon */}
-            <Settings
-              className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                location === footerItems[0].url
-                  ? "text-[#3442AD]"
-                  : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
-              }`}
-              strokeWidth={2}
-            />
-
-            {/* Label */}
-            {!isCollapsed && (
-              <span
-                className={`text-sm font-normal transition-colors truncate ${
+          {/* Settings + Toggle Row (only when expanded) */}
+          {!isCollapsed && (
+            <div className="w-full flex items-center gap-2">
+              {/* Settings Item */}
+              <a
+                href={footerItems[0].url}
+                className={`flex-1 flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
                   location === footerItems[0].url
-                    ? "text-[#3442AD] dark:text-[#A9B2F4]"
-                    : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
+                    ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
+                    : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
                 }`}
                 style={{
-                  fontFamily: "Inter",
-                  fontWeight: 400,
+                  textDecoration: "none",
                 }}
               >
-                {footerItems[0].title}
-              </span>
-            )}
-          </a>
+                {/* Icon */}
+                <Settings
+                  className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                    location === footerItems[0].url
+                      ? "text-[#3442AD]"
+                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
+                  }`}
+                  strokeWidth={2}
+                />
 
-          {/* Toggle Button */}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`${isCollapsed ? "w-full flex justify-center" : ""} p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all`}
-            title={isCollapsed ? "Expandir" : "Retrair"}
-          >
-            <ChevronLeft
-              className={`w-4 h-4 dark:text-gray-300 text-[#373737] transition-transform ${
-                isCollapsed ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+                {/* Label */}
+                <span
+                  className={`text-sm font-normal transition-colors truncate ${
+                    location === footerItems[0].url
+                      ? "text-[#3442AD] dark:text-[#A9B2F4]"
+                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
+                  }`}
+                  style={{
+                    fontFamily: "Inter",
+                    fontWeight: 400,
+                  }}
+                >
+                  {footerItems[0].title}
+                </span>
+              </a>
+
+              {/* Toggle Button */}
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all flex-shrink-0"
+                title={isCollapsed ? "Expandir" : "Retrair"}
+              >
+                <ChevronLeft
+                  className={`w-4 h-4 dark:text-gray-300 text-[#373737] transition-transform ${
+                    isCollapsed ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          {/* Collapsed Settings + Toggle */}
+          {isCollapsed && (
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="w-full flex justify-center p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all"
+              title={isCollapsed ? "Expandir" : "Retrair"}
+            >
+              <ChevronLeft
+                className={`w-4 h-4 dark:text-gray-300 text-[#373737] transition-transform ${
+                  isCollapsed ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          )}
 
           {/* Logout Button */}
           <a
