@@ -99,10 +99,10 @@ export function AudioMessage({ messageId, caption }: AudioMessageProps) {
 
   if (isExpired) {
     return (
-      <div className="flex flex-col gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg w-full max-w-[300px]">
+      <div className="flex flex-col gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg w-full max-w-[300px]">
         <div className="flex items-center gap-2">
-          <Volume2 className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
-          <span className="text-sm font-medium text-yellow-600 dark:text-yellow-500">⏰ Mídia expirada</span>
+          <Volume2 className="h-5 w-5 text-blue-600 dark:text-blue-500" />
+          <span className="text-sm font-medium text-blue-600 dark:text-blue-500">⏰ Mídia expirada</span>
         </div>
         <p className="text-xs text-muted-foreground">
           URLs do WhatsApp são temporárias

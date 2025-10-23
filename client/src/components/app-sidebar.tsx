@@ -271,12 +271,12 @@ export function AppSidebar() {
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
-            className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-yellow-500 dark:hover:bg-opacity-20 hover:bg-yellow-500 hover:bg-opacity-12`}
+            className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-blue-600 dark:hover:bg-opacity-20 hover:bg-blue-500 hover:bg-opacity-12`}
             title={isDark ? "Modo claro" : "Modo escuro"}
           >
             {/* Icon */}
             {isDark ? (
-              <Sun className="w-5 h-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400 dark:group-hover:text-yellow-300 group-hover:text-yellow-600 transition-colors" />
+              <Sun className="w-5 h-5 flex-shrink-0 text-blue-600 dark:text-blue-400 dark:group-hover:text-blue-300 group-hover:text-blue-600 transition-colors" />
             ) : (
               <Moon className="w-5 h-5 flex-shrink-0 text-blue-600 dark:text-blue-400 dark:group-hover:text-blue-300 group-hover:text-blue-600 transition-colors" />
             )}

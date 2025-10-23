@@ -38,8 +38,8 @@ export function VideoMessage({ messageId, caption }: VideoMessageProps) {
 
   if (isExpired) {
     return (
-      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-        <p className="text-sm font-medium text-yellow-600 dark:text-yellow-500 mb-1">⏰ Mídia expirada</p>
+      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+        <p className="text-sm font-medium text-blue-600 dark:text-blue-500 mb-1">⏰ Mídia expirada</p>
         <p className="text-xs text-muted-foreground text-center">
           URLs do WhatsApp são temporárias
         </p>

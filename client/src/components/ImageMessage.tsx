@@ -52,8 +52,8 @@ export function ImageMessage({ messageId, caption }: ImageMessageProps) {
 
   if (isExpired) {
     return (
-      <div className="flex flex-col items-center justify-center w-full h-48 bg-yellow-500/10 border border-yellow-500/20 rounded-md mb-2 p-4">
-        <p className="text-sm font-medium text-yellow-600 dark:text-yellow-500 mb-1">⏰ Mídia expirada</p>
+      <div className="flex flex-col items-center justify-center w-full h-48 bg-blue-500/10 border border-blue-500/20 rounded-md mb-2 p-4">
+        <p className="text-sm font-medium text-blue-600 dark:text-blue-500 mb-1">⏰ Mídia expirada</p>
         <p className="text-xs text-muted-foreground text-center">
           URLs do WhatsApp são temporárias e expiram após alguns dias
         </p>
