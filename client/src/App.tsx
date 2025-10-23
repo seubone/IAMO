@@ -53,13 +53,7 @@ function ProtectedRoutes() {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-between h-14 px-6 bg-background/80 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-            </div>
-            <ThemeToggle />
-          </header>
+        <div className="flex flex-col flex-1 ml-64">
           <main className="flex-1 overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
             <Switch>
               <Route path="/" component={Monitoring} />
