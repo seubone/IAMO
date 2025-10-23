@@ -76,6 +76,9 @@
   --chart-4: 0 84% 60%;
   --chart-5: 280 65% 50%;
 
+  /* Message Colors */
+  --color-message-sent: #7885E3;
+
   --font-sans: 'Inter', sans-serif;
   --font-heading: 'Poppins', sans-serif;
   --font-serif: Georgia, serif;
@@ -194,6 +197,9 @@
   --chart-3: 142 76% 50%;
   --chart-4: 0 84% 60%;
   --chart-5: 280 65% 60%;
+
+  /* Message Colors */
+  --color-message-sent: #4D5ABC;
 
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.40);
   --shadow-xs: 0px 1px 3px 0px hsl(0 0% 0% / 0.50);

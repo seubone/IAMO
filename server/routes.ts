@@ -1671,7 +1671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create or update token for instance
-  app.post("/api/uazapi/instances", authMiddleware, requireRole(["admin", "operator"]), async (req, res) => {
+  app.post("/api/uazapi/instances", authMiddleware, async (req, res) => {
     try {
       const { insertUazapiInstanceSchema } = await import("@shared/schema");
       const data = insertUazapiInstanceSchema.parse(req.body);
