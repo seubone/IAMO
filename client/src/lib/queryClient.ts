@@ -83,10 +83,26 @@ export async function apiRequest<T = any>(
 }
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("auth_token");
+  // Try to get token from localStorage (direct key)
+  let token = localStorage.getItem("auth_token");
+
+  // If not found, try to get from Zustand persist storage
+  if (!token) {
+    try {
+      const authStorage = localStorage.getItem("auth-storage");
+      if (authStorage) {
+        const parsed = JSON.parse(authStorage);
+        token = parsed?.state?.token;
+      }
+    } catch (error) {
+      console.error("Failed to parse auth storage:", error);
+    }
+  }
+
   if (token) {
     return { Authorization: `Bearer ${token}` };
   }
+
   return {};
 }
 
