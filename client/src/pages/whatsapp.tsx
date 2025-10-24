@@ -1034,6 +1034,13 @@ export default function WhatsApp() {
                                     </div>
                                   )}
 
+                                  {/* Audio Message sem caixa extra */}
+                                  {message.message?.audioMessage && (
+                                    <AudioMessage messageId={message.id} />
+                                  )}
+
+                                  {/* Todas as outras mensagens com caixa */}
+                                  {!message.message?.audioMessage && (
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-lg px-4 py-2 break-words overflow-hidden ${
                                       fromMe
@@ -1053,42 +1060,37 @@ export default function WhatsApp() {
                                         {senderDisplayName}
                                       </p>
                                     )}
-                                    
+
                                     {message.contextInfo?.quotedMessage && (
                                       <div className="mb-2 pl-2 border-l-4 border-primary/50 text-xs opacity-70">
                                         <p>Respondendo...</p>
                                       </div>
                                     )}
-                                    
+
                                     {/* Sticker Message */}
                                     {message.message?.stickerMessage && (
                                       <StickerMessage messageId={message.id} />
                                     )}
-                                    
+
                                     {/* Image Message */}
                                     {message.message?.imageMessage && (
-                                      <ImageMessage 
-                                        messageId={message.id} 
+                                      <ImageMessage
+                                        messageId={message.id}
                                         caption={message.message.imageMessage.caption}
                                       />
                                     )}
-                                    
+
                                     {/* Video Message */}
                                     {message.message?.videoMessage && (
-                                      <VideoMessage 
-                                        messageId={message.id} 
+                                      <VideoMessage
+                                        messageId={message.id}
                                         caption={message.message.videoMessage.caption}
                                       />
                                     )}
-                                    
+
                                     {/* PTV Message (video redondo) */}
                                     {message.message?.ptvMessage && (
                                       <VideoMessage messageId={message.id} />
-                                    )}
-
-                                    {/* Audio Message */}
-                                    {message.message?.audioMessage && (
-                                      <AudioMessage messageId={message.id} />
                                     )}
 
                                     {/* Document/PDF Message */}
@@ -1202,7 +1204,8 @@ export default function WhatsApp() {
                                       </div>
                                     )}
                                   </div>
-                                  
+                                  )}
+
                                   {/* Message Actions (shows on hover) - depois da mensagem se não for minha */}
                                   {!fromMe && selectedInstance?.number && (
                                     <MessageActions
