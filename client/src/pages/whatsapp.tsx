@@ -45,7 +45,7 @@ import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { Smartphone } from "lucide-react";
 import {
   setSelectedInstanceId,
-  getSelectedInstanceId,
+  deleteSelectedInstanceId,
   setMessageDraft,
   getMessageDraft,
   deleteMessageDraft,
@@ -84,13 +84,16 @@ const getNameInitials = (value: string): string => {
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
+
+  // ID da instância selecionada (extraído do Zustand) - deve estar aqui antes de usar em hooks
+  const selectedInstanceId = selectedInstance?.id || null;
+
   const [isContactMetadataDialogOpen, setIsContactMetadataDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
@@ -106,7 +109,7 @@ export default function WhatsApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
   const { togglePin, isPinned, getPinnedChats } = usePinnedChats(selectedInstanceId);
-  
+
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const debouncedMessageSearchQuery = useDebounce(messageSearchQuery, 500);
 
@@ -204,25 +207,35 @@ export default function WhatsApp() {
   });
 
   // Filter instances based on status and sort by favorites + recents
-  const instances = (showOnlyActive 
-    ? allInstances?.filter(i => i.connectionStatus === "open") 
+  const instances = (showOnlyActive
+    ? allInstances?.filter(i => i.connectionStatus === "open")
     : allInstances)?.sort((a, b) => {
       // Favoritos primeiro
       const aFav = isFavorite(a.id);
       const bFav = isFavorite(b.id);
       if (aFav && !bFav) return -1;
       if (!aFav && bFav) return 1;
-      
+
       // Depois recentes
       const aRecent = recentInstances.indexOf(a.id);
       const bRecent = recentInstances.indexOf(b.id);
       if (aRecent !== -1 && bRecent === -1) return -1;
       if (aRecent === -1 && bRecent !== -1) return 1;
       if (aRecent !== -1 && bRecent !== -1) return aRecent - bRecent;
-      
+
       // Por último, alfabético
       return (a.name || a.number).localeCompare(b.name || b.number);
     });
+
+  // Sincronizar selectedInstance com storage.ts quando mudar
+  useEffect(() => {
+    if (selectedInstance) {
+      setSelectedInstanceId(selectedInstance.id);
+      console.log(`💾 Sincronizando instância no storage: ${selectedInstance.name}`);
+    } else {
+      deleteSelectedInstanceId();
+    }
+  }, [selectedInstance]);
 
   // Monitor página visibilidade
   useEffect(() => {
@@ -248,14 +261,14 @@ export default function WhatsApp() {
     }
   }, []);
 
-  // Fetch chats for selected instance com polling ULTRA otimizado
+  // Fetch chats for selected instance com polling otimizado
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
     queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats`],
     enabled: !!selectedInstanceId,
-    // Polling RÁPIDO: 3s para lista de chats (precisa ser mais lento que mensagens)
+    // Polling a cada 5s (reduzido de 3s para menos log spam)
     // WebSocket atualiza em tempo real, polling é backup
-    refetchInterval: selectedInstanceId && isPageVisible ? 3000 : false,
-    staleTime: 2000, // Cache de 2s
+    refetchInterval: selectedInstanceId && isPageVisible ? 5000 : false,
+    staleTime: 3000, // Cache de 3s
   });
 
   // Calcular total de mensagens não lidas e atualizar título da página
@@ -275,15 +288,15 @@ export default function WhatsApp() {
     };
   }, [chats]);
 
-  // Fetch messages for selected chat com polling ULTRA otimizado
+  // Fetch messages for selected chat com polling otimizado
   const { data: allMessages, isLoading: isLoadingMessages, error: messagesError } = useQuery<EvolutionMessage[]>({
     queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
     enabled: !!selectedInstanceId && !!selectedChatJid,
-    // Polling RÁPIDO: 2s se página visível (para mensagens instantâneas), desligado se não
+    // Polling a cada 10s (reduzido de 2s para menos log spam)
     // WebSocket cuida do tempo real, polling é backup
-    refetchInterval: selectedChatJid && isPageVisible ? 2000 : false,
-    // Cache mais agressivo para performance
-    staleTime: 1000, // Dados ficam "fresh" por 1s
+    refetchInterval: selectedChatJid && isPageVisible ? 10000 : false,
+    // Cache otimizado
+    staleTime: 5000, // Dados ficam "fresh" por 5s
   });
 
   // Debug: Log messages data
@@ -1477,9 +1490,6 @@ export default function WhatsApp() {
         onOpenChange={setIsInstanceSelectorOpen}
         onSelectInstance={(instance) => {
           setSelectedInstance(instance);
-          setSelectedInstanceId(instance.id);
-          // Salvar instância selecionada
-          setSelectedInstanceId(instance.id);
           setSelectedChatJid(null);
           addToRecent(instance.id);
         }}
