@@ -31,6 +31,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
   const token = req.headers.authorization?.replace("Bearer ", "");
 
   if (!token) {
+    console.warn("⚠️ No token provided");
     return res.status(401).json({ error: "Token não fornecido" });
   }
 
@@ -39,6 +40,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     const { user: supabaseUser, error: supabaseError } = await verifySupabaseToken(token);
 
     if (supabaseUser) {
+      console.log("✅ Supabase token verified:", supabaseUser.email);
       req.supabaseUser = supabaseUser;
       // Attach minimal user info - should be synced with local DB
       req.user = {
@@ -51,11 +53,18 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
       return next();
     }
 
+    if (supabaseError) {
+      console.warn("⚠️ Supabase token verification failed:", supabaseError);
+    }
+
     // Fall back to JWT token for backward compatibility
+    console.log("🔄 Trying JWT token fallback...");
     const decoded = jwt.verify(token, JWT_SECRET) as User;
+    console.log("✅ JWT token verified:", decoded.email);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch (error: any) {
+    console.error("❌ Token verification failed:", error.message);
     return res.status(401).json({ error: "Token inválido" });
   }
 }
