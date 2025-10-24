@@ -9,23 +9,13 @@ interface ApiError extends Error {
   };
 }
 
-// Callback to handle auth errors globally
-let onUnauthorizedCallback: (() => void) | null = null;
-
-export function setOnUnauthorizedCallback(callback: () => void) {
-  onUnauthorizedCallback = callback;
-  console.log("🔐 Unauthorized callback handler registered");
-}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    // Handle 401 Unauthorized - clear auth and notify
+    // Handle 401 Unauthorized - clear auth
     if (res.status === 401) {
       console.warn("❌ Unauthorized (401) - Token may be expired or invalid. Clearing authentication...");
       localStorage.removeItem("auth_token");
-      if (onUnauthorizedCallback) {
-        onUnauthorizedCallback();
-      }
     }
 
     let errorMessage: string;
