@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Play, Pause, MoreVertical, Download } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { generateAvatarDataUri } from "@/lib/avatar-generator";
 
 interface AudioMessageProps {
   messageId: string;
@@ -392,9 +393,14 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
               className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-gray-300"
             />
           ) : (
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-700">
-              {senderName?.charAt(0).toUpperCase() || 'U'}
-            </div>
+            <img
+              src={generateAvatarDataUri(
+                senderName || 'unknown',
+                senderName?.charAt(0).toUpperCase() || 'U'
+              )}
+              alt={senderName || 'Remetente'}
+              className="flex-shrink-0 w-10 h-10 rounded-full border border-gray-300"
+            />
           )}
         </div>
       </div>

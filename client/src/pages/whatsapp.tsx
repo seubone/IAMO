@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { generateAvatarDataUri } from "@/lib/avatar-generator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1040,7 +1041,7 @@ export default function WhatsApp() {
                                       {shouldShowAvatar ? (
                                         <Avatar className="h-8 w-8">
                                           <AvatarImage
-                                            src={senderProfile?.profilePicUrl || undefined}
+                                            src={senderProfile?.profilePicUrl || generateAvatarDataUri(senderDisplayName, avatarInitials)}
                                             alt={senderDisplayName}
                                           />
                                           <AvatarFallback>{avatarInitials}</AvatarFallback>
