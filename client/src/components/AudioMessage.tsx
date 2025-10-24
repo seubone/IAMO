@@ -41,18 +41,33 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     const audio = audioRef.current;
     if (!audio || !data?.dataUrl) return;
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const analyser = audioContext.createAnalyser();
-    analyserRef.current = analyser;
-    analyser.fftSize = 256;
+    try {
+      const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
 
-    const source = audioContext.createMediaElementAudioSource(audio);
-    source.connect(analyser);
-    analyser.connect(audioContext.destination);
+      const audioContext = new AudioContextClass();
+      const analyser = audioContext.createAnalyser();
+      analyserRef.current = analyser;
+      analyser.fftSize = 256;
 
-    return () => {
-      audioContext.close();
-    };
+      // Tentar conectar o áudio
+      if (audioContext.createMediaElementAudioSource) {
+        const source = audioContext.createMediaElementAudioSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+      }
+
+      return () => {
+        try {
+          audioContext.close();
+        } catch (e) {
+          // Ignorar erros ao fechar
+        }
+      };
+    } catch (error) {
+      console.warn("Web Audio API não disponível, usando fallback visual");
+      return;
+    }
   }, [data]);
 
   // Update time e visualização
