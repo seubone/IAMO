@@ -28,26 +28,49 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Tentar recuperar do storage primeiro
-    const savedTheme = loadTheme();
-    if (savedTheme) return savedTheme;
+    // Tentar recuperar do storage primeiro (chave centralizada "app_theme")
+    try {
+      const savedTheme = loadTheme();
+      if (savedTheme === "light" || savedTheme === "dark") {
+        console.log(`🎨 Tema carregado: ${savedTheme}`);
+        return savedTheme;
+      }
+    } catch (error) {
+      console.warn("Erro ao carregar tema do storage:", error);
+    }
 
-    // Fallback para localStorage (storageKey antigo)
-    const localTheme = localStorage.getItem(storageKey) as Theme;
-    if (localTheme) return localTheme;
+    // Fallback para localStorage (storageKey antigo para compatibilidade)
+    try {
+      const localTheme = localStorage.getItem(storageKey) as Theme;
+      if (localTheme === "light" || localTheme === "dark") {
+        console.log(`🎨 Tema carregado do localStorage: ${localTheme}`);
+        return localTheme;
+      }
+    } catch (error) {
+      console.warn("Erro ao carregar tema do localStorage:", error);
+    }
 
+    // Último fallback
+    console.log(`🎨 Tema padrão: ${defaultTheme}`);
     return defaultTheme;
   });
 
-  // Atualizar classe no HTML quando tema mudar
+  // Atualizar classe no HTML quando tema mudar (imediatamente)
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove("light", "dark");
     root.classList.add(theme);
+    document.documentElement.style.colorScheme = theme;
   }, [theme]);
 
-  // Sincronizar tema entre abas
+  // Sincronizar tema entre abas E garantir que HTML tenha a classe correta imediatamente
   useEffect(() => {
+    // Aplicar tema imediatamente na montagem (antes do render)
+    const root = document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+    root.style.colorScheme = theme;
+
     const handleStorageChange = (e: StorageEvent) => {
       // Detectar mudanças da chave "app_theme" (do storage.ts)
       if (e.key === "app_theme" && e.newValue) {
@@ -55,6 +78,10 @@ export function ThemeProvider({
         if (newTheme === "light" || newTheme === "dark") {
           console.log(`🌓 Tema sincronizado de outra aba: ${newTheme}`);
           setTheme(newTheme);
+          // Aplicar imediatamente
+          root.classList.remove("light", "dark");
+          root.classList.add(newTheme);
+          root.style.colorScheme = newTheme;
         }
       }
     };
@@ -64,7 +91,7 @@ export function ThemeProvider({
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, []);
+  }, [theme]);
 
   const value = {
     theme,
