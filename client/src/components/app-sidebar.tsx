@@ -370,10 +370,6 @@ export function AppSidebar() {
           {/* Logout Button */}
           <a
             href={footerItems[1].url}
-            onClick={(e) => {
-              e.preventDefault();
-              console.log("Logout clicked");
-            }}
             className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-red-500 dark:hover:bg-opacity-20 hover:bg-red-500 hover:bg-opacity-12`}
             style={{
               textDecoration: "none",
