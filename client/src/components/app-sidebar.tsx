@@ -1,6 +1,7 @@
 import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown, ChevronLeft, Moon, Sun } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
 
 const menuItems = [
   {
@@ -59,7 +60,7 @@ const userMenuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { isCollapsed, toggleCollapsed } = useSidebarCollapse();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
@@ -135,7 +136,7 @@ export function AppSidebar() {
             >
               {/* Avatar */}
               <div
-                className="w-10 h-10 rounded-[8px] flex-shrink-0 bg-[#FFA78D] flex items-center justify-center text-white font-bold text-xs"
+                className="w-10 h-10 rounded-[8px] flex-shrink-0 bg-[#7885E3] dark:bg-[#4D5ABC] flex items-center justify-center text-white font-bold text-xs"
                 style={{
                   backgroundImage: "url(DSC05189.jpg)",
                   backgroundSize: "cover",
@@ -206,7 +207,7 @@ export function AppSidebar() {
         {/* Collapsed User Avatar */}
         {isCollapsed && (
           <div
-            className="w-10 h-10 rounded-[6px] bg-[#FFA78D] flex items-center justify-center text-white font-bold text-xs mx-auto mb-6"
+            className="w-10 h-10 rounded-[6px] bg-[#7885E3] dark:bg-[#4D5ABC] flex items-center justify-center text-white font-bold text-xs mx-auto mb-6"
             style={{
               backgroundImage: "url(DSC05189.jpg)",
               backgroundSize: "cover",
@@ -338,7 +339,7 @@ export function AppSidebar() {
 
               {/* Toggle Button */}
               <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={toggleCollapsed}
                 className="p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all flex-shrink-0"
                 title={isCollapsed ? "Expandir" : "Retrair"}
               >
@@ -354,7 +355,7 @@ export function AppSidebar() {
           {/* Collapsed Settings + Toggle */}
           {isCollapsed && (
             <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onClick={toggleCollapsed}
               className="w-full flex justify-center p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all"
               title={isCollapsed ? "Expandir" : "Retrair"}
             >

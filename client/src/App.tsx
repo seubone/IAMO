@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useLoadSupabaseConfig } from "@/hooks/use-supabase-config";
+import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
 import { useEffect } from "react";
 import Monitoring from "@/pages/monitoring";
 import WhatsApp from "@/pages/whatsapp";
@@ -27,7 +28,8 @@ import NotFound from "@/pages/not-found";
 function ProtectedRoutes() {
   const { isAuthenticated, hasHydrated } = useAuth();
   const [, setLocation] = useLocation();
-  
+  const { isCollapsed } = useSidebarCollapse();
+
   useWebSocket();
 
   useEffect(() => {
@@ -53,7 +55,7 @@ function ProtectedRoutes() {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <div className="flex flex-col flex-1 ml-64">
+        <div className={`flex flex-col flex-1 transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-64"}`}>
           <main className="flex-1 overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
             <Switch>
               <Route path="/" component={Monitoring} />
