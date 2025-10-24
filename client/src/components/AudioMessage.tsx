@@ -223,11 +223,11 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
   }
 
   return (
-    <div className="w-full max-w-sm">
+    <>
       <audio ref={audioRef} src={data.dataUrl} preload="metadata" />
 
-      {/* Audio Player - Layout horizontal */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all">
+      {/* Audio Player - Caixa única com layout horizontal */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full max-w-sm">
         {/* Play/Pause Button */}
         <button
           onClick={togglePlayPause}
@@ -298,6 +298,6 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           {caption}
         </p>
       )}
-    </div>
+    </>
   );
 }
