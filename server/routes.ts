@@ -11,10 +11,11 @@ import rateLimit from "express-rate-limit";
 import { supabase } from "./supabase";
 
 // Rate limiters
+// In development, allow more attempts; in production, keep it strict
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per window
-  message: "Muitas tentativas de login. Tente novamente em 15 minutos.",
+  windowMs: process.env.NODE_ENV === "production" ? 15 * 60 * 1000 : 60 * 1000, // 15 min (prod) or 1 min (dev)
+  max: process.env.NODE_ENV === "production" ? 5 : 100, // 5 (prod) or 100 (dev) requests per window
+  message: "Muitas tentativas de login. Tente novamente mais tarde.",
 });
 
 const webhookLimiter = rateLimit({
@@ -744,6 +745,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all instances (números/contas do WhatsApp)
   app.get("/api/whatsapp/instances", authMiddleware, async (req, res) => {
     try {
+      console.log("📱 Fetching WhatsApp instances...", {
+        user: (req as any).user?.email,
+        authenticated: !!(req as any).user,
+      });
+
       const { evolutionPool } = await import("./evolution-db");
       const showInactive = req.query.inactive === "true"; // param para mostrar inativas também
 
@@ -766,9 +772,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY "createdAt" DESC
       `);
 
+      console.log(`✅ Found ${result.rows.length} instances`);
       res.json(result.rows);
     } catch (error: any) {
-      console.error("Error fetching instances:", error);
+      console.error("❌ Error fetching instances:", error);
       res.status(500).json({ error: "Erro ao buscar instâncias" });
     }
   });
