@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Play, Pause } from "lucide-react";
+import { Loader2, Play, Pause, MoreVertical, Download } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -10,17 +10,21 @@ interface AudioMessageProps {
   timestamp?: string;
   senderAvatar?: string;
   fromMe?: boolean;
+  onReply?: (messageId: string) => void;
 }
 
-export function AudioMessage({ messageId, caption, senderName, timestamp, senderAvatar, fromMe }: AudioMessageProps) {
+export function AudioMessage({ messageId, caption, senderName, timestamp, senderAvatar, fromMe, onReply }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [waveData, setWaveData] = useState<number[]>([]);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showMenu, setShowMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, error } = useQuery<{ dataUrl: string; mimetype: string }>({
     queryKey: ["/api/whatsapp/media/decrypt", messageId],
@@ -174,6 +178,47 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     audio.currentTime = percent * duration;
   };
 
+  const handleDownload = () => {
+    const audio = audioRef.current;
+    if (!audio || !data?.dataUrl) return;
+
+    const link = document.createElement('a');
+    link.href = data.dataUrl;
+    link.download = `audio_${messageId}.mp3`;
+    link.click();
+    setShowMenu(false);
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.playbackRate = speed;
+      setPlaybackSpeed(speed);
+    }
+    setShowMenu(false);
+  };
+
+  const handleReply = () => {
+    if (onReply) {
+      onReply(messageId);
+    }
+    setShowMenu(false);
+  };
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMenu]);
+
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -281,6 +326,63 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums whitespace-nowrap">
             {formatTime(currentTime)}/{formatTime(duration)}
           </span>
+
+          {/* Menu de 3 pontinhos */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="flex-shrink-0 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+              aria-label="Opções de áudio"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showMenu && (
+              <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                {/* Download */}
+                <button
+                  onClick={handleDownload}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors border-b border-gray-200"
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar áudio
+                </button>
+
+                {/* Velocidade 1.5x */}
+                <button
+                  onClick={() => handleSpeedChange(1.5)}
+                  className={`w-full px-4 py-2 text-sm text-left transition-colors border-b border-gray-200 ${
+                    playbackSpeed === 1.5
+                      ? 'bg-indigo-50 text-indigo-600 font-medium'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {playbackSpeed === 1.5 ? '✓ ' : ''}Velocidade 1.5x
+                </button>
+
+                {/* Velocidade 2x */}
+                <button
+                  onClick={() => handleSpeedChange(2)}
+                  className={`w-full px-4 py-2 text-sm text-left transition-colors border-b border-gray-200 ${
+                    playbackSpeed === 2
+                      ? 'bg-indigo-50 text-indigo-600 font-medium'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {playbackSpeed === 2 ? '✓ ' : ''}Velocidade 2x
+                </button>
+
+                {/* Responder */}
+                <button
+                  onClick={handleReply}
+                  className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  Responder
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Avatar do remetente - à direita */}
           {senderAvatar ? (
