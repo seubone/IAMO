@@ -12,10 +12,16 @@ interface ApiError extends Error {
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    // Handle 401 Unauthorized - clear auth
+    // Handle 401 Unauthorized - clear auth and redirect to login
     if (res.status === 401) {
       console.warn("❌ Unauthorized (401) - Token may be expired or invalid. Clearing authentication...");
       localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth-storage");
+
+      // Redirecionar para login após um pequeno delay
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 500);
     }
 
     let errorMessage: string;
