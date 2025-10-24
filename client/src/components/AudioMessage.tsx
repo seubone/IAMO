@@ -122,6 +122,25 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     };
   }, [isPlaying]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'ArrowRight') {
+        const audio = audioRef.current;
+        if (audio) audio.currentTime = Math.min(audio.currentTime + 5, duration);
+      } else if (e.code === 'ArrowLeft') {
+        const audio = audioRef.current;
+        if (audio) audio.currentTime = Math.max(audio.currentTime - 5, 0);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [duration]);
+
   const togglePlayPause = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -135,12 +154,23 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     }
   };
 
+  const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = percent * duration;
+  };
+
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   if (isLoading) {
     return (
@@ -186,17 +216,18 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     <div className="w-full max-w-sm">
       <audio ref={audioRef} src={data.dataUrl} preload="metadata" />
 
-      {/* Audio Player Box - Compacto e funcional */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-2xl border border-gray-300">
+      {/* Audio Player Box - Melhorado com visual e interatividade */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all">
         {/* Play/Pause Button */}
         <button
           onClick={togglePlayPause}
-          className="flex-shrink-0 flex items-center justify-center text-white rounded-lg transition-all hover:opacity-80 active:scale-95"
+          className="flex-shrink-0 flex items-center justify-center text-white rounded-lg transition-all hover:bg-gray-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
           style={{
             width: '40px',
             height: '40px',
-            backgroundColor: '#393939',
+            backgroundColor: isPlaying ? '#222' : '#393939',
           }}
+          aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
           data-testid={`audio-play-${messageId}`}
         >
           {isPlaying ? (
@@ -206,39 +237,55 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           )}
         </button>
 
-        {/* Waveform - Compacto */}
-        <div className="flex-1 flex items-center justify-center gap-0.5 h-10">
+        {/* Waveform - Interativa com progresso */}
+        <div
+          className="flex-1 flex items-center justify-center gap-0.5 h-10 cursor-pointer group"
+          onClick={handleWaveformClick}
+          role="slider"
+          aria-label="Barra de progresso do áudio"
+          aria-valuenow={Math.round(progressPercent)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           {waveData.length > 0 ? (
-            waveData.slice(0, 12).map((value, index) => (
-              <div
-                key={index}
-                style={{
-                  width: '3px',
-                  height: `${Math.max(6, value * 28)}px`,
-                  backgroundColor: '#9E9E9E',
-                  borderRadius: '2px',
-                  transition: 'height 0.05s ease-out',
-                }}
-              />
-            ))
+            waveData.slice(0, 12).map((value, index) => {
+              const isPlayed = (index / 12) * 100 < progressPercent;
+              return (
+                <div
+                  key={index}
+                  style={{
+                    width: '3px',
+                    height: `${Math.max(6, value * 28)}px`,
+                    backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
+                    borderRadius: '2px',
+                    transition: 'background-color 0.1s ease-out, height 0.05s ease-out',
+                    opacity: isPlayed ? 1 : 0.6,
+                  }}
+                />
+              );
+            })
           ) : (
             // Default waveform simples
-            [1, 0.6, 0.8, 0.5, 0.9, 1, 0.8, 0.7, 0.6, 0.8, 0.5, 1].map((value, index) => (
-              <div
-                key={index}
-                style={{
-                  width: '3px',
-                  height: `${Math.max(6, value * 28)}px`,
-                  backgroundColor: '#9E9E9E',
-                  borderRadius: '2px',
-                }}
-              />
-            ))
+            [1, 0.6, 0.8, 0.5, 0.9, 1, 0.8, 0.7, 0.6, 0.8, 0.5, 1].map((value, index) => {
+              const isPlayed = (index / 12) * 100 < progressPercent;
+              return (
+                <div
+                  key={index}
+                  style={{
+                    width: '3px',
+                    height: `${Math.max(6, value * 28)}px`,
+                    backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
+                    borderRadius: '2px',
+                    opacity: isPlayed ? 1 : 0.6,
+                  }}
+                />
+              );
+            })
           )}
         </div>
 
         {/* Time display */}
-        <span className="text-xs font-medium text-gray-600 min-w-fit">
+        <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
       </div>
