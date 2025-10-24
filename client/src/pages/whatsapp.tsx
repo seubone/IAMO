@@ -677,6 +677,23 @@ export default function WhatsApp() {
     }
   };
 
+  // Formata data + hora completa para AudioMessage
+  const formatFullTimestamp = (timestamp?: number) => {
+    if (!timestamp) return "";
+    try {
+      const date = new Date(timestamp * 1000);
+      if (isToday(date)) {
+        return format(date, "HH:mm");
+      } else if (isYesterday(date)) {
+        return `Ontem ${format(date, "HH:mm")}`;
+      } else {
+        return format(date, "dd/MM/yyyy HH:mm");
+      }
+    } catch {
+      return "";
+    }
+  };
+
   // Format date label for message grouping
   const getDateLabel = (timestamp: number): string => {
     const date = new Date(timestamp * 1000);
@@ -1040,7 +1057,7 @@ export default function WhatsApp() {
                                       messageId={message.id}
                                       senderName={senderDisplayName}
                                       senderAvatar={senderProfile?.profilePicUrl}
-                                      timestamp={formatTimestamp(message.messageTimestamp)}
+                                      timestamp={formatFullTimestamp(message.messageTimestamp)}
                                       fromMe={fromMe}
                                     />
                                   )}
