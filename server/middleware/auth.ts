@@ -40,7 +40,6 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     const { user: supabaseUser, error: supabaseError } = await verifySupabaseToken(token);
 
     if (supabaseUser) {
-      console.log("✅ Supabase token verified:", supabaseUser.email);
       req.supabaseUser = supabaseUser;
       // Attach minimal user info - should be synced with local DB
       req.user = {
@@ -58,9 +57,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     }
 
     // Fall back to JWT token for backward compatibility
-    console.log("🔄 Trying JWT token fallback...");
     const decoded = jwt.verify(token, JWT_SECRET) as User;
-    console.log("✅ JWT token verified:", decoded.email);
     req.user = decoded;
     next();
   } catch (error: any) {
