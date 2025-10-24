@@ -238,14 +238,14 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
 
         {/* Player Box - Com bordas lg iguais às caixas de texto */}
         <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-lg border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full">
-          {/* Play/Pause Button - Redondo e Circular */}
+          {/* Play/Pause Button - Roxo */}
           <button
             onClick={togglePlayPause}
-            className="flex-shrink-0 flex items-center justify-center text-white rounded-full transition-all hover:bg-gray-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            className="flex-shrink-0 flex items-center justify-center text-white rounded-full transition-all hover:opacity-80 active:scale-95 focus:outline-none"
             style={{
               width: '48px',
               height: '48px',
-              backgroundColor: isPlaying ? '#222' : '#393939',
+              backgroundColor: '#6366F1',
             }}
             aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
             data-testid={`audio-play-${messageId}`}
