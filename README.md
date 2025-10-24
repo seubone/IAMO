@@ -2,6 +2,13 @@
 
 Sistema completo de monitoramento de Inteligências Artificiais integrado com N8N, Evolution API e Supabase.
 
+## 📚 Documentação
+
+Toda a documentação está organizada na pasta [`DOCS/`](./DOCS/):
+- **[DOCS/INDEX.md](./DOCS/INDEX.md)** - Índice completo de documentação
+- **[DOCS/DEV_STARTUP_GUIDE.md](./DOCS/DEV_STARTUP_GUIDE.md)** - Como iniciar desenvolvimento
+- **[DOCS/TROUBLESHOOTING_GUIDE.md](./DOCS/TROUBLESHOOTING_GUIDE.md)** - Guia de troubleshooting
+
 ## ✨ Features Principais
 
 - 🔐 Autenticação Segura com Supabase (verificação de email)
