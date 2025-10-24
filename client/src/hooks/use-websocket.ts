@@ -47,7 +47,14 @@ export function useWebSocket(options?: UseWebSocketOptions) {
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (!token) {
-      console.log("No token available for WebSocket connection");
+      console.log("⚠️ No token available for WebSocket connection");
+      return;
+    }
+
+    // Validate token format (basic check - should be JWT format)
+    if (!token.includes(".")) {
+      console.warn("⚠️ Invalid token format detected - clearing authentication");
+      localStorage.removeItem("auth_token");
       return;
     }
 
@@ -55,8 +62,8 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
-    
-    console.log("Connecting to WebSocket:", wsUrl.replace(token, "[TOKEN]"));
+
+    console.log("🔌 Connecting to WebSocket...", wsUrl.replace(token, "[TOKEN]"));
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
@@ -153,13 +160,19 @@ export function useWebSocket(options?: UseWebSocketOptions) {
       }
     };
 
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
+    ws.onclose = (event) => {
+      console.log("🔌 WebSocket disconnected", { code: event.code, reason: event.reason });
       setIsConnected(false);
+
+      // Code 1008 = Policy Violation (usually authentication error)
+      if (event.code === 1008) {
+        console.warn("❌ WebSocket rejected due to authentication error. Token may be invalid or expired.");
+        localStorage.removeItem("auth_token");
+      }
     };
 
     ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("❌ WebSocket error:", error);
     };
 
     wsRef.current = ws;

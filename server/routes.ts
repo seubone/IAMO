@@ -63,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
       const decoded = jwt.verify(token, JWT_SECRET) as { email: string; userId: string };
 
-      console.log(`WebSocket client connected: ${decoded.email}`);
+      console.log(`✅ WebSocket client connected: ${decoded.email}`);
       wsClients.add(ws);
 
       // Handle messages from client
@@ -111,13 +111,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
     } catch (error: any) {
-      const errorMsg = error.name === "TokenExpiredError"
-        ? "Token expired"
-        : error.name === "JsonWebTokenError"
-        ? "Invalid token format"
-        : "Invalid token";
+      let errorMsg: string;
 
-      console.log(`WebSocket connection rejected: ${errorMsg}`, error.message);
+      if (error.name === "TokenExpiredError") {
+        errorMsg = "Token expired";
+        console.warn(`⏰ WebSocket connection rejected: Token expired (${error.message})`);
+      } else if (error.name === "JsonWebTokenError") {
+        errorMsg = "Invalid token format";
+        console.warn(`❌ WebSocket connection rejected: Invalid token signature (${error.message})`);
+      } else {
+        errorMsg = "Invalid token";
+        console.warn(`⚠️ WebSocket connection rejected: Invalid token (${error.message})`);
+      }
+
       ws.close(1008, errorMsg);
     }
   });
@@ -224,6 +230,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
     });
+  });
+
+  // Debug JWT verification (development/troubleshooting only)
+  app.post("/api/debug/jwt", async (req, res) => {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: "Token is required" });
+    }
+
+    try {
+      const { verifyToken, decodeTokenWithoutVerification } = await import(
+        "./utils/jwt-debug"
+      );
+
+      const verificationResult = verifyToken(token);
+      const decoded = decodeTokenWithoutVerification(token);
+
+      return res.json({
+        verification: verificationResult,
+        decoded: decoded?.payload,
+        structure: {
+          hasThreeParts: token.split(".").length === 3,
+          headerAlg: decoded?.header?.alg,
+          headerType: decoded?.header?.typ,
+        },
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        error: "Failed to verify token",
+        message: error.message,
+      });
+    }
   });
 
   // ============ AUTH ROUTES ============

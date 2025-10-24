@@ -26,10 +26,12 @@ export const useAuth = create<AuthState>()(
       isAuthenticated: false,
       hasHydrated: false,
       setAuth: (user, token) => {
+        console.log("✅ Setting authentication for user:", user.email);
         localStorage.setItem("auth_token", token);
         set({ user, token, isAuthenticated: true });
       },
       logout: () => {
+        console.log("🚪 Logging out user");
         localStorage.removeItem("auth_token");
         set({ user: null, token: null, isAuthenticated: false });
       },
@@ -44,3 +46,10 @@ export const useAuth = create<AuthState>()(
     }
   )
 );
+
+/**
+ * Get the logout function directly (useful for imperative logout calls)
+ */
+export function performLogout() {
+  useAuth.getState().logout();
+}

@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setOnUnauthorizedCallback } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, performLogout } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useLoadSupabaseConfig } from "@/hooks/use-supabase-config";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
@@ -21,6 +21,7 @@ import Audit from "@/pages/audit";
 import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 import UazapiTest from "@/pages/uazapi-test";
+import JWTDebug from "@/pages/jwt-debug";
 import Login from "@/pages/login";
 import AuthCallback from "@/pages/auth-callback";
 import NotFound from "@/pages/not-found";
@@ -66,6 +67,7 @@ function ProtectedRoutes() {
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
               <Route path="/uazapi-test" component={UazapiTest} />
+              <Route path="/jwt-debug" component={JWTDebug} />
               <Route component={NotFound} />
             </Switch>
           </main>
@@ -78,6 +80,14 @@ function ProtectedRoutes() {
 export default function App() {
   // Load Supabase configuration from server
   useLoadSupabaseConfig();
+
+  // Register global handler for unauthorized (401) responses
+  useEffect(() => {
+    setOnUnauthorizedCallback(() => {
+      console.log("🔐 Global 401 handler triggered - logging out user");
+      performLogout();
+    });
+  }, []);
 
   return (
     <ErrorBoundary>
