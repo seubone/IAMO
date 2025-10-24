@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -44,6 +44,37 @@ import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { Smartphone } from "lucide-react";
 
+interface ParticipantProfile {
+  displayName: string;
+  profilePicUrl?: string | null;
+}
+
+const formatJidDisplay = (jid?: string | null): string => {
+  if (!jid) return "Contato";
+  const withoutDomain = jid.split("@")[0] || jid;
+  if (/^\d+$/.test(withoutDomain)) {
+    return withoutDomain.startsWith("+") ? withoutDomain : `+${withoutDomain}`;
+  }
+  const cleaned = withoutDomain.replace(/[_]+/g, " ").trim();
+  return cleaned || "Contato";
+};
+
+const getNameInitials = (value: string): string => {
+  if (!value) return "?";
+  const tokens = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    const letters = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    return letters.slice(0, 2) || "?";
+  }
+  const initials = tokens.slice(0, 2).map((token) => token[0]?.toUpperCase() || "").join("");
+  if (initials.length > 0) return initials;
+  const letters = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return letters.slice(0, 2) || "?";
+};
+
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
@@ -62,6 +93,7 @@ export default function WhatsApp() {
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
   const [fileCaption, setFileCaption] = useState("");
+  const [participantProfiles, setParticipantProfiles] = useState<Record<string, ParticipantProfile>>({});
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -297,10 +329,83 @@ export default function WhatsApp() {
 
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
+  const isGroupChat = selectedChat?.remoteJid?.endsWith("@g.us");
+
+  const groupParticipants = useMemo(() => {
+    if (!isGroupChat || !selectedInstanceId || !messages) {
+      return [] as Array<{ key: string; jid: string }>;
+    }
+    const map = new Map<string, string>();
+    for (const msg of messages) {
+      if (msg.key.fromMe) continue;
+      const participantJid = msg.key.participant || msg.participant;
+      if (!participantJid) continue;
+      const key = `${selectedInstanceId}:${participantJid}`;
+      if (!map.has(key)) {
+        map.set(key, participantJid);
+      }
+    }
+    return Array.from(map.entries()).map(([key, jid]) => ({ key, jid }));
+  }, [isGroupChat, selectedInstanceId, messages]);
+
+  useEffect(() => {
+    if (!isGroupChat || !selectedInstanceId || groupParticipants.length === 0) return;
+    const missing = groupParticipants.filter(({ key }) => !participantProfiles[key]);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const updates: Array<[string, ParticipantProfile]> = [];
+      await Promise.all(
+        missing.map(async ({ key, jid }) => {
+          try {
+            const data = await apiRequest<any>(`/api/whatsapp/instances/${selectedInstanceId}/contacts/${encodeURIComponent(jid)}`);
+            updates.push([
+              key,
+              {
+                displayName:
+                  data?.name ||
+                  data?.pushName ||
+                  data?.profileName ||
+                  formatJidDisplay(jid),
+                profilePicUrl: data?.profilePicUrl || null,
+              },
+            ]);
+          } catch (error) {
+            console.debug("Falha ao buscar contato do participante", jid, error);
+            updates.push([
+              key,
+              {
+                displayName: formatJidDisplay(jid),
+                profilePicUrl: null,
+              },
+            ]);
+          }
+        })
+      );
+
+      if (cancelled || updates.length === 0) return;
+
+      setParticipantProfiles((prev) => {
+        const next = { ...prev };
+        for (const [key, profile] of updates) {
+          if (!next[key]) {
+            next[key] = profile;
+          }
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [groupParticipants, isGroupChat, participantProfiles, selectedInstanceId]);
 
   // Check if instance has Uazapi token
   const { data: uazapiInstanceData } = useQuery<{ instanceNumber: string; hasToken: boolean }>({
-    queryKey: ["/api/uazapi/instances", selectedInstance?.number],
+    queryKey: [`/api/uazapi/instances/${selectedInstance?.number}`],
     enabled: !!selectedInstance?.number,
   });
 
@@ -806,7 +911,6 @@ export default function WhatsApp() {
                             {/* Messages for this date */}
                             {group.messages.map((message, messageIndex) => {
                               const fromMe = message.key.fromMe;
-                              const text = getMessageText(message);
                               
                               // Helper para identificar remetente único (funciona em 1:1 e grupos)
                               const getSenderId = (msg: EvolutionMessage) => {
@@ -825,6 +929,19 @@ export default function WhatsApp() {
                               const nextMessage = messageIndex < group.messages.length - 1 ? group.messages[messageIndex + 1] : null;
                               const isSameSenderAsNext = nextMessage && 
                                 getSenderId(nextMessage) === getSenderId(message);
+
+                              const participantJid = !fromMe ? (message.key.participant || message.participant || null) : null;
+                              const participantKey = participantJid && selectedInstanceId
+                                ? `${selectedInstanceId}:${participantJid}`
+                                : null;
+                              const senderProfile = participantKey ? participantProfiles[participantKey] : undefined;
+                              const senderDisplayName = senderProfile?.displayName
+                                || message.pushName
+                                || formatJidDisplay(participantJid);
+                              const avatarInitials = getNameInitials(senderDisplayName);
+                              const shouldReserveAvatarSpace = Boolean(isGroupChat && !fromMe);
+                              const shouldShowAvatar = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
+                              const showSenderLabel = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
                               
                               return (
                                 <div
@@ -855,7 +972,23 @@ export default function WhatsApp() {
                                       }}
                                     />
                                   )}
-                                  
+
+                                  {shouldReserveAvatarSpace && (
+                                    <div className="flex-shrink-0 mt-1">
+                                      {shouldShowAvatar ? (
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage
+                                            src={senderProfile?.profilePicUrl || undefined}
+                                            alt={senderDisplayName}
+                                          />
+                                          <AvatarFallback>{avatarInitials}</AvatarFallback>
+                                        </Avatar>
+                                      ) : (
+                                        <div className="h-8 w-8" />
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-lg px-4 py-2 break-words overflow-hidden ${
                                       fromMe
@@ -870,9 +1003,9 @@ export default function WhatsApp() {
                                       overflowWrap: 'anywhere',
                                     }}
                                   >
-                                    {!fromMe && message.pushName && !isSameSenderAsPrevious && (
+                                    {showSenderLabel && (
                                       <p className="text-xs font-medium mb-1 text-primary">
-                                        {message.pushName}
+                                        {senderDisplayName}
                                       </p>
                                     )}
                                     
