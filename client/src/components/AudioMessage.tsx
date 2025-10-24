@@ -99,27 +99,37 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     };
   }, [data]);
 
-  // Visualização de onda
+  // Análise de frequência para waveform dinâmico
   useEffect(() => {
-    if (!isPlaying || !analyserRef.current) return;
-
-    const animate = () => {
-      if (!analyserRef.current || !canvasRef.current) return;
+    const analyzeAudio = () => {
+      if (!analyserRef.current) return;
 
       const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
       analyserRef.current.getByteFrequencyData(dataArray);
 
-      const normalized = Array.from(dataArray).map(val => val / 255);
-      setWaveData(normalized);
+      // Pega apenas as frequências mais relevantes (12 barras)
+      const barCount = 12;
+      const barHeight: number[] = [];
 
-      animationRef.current = requestAnimationFrame(animate);
+      for (let i = 0; i < barCount; i++) {
+        const start = Math.floor((i / barCount) * dataArray.length);
+        const end = Math.floor(((i + 1) / barCount) * dataArray.length);
+
+        let sum = 0;
+        for (let j = start; j < end; j++) {
+          sum += dataArray[j];
+        }
+        const average = sum / (end - start);
+        barHeight.push(average / 255); // Normalizar 0-1
+      }
+
+      setWaveData(barHeight);
     };
 
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
+    if (isPlaying && analyserRef.current) {
+      const interval = setInterval(analyzeAudio, 50);
+      return () => clearInterval(interval);
+    }
   }, [isPlaying]);
 
   // Keyboard navigation
@@ -216,7 +226,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     <div className="w-full max-w-sm">
       <audio ref={audioRef} src={data.dataUrl} preload="metadata" />
 
-      {/* Audio Player Box - Melhorado com visual e interatividade */}
+      {/* Audio Player - Layout horizontal */}
       <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all">
         {/* Play/Pause Button */}
         <button
@@ -237,7 +247,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           )}
         </button>
 
-        {/* Waveform - Interativa com progresso */}
+        {/* Waveform - Dinâmico de acordo com o áudio */}
         <div
           className="flex-1 flex items-center justify-center gap-0.5 h-10 cursor-pointer group"
           onClick={handleWaveformClick}
@@ -247,47 +257,40 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          {waveData.length > 0 ? (
-            waveData.slice(0, 12).map((value, index) => {
-              const isPlayed = (index / 12) * 100 < progressPercent;
-              return (
-                <div
-                  key={index}
-                  style={{
-                    width: '3px',
-                    height: `${Math.max(6, value * 28)}px`,
-                    backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
-                    borderRadius: '2px',
-                    transition: 'background-color 0.1s ease-out, height 0.05s ease-out',
-                    opacity: isPlayed ? 1 : 0.6,
-                  }}
-                />
-              );
-            })
-          ) : (
-            // Default waveform simples
-            [1, 0.6, 0.8, 0.5, 0.9, 1, 0.8, 0.7, 0.6, 0.8, 0.5, 1].map((value, index) => {
-              const isPlayed = (index / 12) * 100 < progressPercent;
-              return (
-                <div
-                  key={index}
-                  style={{
-                    width: '3px',
-                    height: `${Math.max(6, value * 28)}px`,
-                    backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
-                    borderRadius: '2px',
-                    opacity: isPlayed ? 1 : 0.6,
-                  }}
-                />
-              );
-            })
-          )}
+          {waveData.map((value, index) => {
+            const isPlayed = (index / waveData.length) * 100 < progressPercent;
+            // value já é normalizado (0-1) pela análise de frequência
+            const heightPercent = Math.max(30, value * 100); // Mínimo 30% para visibilidade
+            return (
+              <div
+                key={index}
+                style={{
+                  width: '3px',
+                  height: `${heightPercent}%`,
+                  maxHeight: '28px',
+                  backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
+                  borderRadius: '2px',
+                  transition: 'background-color 0.1s ease-out, height 0.05s ease-out',
+                  opacity: isPlayed ? 1 : 0.6,
+                }}
+              />
+            );
+          })}
         </div>
 
         {/* Time display */}
         <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
+
+        {/* Avatar do remetente */}
+        {senderAvatar && (
+          <img
+            src={senderAvatar}
+            alt={senderName || 'Remetente'}
+            className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-gray-300"
+          />
+        )}
       </div>
 
       {caption && (
