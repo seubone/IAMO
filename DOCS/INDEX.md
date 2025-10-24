@@ -18,6 +18,10 @@
 - **[LOGIN_FIX_GUIDE.md](./LOGIN_FIX_GUIDE.md)** - Erro "failed to fetch" no login
 - **[UAZAPI_TOKEN_FIX.md](./UAZAPI_TOKEN_FIX.md)** - Token UazAPI não era reconhecido
 
+### Banco de Dados & Configuração
+- **[UAZAPI_DATABASE_SETUP.md](./UAZAPI_DATABASE_SETUP.md)** - Setup da tabela uazapi_instances e gerenciamento de tokens
+- **[SQL_SUPABASE_SETUP.md](./SQL_SUPABASE_SETUP.md)** - SQL para criar a tabela no Supabase (passo a passo)
+
 ## 🐛 Troubleshooting
 
 - **[TROUBLESHOOTING_GUIDE.md](./TROUBLESHOOTING_GUIDE.md)** - Guia completo de problemas
@@ -53,6 +57,8 @@ DOCS/
 ├── CHATS_LOADING_FIX.md            # Fix: Chats
 ├── LOGIN_FIX_GUIDE.md              # Fix: Login
 ├── UAZAPI_TOKEN_FIX.md             # Fix: Token
+├── UAZAPI_DATABASE_SETUP.md        # Setup da tabela UAZapi
+├── SQL_SUPABASE_SETUP.md           # SQL para criar tabela
 ├── LATEST_FIXES_SUMMARY.md         # Resumo de fixes
 ├── SESSION_SUMMARY_SCROLLBAR.md    # Resumo da sessão
 ├── UX_PROBLEMS_REPORT.md           # Problemas de UX
@@ -106,5 +112,5 @@ DOCS/
 ---
 
 **Última atualização**: 2025-10-24
-**Total de documentos**: 15
+**Total de documentos**: 17
 **Status**: ✅ Organizado
