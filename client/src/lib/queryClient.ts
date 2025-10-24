@@ -38,13 +38,9 @@ async function throwIfResNotOk(res: Response) {
 
 // Helper function to get the API base URL
 function getApiUrl(path: string): string {
-  // In development, the API server runs on port 5051 while Vite serves on 5000
-  // In production, both are served from the same origin
-  if (import.meta.env.DEV) {
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:5051${path}`;
-  }
+  // Use relative URLs to leverage Vite's proxy configuration
+  // Vite proxies /api requests to http://localhost:5051
+  // This works for both development (port 5000) and production
   return path;
 }
 
@@ -94,8 +90,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const path = queryKey.join("/") as string;
-    const fullUrl = getApiUrl(path);
-    const res = await fetch(fullUrl, {
+    const res = await fetch(path, {
       credentials: "include",
       headers: getAuthHeaders(),
     });
