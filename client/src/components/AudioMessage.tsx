@@ -183,16 +183,20 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
   }
 
   return (
-    <div className="w-full max-w-xs">
+    <div className="w-full max-w-sm">
       <audio ref={audioRef} src={data.dataUrl} preload="metadata" />
 
-      {/* WhatsApp Style Audio Player */}
-      <div className="bg-green-500/20 dark:bg-green-900/30 rounded-3xl p-3 flex items-center gap-3">
+      {/* Audio Player Box - Compacto e funcional */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-2xl border border-gray-300">
         {/* Play/Pause Button */}
-        <Button
-          size="icon"
-          className="h-10 w-10 flex-shrink-0 rounded-full bg-green-600 hover:bg-green-700 text-white"
+        <button
           onClick={togglePlayPause}
+          className="flex-shrink-0 flex items-center justify-center text-white rounded-lg transition-all hover:opacity-80 active:scale-95"
+          style={{
+            width: '40px',
+            height: '40px',
+            backgroundColor: '#393939',
+          }}
           data-testid={`audio-play-${messageId}`}
         >
           {isPlaying ? (
@@ -200,54 +204,43 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           ) : (
             <Play className="h-5 w-5 ml-0.5" fill="white" />
           )}
-        </Button>
+        </button>
 
-        {/* Waveform Visualization */}
-        <div className="flex-1 flex items-center justify-center h-8 gap-0.5">
+        {/* Waveform - Compacto */}
+        <div className="flex-1 flex items-center justify-center gap-0.5 h-10">
           {waveData.length > 0 ? (
-            waveData.slice(0, 40).map((value, index) => (
+            waveData.slice(0, 12).map((value, index) => (
               <div
                 key={index}
-                className="bg-green-600/70 rounded-full flex-1"
                 style={{
-                  height: `${Math.max(4, value * 24)}px`,
-                  opacity: 0.7 + value * 0.3,
+                  width: '3px',
+                  height: `${Math.max(6, value * 28)}px`,
+                  backgroundColor: '#9E9E9E',
+                  borderRadius: '2px',
                   transition: 'height 0.05s ease-out',
                 }}
               />
             ))
           ) : (
-            // Default waveform quando não está tocando
-            Array.from({ length: 40 }).map((_, index) => (
+            // Default waveform simples
+            [1, 0.6, 0.8, 0.5, 0.9, 1, 0.8, 0.7, 0.6, 0.8, 0.5, 1].map((value, index) => (
               <div
                 key={index}
-                className="bg-green-600/50 rounded-full flex-1"
                 style={{
-                  height: `${6 + Math.random() * 4}px`,
+                  width: '3px',
+                  height: `${Math.max(6, value * 28)}px`,
+                  backgroundColor: '#9E9E9E',
+                  borderRadius: '2px',
                 }}
               />
             ))
           )}
         </div>
 
-        {/* Sender Avatar */}
-        {senderAvatar ? (
-          <img
-            src={senderAvatar}
-            alt={senderName || 'Sender'}
-            className="h-8 w-8 rounded-full flex-shrink-0 object-cover"
-          />
-        ) : (
-          <div className="h-8 w-8 rounded-full bg-green-600 flex-shrink-0 flex items-center justify-center text-white text-xs font-medium">
-            {(senderName || 'U').charAt(0).toUpperCase()}
-          </div>
-        )}
-      </div>
-
-      {/* Current Time and Timestamp */}
-      <div className="flex items-center justify-between mt-1 px-1">
-        <span className="text-xs text-muted-foreground font-medium">{formatTime(currentTime)}</span>
-        {timestamp && <span className="text-xs text-muted-foreground">{timestamp}</span>}
+        {/* Time display */}
+        <span className="text-xs font-medium text-gray-600 min-w-fit">
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
       </div>
 
       {caption && (
