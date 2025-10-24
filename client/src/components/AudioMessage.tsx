@@ -229,15 +229,15 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
 
       {/* Audio Player - Layout vertical com mais espaço */}
       <div className={`flex flex-col gap-2 w-full max-w-md ${fromMe ? 'items-end' : 'items-start'}`}>
-        {/* Horário do envio */}
+        {/* Horário do envio com hora completa */}
         {timestamp && (
-          <span className="text-xs font-medium text-gray-500">
+          <span className="text-xs font-medium text-gray-500 px-2">
             {timestamp}
           </span>
         )}
 
-        {/* Player Box - Horizontal */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full">
+        {/* Player Box - Com bordas lg iguais às caixas de texto */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-lg border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full">
           {/* Play/Pause Button - Redondo e Circular */}
           <button
             onClick={togglePlayPause}
@@ -257,9 +257,9 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
             )}
           </button>
 
-          {/* Waveform - Flex-grow para ocupar mais espaço */}
+          {/* Barra de progresso reta */}
           <div
-            className="flex-1 flex items-center justify-center gap-1 h-12 cursor-pointer group"
+            className="flex-1 flex items-center h-1.5 bg-gray-300 rounded-full cursor-pointer group relative"
             onClick={handleWaveformClick}
             role="slider"
             aria-label="Barra de progresso do áudio"
@@ -267,29 +267,17 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
             aria-valuemin={0}
             aria-valuemax={100}
           >
-            {waveData.map((value, index) => {
-              const isPlayed = (index / waveData.length) * 100 < progressPercent;
-              // value já é normalizado (0-1) pela análise de frequência
-              const heightPercent = Math.max(25, value * 100); // Mínimo 25% para visibilidade
-              return (
-                <div
-                  key={index}
-                  style={{
-                    width: '5px',
-                    height: `${heightPercent}%`,
-                    maxHeight: '44px',
-                    backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
-                    borderRadius: '2px',
-                    transition: 'background-color 0.1s ease-out, height 0.05s ease-out',
-                    opacity: isPlayed ? 1 : 0.6,
-                  }}
-                />
-              );
-            })}
+            {/* Barra preenchida (progresso) */}
+            <div
+              className="h-full bg-indigo-500 rounded-full transition-all"
+              style={{
+                width: `${progressPercent}%`,
+              }}
+            />
           </div>
 
           {/* Time display - Tempo atual / Total */}
-          <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums">
+          <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums whitespace-nowrap">
             {formatTime(currentTime)}/{formatTime(duration)}
           </span>
 
