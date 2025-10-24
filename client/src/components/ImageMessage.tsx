@@ -24,21 +24,20 @@ export function ImageMessage({ messageId, caption }: ImageMessageProps) {
     },
   });
 
-  // Verificar se é mídia expirada (suporta múltiplos formatos de erro)
-  const isExpired =
-    (error as any)?.response?.status === 410 ||
-    (error as any)?.status === 410 ||
-    (error as any)?.message?.includes('410');
+  // Verificar tipo de erro
+  const errorStatus = (error as any)?.response?.status || (error as any)?.status;
+  const errorType = (error as any)?.response?.data?.type || (error as any)?.type;
+  const isExpired = errorStatus === 410;
+  const isNetworkError = errorStatus === 503 || errorType === 'NETWORK_ERROR';
+  const isDeleted = errorType === 'MEDIA_DELETED';
 
   // Debug: log do erro para investigar
   if (error) {
-    console.log('🔍 ImageMessage Error Debug:', {
+    console.warn('⚠️ ImageMessage Erro ao carregar:', {
       messageId,
-      error,
-      errorStatus: (error as any)?.status,
-      responseStatus: (error as any)?.response?.status,
-      errorMessage: (error as any)?.message,
-      isExpired
+      status: errorStatus,
+      type: errorType,
+      message: (error as any)?.message,
     });
   }
 
@@ -50,12 +49,27 @@ export function ImageMessage({ messageId, caption }: ImageMessageProps) {
     );
   }
 
-  if (isExpired) {
+  if (isExpired || isDeleted) {
     return (
-      <div className="flex flex-col items-center justify-center w-full h-48 bg-blue-500/10 border border-blue-500/20 rounded-md mb-2 p-4">
-        <p className="text-sm font-medium text-blue-600 dark:text-blue-500 mb-1">⏰ Mídia expirada</p>
+      <div className="flex flex-col items-center justify-center w-full h-48 bg-amber-500/10 border border-amber-500/20 rounded-md mb-2 p-4">
+        <p className="text-sm font-medium text-amber-600 dark:text-amber-500 mb-1">
+          {isDeleted ? '🗑️ Mídia deletada' : '⏰ Mídia expirada'}
+        </p>
         <p className="text-xs text-muted-foreground text-center">
-          URLs do WhatsApp são temporárias e expiram após alguns dias
+          {isDeleted
+            ? 'Esta imagem foi deletada e não está mais disponível'
+            : 'As URLs do WhatsApp são temporárias e expiram após ~24 horas'}
+        </p>
+      </div>
+    );
+  }
+
+  if (isNetworkError) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-48 bg-orange-500/10 border border-orange-500/20 rounded-md mb-2 p-4">
+        <p className="text-sm font-medium text-orange-600 dark:text-orange-500 mb-1">🌐 Erro de conexão</p>
+        <p className="text-xs text-muted-foreground text-center">
+          Não foi possível conectar ao servidor de mídia. Tente novamente mais tarde.
         </p>
       </div>
     );
@@ -63,9 +77,9 @@ export function ImageMessage({ messageId, caption }: ImageMessageProps) {
 
   if (error || !data?.dataUrl) {
     return (
-      <div className="flex flex-col items-center justify-center w-full h-48 bg-muted/20 rounded-md mb-2 p-4">
-        <p className="text-sm text-muted-foreground mb-1">❌ Erro ao carregar imagem</p>
-        <p className="text-xs text-muted-foreground/70">Tente novamente mais tarde</p>
+      <div className="flex flex-col items-center justify-center w-full h-48 bg-red-500/10 border border-red-500/20 rounded-md mb-2 p-4">
+        <p className="text-sm font-medium text-red-600 dark:text-red-500 mb-1">❌ Erro ao carregar imagem</p>
+        <p className="text-xs text-muted-foreground text-center">Tente novamente mais tarde</p>
       </div>
     );
   }

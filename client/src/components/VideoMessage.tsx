@@ -22,11 +22,12 @@ export function VideoMessage({ messageId, caption }: VideoMessageProps) {
     },
   });
 
-  // Verificar se é mídia expirada (suporta múltiplos formatos de erro)
-  const isExpired =
-    (error as any)?.response?.status === 410 ||
-    (error as any)?.status === 410 ||
-    (error as any)?.message?.includes('410');
+  // Verificar tipo de erro
+  const errorStatus = (error as any)?.response?.status || (error as any)?.status;
+  const errorType = (error as any)?.response?.data?.type || (error as any)?.type;
+  const isExpired = errorStatus === 410;
+  const isNetworkError = errorStatus === 503 || errorType === 'NETWORK_ERROR';
+  const isDeleted = errorType === 'MEDIA_DELETED';
 
   if (isLoading) {
     return (
@@ -36,12 +37,27 @@ export function VideoMessage({ messageId, caption }: VideoMessageProps) {
     );
   }
 
-  if (isExpired) {
+  if (isExpired || isDeleted) {
     return (
-      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-        <p className="text-sm font-medium text-blue-600 dark:text-blue-500 mb-1">⏰ Mídia expirada</p>
+      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+        <p className="text-sm font-medium text-amber-600 dark:text-amber-500 mb-1">
+          {isDeleted ? '🗑️ Mídia deletada' : '⏰ Mídia expirada'}
+        </p>
         <p className="text-xs text-muted-foreground text-center">
-          URLs do WhatsApp são temporárias
+          {isDeleted
+            ? 'Este vídeo foi deletado'
+            : 'URLs do WhatsApp são temporárias'}
+        </p>
+      </div>
+    );
+  }
+
+  if (isNetworkError) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+        <p className="text-sm font-medium text-orange-600 dark:text-orange-500 mb-1">🌐 Erro de conexão</p>
+        <p className="text-xs text-muted-foreground text-center">
+          Servidor de mídia indisponível
         </p>
       </div>
     );
@@ -49,9 +65,9 @@ export function VideoMessage({ messageId, caption }: VideoMessageProps) {
 
   if (error || !data) {
     return (
-      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-muted/30 rounded-lg p-3">
-        <p className="text-sm text-muted-foreground mb-1">❌ Erro ao carregar vídeo</p>
-        <p className="text-xs text-muted-foreground/70">Tente novamente</p>
+      <div className="flex flex-col items-center justify-center w-full max-w-[256px] h-36 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+        <p className="text-sm font-medium text-red-600 dark:text-red-500 mb-1">❌ Erro ao carregar vídeo</p>
+        <p className="text-xs text-muted-foreground text-center">Tente novamente</p>
       </div>
     );
   }

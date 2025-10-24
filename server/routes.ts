@@ -944,17 +944,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Tratar erro de mídia expirada com HTTP 410 (Gone)
       if (error instanceof MediaExpiredError || error.name === 'MediaExpiredError') {
-        console.log(`⏰ Mídia expirada para messageId ${req.params.messageId}: ${error.message}`);
+        console.warn(`⏰ Mídia expirada ou deletada para messageId ${req.params.messageId}`);
+        console.warn(`   Razão: ${error.message}`);
+        console.warn(`   As URLs de mídia do WhatsApp expiram após ~24 horas`);
         return res.status(410).json({
-          error: "Mídia expirada",
-          message: "Esta mídia não está mais disponível. As URLs de mídia do WhatsApp expiram após alguns dias.",
-          expired: true
+          error: "Mídia expirada ou deletada",
+          message: "Esta mídia não está mais disponível. As URLs do WhatsApp expiram após aproximadamente 24 horas.",
+          expired: true,
+          type: "MEDIA_EXPIRED"
+        });
+      }
+
+      // Erro de conectividade (DNS ou rede)
+      if (error.code === 'ENOTFOUND' || error.message.includes('ENOTFOUND')) {
+        console.warn(`🌐 Erro de conectividade ao baixar mídia para messageId ${req.params.messageId}`);
+        console.warn(`   Erro: ${error.message}`);
+        console.warn(`   Dica: Verifique a conexão com web.whatsapp.net ou tente novamente`);
+        return res.status(503).json({
+          error: "Indisponível",
+          message: "Não foi possível conectar ao servidor de mídia do WhatsApp. Tente novamente mais tarde.",
+          expired: false,
+          type: "NETWORK_ERROR"
+        });
+      }
+
+      // Erro HTTP 404 (arquivo não encontrado)
+      if (error.message.includes('404') || error.statusCode === 404) {
+        console.warn(`🗑️ Mídia não encontrada (deletada?) para messageId ${req.params.messageId}`);
+        console.warn(`   A mídia pode ter sido deletada do servidor WhatsApp`);
+        return res.status(410).json({
+          error: "Mídia deletada",
+          message: "Esta mídia foi deletada e não está mais disponível no servidor WhatsApp.",
+          expired: true,
+          type: "MEDIA_DELETED"
         });
       }
 
       // Outros erros
-      console.error("❌ Erro ao descriptografar mídia:", error.message);
-      res.status(500).json({ error: "Erro ao descriptografar mídia", details: error.message });
+      console.error(`❌ Erro desconhecido ao descriptografar mídia para messageId ${req.params.messageId}`);
+      console.error(`   Mensagem: ${error.message}`);
+      console.error(`   Stack: ${error.stack}`);
+      res.status(500).json({
+        error: "Erro ao descriptografar mídia",
+        message: "Ocorreu um erro ao tentar descriptografar a mídia",
+        details: error.message,
+        type: "DECRYPTION_ERROR"
+      });
     }
   });
 
