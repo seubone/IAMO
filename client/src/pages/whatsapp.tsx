@@ -219,7 +219,7 @@ export default function WhatsApp() {
 
   // Fetch chats for selected instance com polling ULTRA otimizado
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
-    queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats"],
+    queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats`],
     enabled: !!selectedInstanceId,
     // Polling RÁPIDO: 3s para lista de chats (precisa ser mais lento que mensagens)
     // WebSocket atualiza em tempo real, polling é backup
@@ -246,7 +246,7 @@ export default function WhatsApp() {
 
   // Fetch messages for selected chat com polling ULTRA otimizado
   const { data: allMessages, isLoading: isLoadingMessages, error: messagesError } = useQuery<EvolutionMessage[]>({
-    queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"],
+    queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
     enabled: !!selectedInstanceId && !!selectedChatJid,
     // Polling RÁPIDO: 2s se página visível (para mensagens instantâneas), desligado se não
     // WebSocket cuida do tempo real, polling é backup
@@ -435,8 +435,8 @@ export default function WhatsApp() {
       });
       setMessageText("");
       // Invalidate messages to reload
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"] 
+      queryClient.invalidateQueries({
+        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`]
       });
     },
     onError: (error: any) => {
@@ -463,8 +463,8 @@ export default function WhatsApp() {
         description: "Reação enviada com sucesso!",
       });
       // Invalidate messages to reload
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"] 
+      queryClient.invalidateQueries({
+        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`]
       });
     },
     onError: (error: any) => {
@@ -491,8 +491,8 @@ export default function WhatsApp() {
         description: "Mensagem deletada para todos",
       });
       // Invalidate messages to reload
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/whatsapp/instances", selectedInstanceId, "chats", selectedChatJid, "messages"] 
+      queryClient.invalidateQueries({
+        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`]
       });
     },
     onError: (error: any) => {
