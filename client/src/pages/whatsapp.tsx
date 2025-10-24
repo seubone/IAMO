@@ -1036,7 +1036,13 @@ export default function WhatsApp() {
 
                                   {/* Audio Message sem caixa extra */}
                                   {message.message?.audioMessage && (
-                                    <AudioMessage messageId={message.id} />
+                                    <AudioMessage
+                                      messageId={message.id}
+                                      senderName={senderDisplayName}
+                                      senderAvatar={senderProfile?.profilePicUrl}
+                                      timestamp={formatTimestamp(message.messageTimestamp)}
+                                      fromMe={fromMe}
+                                    />
                                   )}
 
                                   {/* Todas as outras mensagens com caixa */}

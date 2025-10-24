@@ -9,9 +9,10 @@ interface AudioMessageProps {
   senderName?: string;
   timestamp?: string;
   senderAvatar?: string;
+  fromMe?: boolean;
 }
 
-export function AudioMessage({ messageId, caption, senderName, timestamp, senderAvatar }: AudioMessageProps) {
+export function AudioMessage({ messageId, caption, senderName, timestamp, senderAvatar, fromMe }: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -226,71 +227,85 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
     <>
       <audio ref={audioRef} src={data.dataUrl} preload="metadata" />
 
-      {/* Audio Player - Caixa única com layout horizontal */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full max-w-sm">
-        {/* Play/Pause Button */}
-        <button
-          onClick={togglePlayPause}
-          className="flex-shrink-0 flex items-center justify-center text-white rounded-lg transition-all hover:bg-gray-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-          style={{
-            width: '40px',
-            height: '40px',
-            backgroundColor: isPlaying ? '#222' : '#393939',
-          }}
-          aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
-          data-testid={`audio-play-${messageId}`}
-        >
-          {isPlaying ? (
-            <Pause className="h-5 w-5" fill="white" />
-          ) : (
-            <Play className="h-5 w-5 ml-0.5" fill="white" />
-          )}
-        </button>
-
-        {/* Waveform - Dinâmico de acordo com o áudio */}
-        <div
-          className="flex-1 flex items-center justify-center gap-0.5 h-10 cursor-pointer group"
-          onClick={handleWaveformClick}
-          role="slider"
-          aria-label="Barra de progresso do áudio"
-          aria-valuenow={Math.round(progressPercent)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          {waveData.map((value, index) => {
-            const isPlayed = (index / waveData.length) * 100 < progressPercent;
-            // value já é normalizado (0-1) pela análise de frequência
-            const heightPercent = Math.max(30, value * 100); // Mínimo 30% para visibilidade
-            return (
-              <div
-                key={index}
-                style={{
-                  width: '3px',
-                  height: `${heightPercent}%`,
-                  maxHeight: '28px',
-                  backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
-                  borderRadius: '2px',
-                  transition: 'background-color 0.1s ease-out, height 0.05s ease-out',
-                  opacity: isPlayed ? 1 : 0.6,
-                }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Time display */}
-        <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
-
-        {/* Avatar do remetente */}
-        {senderAvatar && (
-          <img
-            src={senderAvatar}
-            alt={senderName || 'Remetente'}
-            className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-gray-300"
-          />
+      {/* Audio Player - Layout vertical com mais espaço */}
+      <div className={`flex flex-col gap-2 w-full max-w-md ${fromMe ? 'items-end' : 'items-start'}`}>
+        {/* Horário do envio */}
+        {timestamp && (
+          <span className="text-xs font-medium text-gray-500">
+            {timestamp}
+          </span>
         )}
+
+        {/* Player Box - Horizontal */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full">
+          {/* Play/Pause Button - Redondo e Circular */}
+          <button
+            onClick={togglePlayPause}
+            className="flex-shrink-0 flex items-center justify-center text-white rounded-full transition-all hover:bg-gray-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            style={{
+              width: '48px',
+              height: '48px',
+              backgroundColor: isPlaying ? '#222' : '#393939',
+            }}
+            aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
+            data-testid={`audio-play-${messageId}`}
+          >
+            {isPlaying ? (
+              <Pause className="h-6 w-6" fill="white" />
+            ) : (
+              <Play className="h-6 w-6 ml-1" fill="white" />
+            )}
+          </button>
+
+          {/* Waveform - Flex-grow para ocupar mais espaço */}
+          <div
+            className="flex-1 flex items-center justify-center gap-1 h-12 cursor-pointer group"
+            onClick={handleWaveformClick}
+            role="slider"
+            aria-label="Barra de progresso do áudio"
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            {waveData.map((value, index) => {
+              const isPlayed = (index / waveData.length) * 100 < progressPercent;
+              // value já é normalizado (0-1) pela análise de frequência
+              const heightPercent = Math.max(25, value * 100); // Mínimo 25% para visibilidade
+              return (
+                <div
+                  key={index}
+                  style={{
+                    width: '5px',
+                    height: `${heightPercent}%`,
+                    maxHeight: '44px',
+                    backgroundColor: isPlayed ? '#4F46E5' : '#D1D5DB',
+                    borderRadius: '2px',
+                    transition: 'background-color 0.1s ease-out, height 0.05s ease-out',
+                    opacity: isPlayed ? 1 : 0.6,
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          {/* Time display - Tempo atual / Total */}
+          <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums">
+            {formatTime(currentTime)}/{formatTime(duration)}
+          </span>
+
+          {/* Avatar do remetente - à direita */}
+          {senderAvatar ? (
+            <img
+              src={senderAvatar}
+              alt={senderName || 'Remetente'}
+              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-gray-300"
+            />
+          ) : (
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-700">
+              {senderName?.charAt(0).toUpperCase() || 'U'}
+            </div>
+          )}
+        </div>
       </div>
 
       {caption && (
