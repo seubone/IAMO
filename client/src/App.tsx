@@ -23,6 +23,7 @@ import Settings from "@/pages/settings";
 import UazapiTest from "@/pages/uazapi-test";
 import JWTDebug from "@/pages/jwt-debug";
 import Login from "@/pages/login";
+import Logout from "@/pages/logout";
 import AuthCallback from "@/pages/auth-callback";
 import NotFound from "@/pages/not-found";
 
@@ -88,6 +89,7 @@ export default function App() {
           <ThemeProvider defaultTheme="light">
             <Switch>
               <Route path="/login" component={Login} />
+              <Route path="/logout" component={Logout} />
               <Route path="/auth/callback" component={AuthCallback} />
               <Route path="*" component={ProtectedRoutes} />
             </Switch>
