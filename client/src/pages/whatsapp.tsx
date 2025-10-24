@@ -43,6 +43,13 @@ import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { Smartphone } from "lucide-react";
+import {
+  setSelectedInstanceId,
+  getSelectedInstanceId,
+  setMessageDraft,
+  getMessageDraft,
+  deleteMessageDraft,
+} from "@/lib/storage";
 
 interface ParticipantProfile {
   displayName: string;
@@ -166,6 +173,30 @@ export default function WhatsApp() {
       };
     }
   }, [selectedInstanceId, registerInstance, unregisterInstance]);
+
+  // Carregar rascunho salvo quando mudar de chat
+  useEffect(() => {
+    if (!selectedInstanceId || !selectedChatJid) {
+      setMessageText("");
+      return;
+    }
+
+    const savedDraft = getMessageDraft(selectedInstanceId, selectedChatJid);
+    if (savedDraft) {
+      setMessageText(savedDraft);
+    } else {
+      setMessageText("");
+    }
+  }, [selectedInstanceId, selectedChatJid]);
+
+  // Salvar rascunho quando a mensagem mudar
+  useEffect(() => {
+    if (!selectedInstanceId || !selectedChatJid) {
+      return;
+    }
+
+    setMessageDraft(selectedInstanceId, selectedChatJid, messageText);
+  }, [messageText, selectedInstanceId, selectedChatJid]);
 
   // Fetch instances
   const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
@@ -434,6 +465,7 @@ export default function WhatsApp() {
         description: "Mensagem enviada com sucesso!",
       });
       setMessageText("");
+      deleteMessageDraft(); // Limpar rascunho após enviar
       // Invalidate messages to reload
       queryClient.invalidateQueries({
         queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`]
@@ -1445,6 +1477,8 @@ export default function WhatsApp() {
         onOpenChange={setIsInstanceSelectorOpen}
         onSelectInstance={(instance) => {
           setSelectedInstance(instance);
+          setSelectedInstanceId(instance.id);
+          // Salvar instância selecionada
           setSelectedInstanceId(instance.id);
           setSelectedChatJid(null);
           addToRecent(instance.id);
