@@ -58,6 +58,7 @@ import {
   X,
   Loader2,
   Smartphone,
+  Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { conversationAPI, messageAPI, iaAPI, whatsappAPI } from "@/lib/api";
@@ -66,6 +67,7 @@ import type { EvolutionInstance } from "@/types/whatsapp";
 import { useToast } from "@/hooks/use-toast";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
+import { usePinnedChats } from "@/hooks/use-pinned-chats";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,7 +76,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { format } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const newConversationSchema = z.object({
   leadName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -86,6 +89,21 @@ const newConversationSchema = z.object({
 });
 
 type NewConversationForm = z.infer<typeof newConversationSchema>;
+
+// Helper function to format conversation timestamp (like WhatsApp)
+const formatConversationTime = (createdAt: string): string => {
+  const date = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return "agora";
+  if (diffMins < 60) return `${diffMins} min`;
+  if (isToday(date)) return format(date, "HH:mm");
+  if (isYesterday(date)) return "ontem";
+  if (diffMs < 7 * 24 * 60 * 60 * 1000) return format(date, "EEEE", { locale: ptBR });
+  return format(date, "dd/MM/yyyy");
+};
 
 export default function Chat() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -103,6 +121,7 @@ export default function Chat() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
+  const { togglePin, isPinned, getPinnedChats } = usePinnedChats();
 
   const form = useForm<NewConversationForm>({
     resolver: zodResolver(newConversationSchema),
@@ -347,10 +366,19 @@ export default function Chat() {
     setMediaType("");
   };
 
-  const filteredConversations = conversations.filter((conv) =>
-    conv.leadName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.attendanceId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = conversations
+    .filter((conv) =>
+      conv.leadName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conv.attendanceId.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Pinned conversations first
+      const aPinned = isPinned(a.id);
+      const bPinned = isPinned(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
 
   const getChannelIcon = (channel?: string | null) => {
     switch (channel) {
@@ -524,10 +552,10 @@ export default function Chat() {
               </div>
             ) : (
               filteredConversations.map((conv) => (
-                <Card
+                <div
                   key={conv.id}
                   className={cn(
-                    "p-3 cursor-pointer hover-elevate transition-colors",
+                    "p-3 cursor-pointer transition-colors hover:bg-muted/50 group relative",
                     selectedConversation?.id === conv.id && "bg-accent"
                   )}
                   onClick={() => setSelectedConversation(conv)}
@@ -537,7 +565,10 @@ export default function Chat() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {getChannelIcon(conv.channel)}
-                        <span className="font-medium text-sm truncate">
+                        {isPinned(conv.id) && (
+                          <Pin className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                        )}
+                        <span className="font-medium truncate text-sm">
                           {conv.leadName || "Sem nome"}
                         </span>
                       </div>
@@ -545,9 +576,28 @@ export default function Chat() {
                         {conv.attendanceId}
                       </p>
                     </div>
-                    <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-1" />
+                    <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                      {formatConversationTime(conv.createdAt)}
+                    </span>
                   </div>
-                </Card>
+
+                  {/* Pin toggle button - absolute positioning, doesn't affect layout */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePin(conv.id);
+                    }}
+                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                    data-testid={`button-pin-${conv.id}`}
+                  >
+                    <Pin
+                      className={cn(
+                        "h-4 w-4 transition-colors",
+                        isPinned(conv.id) ? "text-blue-500 fill-blue-500" : "text-muted-foreground"
+                      )}
+                    />
+                  </button>
+                </div>
               ))
             )}
           </div>
