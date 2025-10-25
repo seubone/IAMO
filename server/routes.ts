@@ -6,9 +6,11 @@ import { authMiddleware, generateToken, type AuthRequest } from "./middleware/au
 import { requirePermission, requireRole } from "./middleware/rbac";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { z } from "zod";
 import { insertUserSchema, insertIASchema, insertTicketSchema, insertActionSchema, insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
 import { supabase } from "./supabase";
+import { getUazapiTokenByInstanceNumber } from "./uazapi-supabase";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -1733,17 +1735,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/uazapi/instances/:number", authMiddleware, async (req, res) => {
     try {
       const { number } = req.params;
-      const instance = await storage.getUazapiInstance(number);
+      const record = await getUazapiTokenByInstanceNumber(number);
       
-      if (!instance) {
-        return res.status(404).json({ error: "Instância não encontrada" });
+      if (!record) {
+        return res.status(404).json({ error: "Instância não encontrada no Evolution" });
       }
       
       // Retornar sem expor o token completo (apenas indicar se existe)
       res.json({ 
-        instanceNumber: instance.instanceNumber,
-        hasToken: !!instance.apiToken,
-        createdAt: instance.createdAt
+        instanceNumber: record.instanceNumber,
+        instanceId: record.instanceId,
+        hasToken: !!record.apiToken,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt
       });
     } catch (error: any) {
       console.error("Error fetching uazapi instance:", error);
@@ -1754,21 +1758,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create or update token for instance
   app.post("/api/uazapi/instances", authMiddleware, async (req, res) => {
     try {
-      const { insertUazapiInstanceSchema } = await import("@shared/schema");
-      const data = insertUazapiInstanceSchema.parse(req.body);
-      
-      // Verificar se já existe
-      const existing = await storage.getUazapiInstance(data.instanceNumber);
-      
-      if (existing) {
-        // Atualizar
-        const updated = await storage.updateUazapiInstance(data.instanceNumber, { apiToken: data.apiToken });
-        res.json(updated);
-      } else {
-        // Criar novo
-        const created = await storage.createUazapiInstance(data);
-        res.json(created);
+      const payloadSchema = z.object({
+        instanceNumber: z.string().min(3, "instanceNumber é obrigatório"),
+        apiToken: z.string().min(1, "apiToken é obrigatório"),
+      });
+      const data = payloadSchema.parse(req.body);
+
+      // Validação 1: Verificar se instanceNumber é válido (não vazio)
+      if (!data.instanceNumber || data.instanceNumber.trim() === "") {
+        return res.status(400).json({ error: "Número da instância não pode ser vazio" });
       }
+
+      // Validação 2: Verificar se a instância existe no Evolution DB
+      const { evolutionPool } = await import("./evolution-db");
+      const evolutionInstance = await evolutionPool.query(`
+        SELECT id, number, name, "connectionStatus"
+        FROM "Instance"
+        WHERE number = $1
+      `, [data.instanceNumber]);
+
+      if (evolutionInstance.rows.length === 0) {
+        return res.status(404).json({
+          error: `Instância ${data.instanceNumber} não encontrada no Evolution. Verifique o número e tente novamente.`
+        });
+      }
+
+      const existing = await storage.getUazapiInstance(data.instanceNumber);
+
+      if (existing) {
+        await storage.updateUazapiInstance(data.instanceNumber, { apiToken: data.apiToken });
+      } else {
+        await storage.createUazapiInstance(data);
+      }
+
+      const record = await getUazapiTokenByInstanceNumber(data.instanceNumber);
+
+      res.json({
+        instanceNumber: data.instanceNumber,
+        instanceId: record?.instanceId ?? null,
+        hasToken: true,
+        createdAt: record?.createdAt ?? new Date().toISOString(),
+        updatedAt: record?.updatedAt ?? new Date().toISOString(),
+      });
     } catch (error: any) {
       console.error("Error saving uazapi instance:", error);
       res.status(400).json({ error: error.message || "Erro ao salvar token" });
