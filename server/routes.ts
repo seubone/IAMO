@@ -1849,8 +1849,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { sendAPI } = req.body;
 
       // Validar sendAPI
-      if (!['evolution', 'uazapi', 'both'].includes(sendAPI)) {
-        return res.status(400).json({ error: "sendAPI deve ser 'evolution', 'uazapi' ou 'both'" });
+      if (!['evolution', 'uazapi'].includes(sendAPI)) {
+        return res.status(400).json({ error: "sendAPI deve ser 'evolution' ou 'uazapi'" });
       }
 
       await unifiedSender.setSendConfig(instanceNumber, sendAPI);
