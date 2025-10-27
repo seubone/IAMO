@@ -104,11 +104,14 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Uazapi Instances (tokens vinculados por número de instância)
+// Uazapi Instances (tokens vinculados por número de instância - armazenados no Supabase)
+// ⚠️  IMPORTANTE: Esta tabela é uma réplica do schema do Supabase.
+// Ela NÃO é sincronizada com o banco de dados local "monitor_ia".
+// A coluna "send_api" é gerenciada diretamente no Supabase via server/send-strategy.ts
 export const uazapiInstances = pgTable("uazapi_instances", {
   instanceNumber: text("instance_number").primaryKey(), // Número no formato brasileiro 55XXYYYYYYYY
   apiToken: text("api_token").notNull(), // Token da instância no Uazapi
-  sendApi: text("send_api").notNull().default("evolution"), // API para envio: 'evolution' ou 'uazapi'
+  // NOTE: send_api column is in Supabase only - managed by server/send-strategy.ts
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

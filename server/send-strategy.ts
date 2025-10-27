@@ -1,9 +1,6 @@
 import { EvolutionSender } from './senders/evolution-sender';
 import { UazAPISender } from './senders/uazapi-sender';
-import { evolutionPool } from './evolution-db';
-import { db } from './db';
-import { uazapiInstances } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { supabase } from './supabase';
 import type {
   MessageData,
   MediaData,
@@ -26,19 +23,26 @@ export class UnifiedSender {
   }
 
   /**
-   * Obter configuração de envio da instância
+   * Obter configuração de envio da instância (do Supabase)
    */
   private async getSendConfig(instanceNumber: string): Promise<SendAPI> {
     try {
-      const result = await db.select({ sendApi: uazapiInstances.sendApi })
-        .from(uazapiInstances)
-        .where(eq(uazapiInstances.instanceNumber, instanceNumber));
+      const { data, error } = await supabase
+        .from('uazapi_instances')
+        .select('send_api')
+        .eq('instance_number', instanceNumber)
+        .maybeSingle();
 
-      if (result.length === 0) {
-        return 'evolution'; // padrão
+      if (error) {
+        console.error('Erro ao obter configuração de envio:', error.message);
+        return 'evolution';
       }
 
-      return (result[0].sendApi as SendAPI) || 'evolution';
+      if (!data) {
+        return 'evolution'; // padrão se não encontrada
+      }
+
+      return (data.send_api as SendAPI) || 'evolution';
     } catch (error) {
       console.error('Erro ao obter configuração de envio:', error);
       return 'evolution';
@@ -46,13 +50,21 @@ export class UnifiedSender {
   }
 
   /**
-   * Salvar configuração de envio
+   * Salvar configuração de envio (no Supabase)
    */
   async setSendConfig(instanceNumber: string, sendAPI: SendAPI): Promise<void> {
     try {
-      await db.update(uazapiInstances)
-        .set({ sendApi: sendAPI })
-        .where(eq(uazapiInstances.instanceNumber, instanceNumber));
+      const { error } = await supabase
+        .from('uazapi_instances')
+        .update({ send_api: sendAPI })
+        .eq('instance_number', instanceNumber);
+
+      if (error) {
+        console.error('Erro ao salvar configuração de envio:', error.message);
+        throw new Error(`Erro ao salvar configuração: ${error.message}`);
+      }
+
+      console.log(`✅ Configuração de envio atualizada: ${instanceNumber} -> ${sendAPI}`);
     } catch (error) {
       console.error('Erro ao salvar configuração de envio:', error);
       throw error;
