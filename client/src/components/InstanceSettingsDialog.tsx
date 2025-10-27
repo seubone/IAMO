@@ -249,7 +249,7 @@ export function InstanceSettingsDialog({
                   value={apiToken}
                   onChange={(e) => setApiToken(e.target.value)}
                   placeholder="Digite o token da instância..."
-                  disabled={saveTokenMutation.isPending || !isInstanceAvailable}
+                  disabled={saveTokenMutation.isPending}
                   data-testid="input-api-token"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -333,11 +333,19 @@ export function InstanceSettingsDialog({
                     placeholder="Número para teste (ex: 558399999999)"
                     value={testRecipient}
                     onChange={(e) => setTestRecipient(e.target.value)}
-                    disabled={testSendMutation.isPending || !isInstanceAvailable}
+                    disabled={testSendMutation.isPending}
                   />
                   <Button
                     className="w-full"
                     onClick={() => {
+                      if (!isInstanceAvailable) {
+                        toast({
+                          variant: "destructive",
+                          title: "Instância não selecionada",
+                          description: "Selecione uma instância antes de testar.",
+                        });
+                        return;
+                      }
                       if (!testRecipient.trim()) {
                         toast({
                           variant: "destructive",
@@ -348,7 +356,7 @@ export function InstanceSettingsDialog({
                       }
                       testSendMutation.mutate();
                     }}
-                    disabled={testSendMutation.isPending || !isInstanceAvailable}
+                    disabled={testSendMutation.isPending}
                   >
                     {testSendMutation.isPending ? (
                       <>
@@ -374,7 +382,17 @@ export function InstanceSettingsDialog({
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => saveSendConfigMutation.mutate(sendAPI)}
+                  onClick={() => {
+                    if (!isInstanceAvailable) {
+                      toast({
+                        variant: "destructive",
+                        title: "Instância não selecionada",
+                        description: "Selecione uma instância antes de salvar.",
+                      });
+                      return;
+                    }
+                    saveSendConfigMutation.mutate(sendAPI);
+                  }}
                   disabled={saveSendConfigMutation.isPending}
                 >
                   {saveSendConfigMutation.isPending ? (

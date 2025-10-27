@@ -25,7 +25,7 @@ export class UnifiedSender {
   /**
    * Obter configuração de envio da instância (do Supabase)
    */
-  private async getSendConfig(instanceNumber: string): Promise<SendAPI> {
+  async getSendConfig(instanceNumber: string): Promise<SendAPI> {
     try {
       const { data, error } = await supabase
         .from('uazapi_instances')

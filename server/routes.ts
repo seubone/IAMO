@@ -1843,7 +1843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update send API config for instance
-  app.put("/api/send-config/:instanceNumber", authMiddleware, requireRole(["admin", "operator"]), async (req, res) => {
+  app.put("/api/send-config/:instanceNumber", authMiddleware, async (req, res) => {
     try {
       const { instanceNumber } = req.params;
       const { sendAPI } = req.body;
