@@ -51,13 +51,19 @@ export class UnifiedSender {
 
   /**
    * Salvar configuração de envio (no Supabase)
+   * Usa UPSERT para criar instância se não existir
    */
   async setSendConfig(instanceNumber: string, sendAPI: SendAPI): Promise<void> {
     try {
       const { error } = await supabase
         .from('uazapi_instances')
-        .update({ send_api: sendAPI })
-        .eq('instance_number', instanceNumber);
+        .upsert({
+          instance_number: instanceNumber,
+          send_api: sendAPI,
+          api_token: '', // Token vazio por padrão se não existir
+        }, {
+          onConflict: 'instance_number'
+        });
 
       if (error) {
         console.error('Erro ao salvar configuração de envio:', error.message);

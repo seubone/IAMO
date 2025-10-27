@@ -42,7 +42,7 @@ export function InstanceSettingsDialog({
 }: InstanceSettingsDialogProps) {
   const [apiToken, setApiToken] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [sendAPI, setSendAPI] = useState<"evolution" | "uazapi" | "both">("evolution");
+  const [sendAPI, setSendAPI] = useState<"evolution" | "uazapi">("evolution");
   const [testRecipient, setTestRecipient] = useState("");
   const { toast } = useToast();
   const selectedInstanceState = useSelectedInstance((state) => state.selectedInstance);
@@ -71,7 +71,7 @@ export function InstanceSettingsDialog({
     queryKey: ["/api/send-config", effectiveInstanceNumber],
     queryFn: async () => {
       const response = await apiRequest(`/api/send-config/${effectiveInstanceNumber}`);
-      return response as { sendAPI: "evolution" | "uazapi" | "both" };
+      return response as { sendAPI: "evolution" | "uazapi" };
     },
     enabled: open && isInstanceAvailable,
     onSuccess: (data) => {
