@@ -134,7 +134,7 @@ export function InstanceSettingsDialog({
   });
 
   const saveSendConfigMutation = useMutation({
-    mutationFn: async (api: "evolution" | "uazapi" | "both") => {
+    mutationFn: async (api: "evolution" | "uazapi") => {
       return await apiRequest(`/api/send-config/${effectiveInstanceNumber}`, {
         method: "PUT",
         body: JSON.stringify({ sendAPI: api }),

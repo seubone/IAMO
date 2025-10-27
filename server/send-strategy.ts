@@ -50,7 +50,7 @@ export class UnifiedSender {
     try {
       await evolutionPool.query(
         `UPDATE uazapi_instances
-         SET send_api = $1, updated_at = NOW()
+         SET send_api = $1
          WHERE instance_number = $2`,
         [sendAPI, instanceNumber]
       );
