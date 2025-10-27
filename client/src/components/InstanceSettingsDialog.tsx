@@ -12,7 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Send, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import {
   AlertDialog,
@@ -40,6 +45,8 @@ export function InstanceSettingsDialog({
 }: InstanceSettingsDialogProps) {
   const [apiToken, setApiToken] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [sendAPI, setSendAPI] = useState<"evolution" | "uazapi" | "both">("evolution");
+  const [testRecipient, setTestRecipient] = useState("");
   const { toast } = useToast();
   const selectedInstanceState = useSelectedInstance((state) => state.selectedInstance);
   const effectiveInstanceNumber =
@@ -60,6 +67,19 @@ export function InstanceSettingsDialog({
   const { data: instanceData } = useQuery({
     queryKey: ["/api/uazapi/instances", effectiveInstanceNumber],
     enabled: open && isInstanceAvailable,
+  });
+
+  // Get send API config
+  const { data: sendConfigData } = useQuery({
+    queryKey: ["/api/send-config", effectiveInstanceNumber],
+    queryFn: async () => {
+      const response = await apiRequest(`/api/send-config/${effectiveInstanceNumber}`);
+      return response as { sendAPI: "evolution" | "uazapi" | "both" };
+    },
+    enabled: open && isInstanceAvailable,
+    onSuccess: (data) => {
+      setSendAPI(data.sendAPI);
+    },
   });
 
   const saveTokenMutation = useMutation({
@@ -116,6 +136,57 @@ export function InstanceSettingsDialog({
     },
   });
 
+  const saveSendConfigMutation = useMutation({
+    mutationFn: async (api: "evolution" | "uazapi" | "both") => {
+      return await apiRequest(`/api/send-config/${effectiveInstanceNumber}`, {
+        method: "PUT",
+        body: JSON.stringify({ sendAPI: api }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Configuração salva",
+        description: "API de envio configurada com sucesso!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/send-config", effectiveInstanceNumber] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: error.message || "Não foi possível salvar a configuração",
+      });
+    },
+  });
+
+  const testSendMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/whatsapp/test-send", {
+        method: "POST",
+        body: JSON.stringify({
+          instanceNumber: effectiveInstanceNumber,
+          recipientNumber: testRecipient,
+          message: "Teste de envio",
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Teste completado",
+        description: `Evolution: ${data.evolution?.success ? "✅" : "❌"} | UazAPI: ${data.uazapi?.success ? "✅" : "❌"}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro no teste",
+        description: error.message || "Não foi possível testar o envio",
+      });
+    },
+  });
+
   const handleSave = () => {
     if (!apiToken.trim()) {
       toast({
@@ -165,59 +236,165 @@ export function InstanceSettingsDialog({
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="api-token">Token da API Uazapi</Label>
-            <Input
-              id="api-token"
-              type="password"
-              value={apiToken}
-              onChange={(e) => setApiToken(e.target.value)}
-              placeholder="Digite o token da instância..."
-              disabled={saveTokenMutation.isPending || !isInstanceAvailable}
-              data-testid="input-api-token"
-            />
-            <p className="text-xs text-muted-foreground">
-              Este token será usado para enviar mensagens via Uazapi
-            </p>
-          </div>
+          <Tabs defaultValue="token" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="token">Token UazAPI</TabsTrigger>
+              <TabsTrigger value="api">API de Envio</TabsTrigger>
+            </TabsList>
 
-          <div className="flex justify-between items-center gap-2">
-            {instanceData?.hasToken && isInstanceAvailable && (
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending || !isInstanceAvailable}
-                data-testid="button-delete-token"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Remover Token
-              </Button>
-            )}
-            <div className="flex gap-2 ml-auto">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending}
-                data-testid="button-cancel"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending || !isInstanceAvailable}
-                data-testid="button-save-token"
-              >
-                {saveTokenMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Salvando...
-                  </>
-                ) : (
-                  "Salvar Token"
+            {/* Aba: Token UazAPI */}
+            <TabsContent value="token" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="api-token">Token da API Uazapi</Label>
+                <Input
+                  id="api-token"
+                  type="password"
+                  value={apiToken}
+                  onChange={(e) => setApiToken(e.target.value)}
+                  placeholder="Digite o token da instância..."
+                  disabled={saveTokenMutation.isPending || !isInstanceAvailable}
+                  data-testid="input-api-token"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este token será usado para enviar mensagens via Uazapi
+                </p>
+              </div>
+
+              <div className="flex justify-between items-center gap-2">
+                {instanceData?.hasToken && isInstanceAvailable && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending || !isInstanceAvailable}
+                    data-testid="button-delete-token"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remover Token
+                  </Button>
                 )}
-              </Button>
-            </div>
-          </div>
+                <div className="flex gap-2 ml-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenChange(false)}
+                    disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending}
+                    data-testid="button-cancel"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saveTokenMutation.isPending || deleteTokenMutation.isPending || !isInstanceAvailable}
+                    data-testid="button-save-token"
+                  >
+                    {saveTokenMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar Token"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Aba: API de Envio */}
+            <TabsContent value="api" className="space-y-4">
+              <div className="space-y-3">
+                <Label>Escolha a API para envio de mensagens</Label>
+                <RadioGroup value={sendAPI} onValueChange={(value: any) => setSendAPI(value)}>
+                  <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="evolution" id="evolution" />
+                    <Label htmlFor="evolution" className="flex-1 cursor-pointer">
+                      <span className="font-medium">🔵 Evolution</span>
+                      <p className="text-xs text-muted-foreground">API padrão do WhatsApp Web</p>
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="uazapi" id="uazapi" />
+                    <Label htmlFor="uazapi" className="flex-1 cursor-pointer">
+                      <span className="font-medium">🟢 UazAPI</span>
+                      <p className="text-xs text-muted-foreground">Envio direto (requer token configurado)</p>
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="both" id="both" />
+                    <Label htmlFor="both" className="flex-1 cursor-pointer">
+                      <span className="font-medium">🟣 Ambas (Redundância)</span>
+                      <p className="text-xs text-muted-foreground">Envia por Evolution e UazAPI simultaneamente</p>
+                    </Label>
+                  </div>
+                </RadioGroup>
+
+                {/* Seção de Teste */}
+                <div className="mt-6 pt-4 border-t space-y-3">
+                  <Label>Testar Envio</Label>
+                  <Input
+                    placeholder="Número para teste (ex: 558399999999)"
+                    value={testRecipient}
+                    onChange={(e) => setTestRecipient(e.target.value)}
+                    disabled={testSendMutation.isPending || !isInstanceAvailable}
+                  />
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      if (!testRecipient.trim()) {
+                        toast({
+                          variant: "destructive",
+                          title: "Campo obrigatório",
+                          description: "Digite um número para teste",
+                        });
+                        return;
+                      }
+                      testSendMutation.mutate();
+                    }}
+                    disabled={testSendMutation.isPending || !isInstanceAvailable}
+                  >
+                    {testSendMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Testando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Enviar Mensagem Teste
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={saveSendConfigMutation.isPending}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => saveSendConfigMutation.mutate(sendAPI)}
+                  disabled={saveSendConfigMutation.isPending}
+                >
+                  {saveSendConfigMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar Configuração"
+                  )}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </DialogContent>
 
