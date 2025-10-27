@@ -11,6 +11,7 @@ import { insertUserSchema, insertIASchema, insertTicketSchema, insertActionSchem
 import rateLimit from "express-rate-limit";
 import { supabase } from "./supabase";
 import { getUazapiTokenByInstanceNumber } from "./uazapi-supabase";
+import { unifiedSender } from "./send-strategy";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -1820,6 +1821,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting uazapi instance:", error);
       res.status(500).json({ error: "Erro ao deletar token" });
+    }
+  });
+
+  // ============ SEND API CONFIGURATION ============
+
+  // Get send API config for instance
+  app.get("/api/send-config/:instanceNumber", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber } = req.params;
+      const sendConfig = await unifiedSender.getSendConfig(instanceNumber);
+
+      res.json({
+        instanceNumber,
+        sendAPI: sendConfig,
+      });
+    } catch (error: any) {
+      console.error("Error getting send config:", error);
+      res.status(500).json({ error: "Erro ao obter configuração de envio" });
+    }
+  });
+
+  // Update send API config for instance
+  app.put("/api/send-config/:instanceNumber", authMiddleware, requireRole(["admin", "operator"]), async (req, res) => {
+    try {
+      const { instanceNumber } = req.params;
+      const { sendAPI } = req.body;
+
+      // Validar sendAPI
+      if (!['evolution', 'uazapi', 'both'].includes(sendAPI)) {
+        return res.status(400).json({ error: "sendAPI deve ser 'evolution', 'uazapi' ou 'both'" });
+      }
+
+      await unifiedSender.setSendConfig(instanceNumber, sendAPI);
+
+      res.json({
+        instanceNumber,
+        sendAPI,
+        message: "Configuração de envio atualizada com sucesso",
+      });
+    } catch (error: any) {
+      console.error("Error updating send config:", error);
+      res.status(500).json({ error: "Erro ao atualizar configuração de envio" });
+    }
+  });
+
+  // Test send with both APIs
+  app.post("/api/whatsapp/test-send", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, recipientNumber, message = "Teste de envio" } = req.body;
+
+      if (!instanceNumber || !recipientNumber) {
+        return res.status(400).json({ error: "instanceNumber e recipientNumber são obrigatórios" });
+      }
+
+      console.log(`🧪 Testando envio para ${recipientNumber} da instância ${instanceNumber}`);
+
+      const testResult = await unifiedSender.testSend(instanceNumber, recipientNumber, message);
+
+      res.json({
+        instanceNumber,
+        recipientNumber,
+        ...testResult,
+      });
+    } catch (error: any) {
+      console.error("Error testing send:", error);
+      res.status(500).json({ error: error.message || "Erro ao testar envio" });
     }
   });
 
