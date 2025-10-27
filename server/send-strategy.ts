@@ -62,7 +62,7 @@ export class UnifiedSender {
 
   /**
    * Enviar mensagem com estratégia automática
-   * Se configurado "both", envia por ambas. Se uma falhar em "evolution", tenta "uazapi"
+   * Se uma API falhar, tenta a outra como fallback
    */
   async sendMessage(data: MessageData): Promise<SendResult> {
     const config = await this.getSendConfig(data.instanceNumber);
@@ -75,9 +75,6 @@ export class UnifiedSender {
 
       case 'uazapi':
         return await this.sendViaUazAPI(data);
-
-      case 'both':
-        return await this.sendViaBoth(data);
 
       default:
         return await this.sendViaEvolution(data);
@@ -151,33 +148,6 @@ export class UnifiedSender {
   }
 
   /**
-   * Enviar mensagem por ambas as APIs (redundância)
-   */
-  private async sendViaBoth(data: MessageData): Promise<SendResult> {
-    console.log(`📤 Enviando via AMBAS as APIs (redundância)`);
-
-    const [evolutionResult, uazapiResult] = await Promise.all([
-      this.evolutionSender.sendMessage(data),
-      this.uazapiSender.sendMessage(data),
-    ]);
-
-    // Retorna sucesso se ao menos uma API funcionou
-    const success = evolutionResult.success || uazapiResult.success;
-
-    return {
-      success,
-      api: evolutionResult.success ? 'evolution' : 'uazapi',
-      messageId: evolutionResult.messageId || uazapiResult.messageId,
-      data: {
-        evolution: evolutionResult,
-        uazapi: uazapiResult,
-      },
-      latency: Math.max(evolutionResult.latency, uazapiResult.latency),
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  /**
    * Enviar mídia com estratégia automática
    */
   async sendMedia(data: MediaData): Promise<SendResult> {
@@ -191,9 +161,6 @@ export class UnifiedSender {
 
       case 'uazapi':
         return await this.sendMediaViaUazAPI(data);
-
-      case 'both':
-        return await this.sendMediaViaBoth(data);
 
       default:
         return await this.sendMediaViaEvolution(data);
@@ -254,27 +221,6 @@ export class UnifiedSender {
       api: 'uazapi',
       error: `UazAPI: ${result.error} | Evolution: ${evolutionResult.error}`,
       latency: result.latency + evolutionResult.latency,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  private async sendMediaViaBoth(data: MediaData): Promise<SendResult> {
-    const [evolutionResult, uazapiResult] = await Promise.all([
-      this.evolutionSender.sendMedia(data),
-      this.uazapiSender.sendMedia(data),
-    ]);
-
-    const success = evolutionResult.success || uazapiResult.success;
-
-    return {
-      success,
-      api: evolutionResult.success ? 'evolution' : 'uazapi',
-      messageId: evolutionResult.messageId || uazapiResult.messageId,
-      data: {
-        evolution: evolutionResult,
-        uazapi: uazapiResult,
-      },
-      latency: Math.max(evolutionResult.latency, uazapiResult.latency),
       timestamp: new Date().toISOString(),
     };
   }

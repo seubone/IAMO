@@ -26,7 +26,7 @@ export interface SendResult {
   timestamp: string; // ISO 8601
 }
 
-export type SendAPI = 'evolution' | 'uazapi' | 'both';
+export type SendAPI = 'evolution' | 'uazapi';
 
 export interface SendConfig {
   instanceNumber: string;

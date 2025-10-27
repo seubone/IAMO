@@ -13,11 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Trash2, Send, CheckCircle, AlertCircle } from "lucide-react";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import {
   AlertDialog,
@@ -305,7 +302,12 @@ export function InstanceSettingsDialog({
             {/* Aba: API de Envio */}
             <TabsContent value="api" className="space-y-4">
               <div className="space-y-3">
-                <Label>Escolha a API para envio de mensagens</Label>
+                <div>
+                  <Label>Escolha a API para envio de mensagens</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se a API selecionada falhar, o sistema tentará automaticamente a outra como fallback
+                  </p>
+                </div>
                 <RadioGroup value={sendAPI} onValueChange={(value: any) => setSendAPI(value)}>
                   <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
                     <RadioGroupItem value="evolution" id="evolution" />
@@ -320,14 +322,6 @@ export function InstanceSettingsDialog({
                     <Label htmlFor="uazapi" className="flex-1 cursor-pointer">
                       <span className="font-medium">🟢 UazAPI</span>
                       <p className="text-xs text-muted-foreground">Envio direto (requer token configurado)</p>
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
-                    <RadioGroupItem value="both" id="both" />
-                    <Label htmlFor="both" className="flex-1 cursor-pointer">
-                      <span className="font-medium">🟣 Ambas (Redundância)</span>
-                      <p className="text-xs text-muted-foreground">Envia por Evolution e UazAPI simultaneamente</p>
                     </Label>
                   </div>
                 </RadioGroup>

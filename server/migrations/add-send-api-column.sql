@@ -2,9 +2,12 @@
 ALTER TABLE uazapi_instances
 ADD COLUMN IF NOT EXISTS send_api VARCHAR(20) DEFAULT 'evolution';
 
--- Adicionar constraint
+-- Adicionar constraint (remover constraint antiga se existir)
 ALTER TABLE uazapi_instances
-ADD CONSTRAINT check_send_api CHECK (send_api IN ('evolution', 'uazapi', 'both'));
+DROP CONSTRAINT IF EXISTS check_send_api;
+
+ALTER TABLE uazapi_instances
+ADD CONSTRAINT check_send_api CHECK (send_api IN ('evolution', 'uazapi'));
 
 -- Verificar resultado
 SELECT column_name, data_type, column_default
