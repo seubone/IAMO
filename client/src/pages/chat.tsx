@@ -68,6 +68,7 @@ import { useToast } from "@/hooks/use-toast";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { usePinnedChats } from "@/hooks/use-pinned-chats";
+import { AudioRecorderDialog } from "@/components/AudioRecorderDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,6 +118,7 @@ export default function Chat() {
   const [mediaCaption, setMediaCaption] = useState("");
   const [isMediaPopoverOpen, setIsMediaPopoverOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
+  const [isRecorderOpen, setIsRecorderOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -295,6 +297,29 @@ export default function Chat() {
   const handleSend = () => {
     if (!message.trim() || !selectedConversation) return;
     sendMessageMutation.mutate(message);
+  };
+
+  const handleSendAudio = (blob: Blob, waveformData: number[], duration: number) => {
+    if (!selectedConversation) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+
+      sendMediaMutation.mutate({
+        file: base64,
+        caption: "🎤 Áudio",
+        type: "audio",
+      });
+
+      setIsRecorderOpen(false);
+      toast({
+        title: "Áudio enviado",
+        description: "Seu áudio foi enviado com sucesso",
+      });
+    };
+
+    reader.readAsDataURL(blob);
   };
 
   const onCreateConversation = (data: NewConversationForm) => {
@@ -576,12 +601,16 @@ export default function Chat() {
                         {conv.attendanceId}
                       </p>
                     </div>
-                    <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                      {formatConversationTime(conv.createdAt)}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className="text-xs text-muted-foreground">
+                        {formatConversationTime(conv.createdAt)}
+                      </span>
+                      {/* Espaço reservado para o pin - garante que timestamp não se mova no hover */}
+                      <div className="w-4 h-4 flex-shrink-0" />
+                    </div>
                   </div>
 
-                  {/* Pin toggle button - absolute positioning, doesn't affect layout */}
+                  {/* Pin toggle button - absolute positioning, com espaço reservado acima */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -802,6 +831,18 @@ export default function Chat() {
                   data-testid="input-file-hidden"
                 />
                 
+                <Button
+                  variant="outline"
+                  size="icon"
+                  data-testid="button-record-audio"
+                  className="flex-shrink-0"
+                  onClick={() => setIsRecorderOpen(true)}
+                  disabled={sendMessageMutation.isPending || !selectedConversation}
+                  title="Gravar áudio"
+                >
+                  <Mic className="h-4 w-4" />
+                </Button>
+
                 <Popover open={isMediaPopoverOpen} onOpenChange={setIsMediaPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -840,8 +881,8 @@ export default function Chat() {
                         onClick={() => handleFileSelect("audio")}
                         data-testid="button-select-audio"
                       >
-                        <Mic className="h-5 w-5 text-orange-500" />
-                        <span>Áudio</span>
+                        <FileText className="h-5 w-5 text-orange-500" />
+                        <span>Arquivo de áudio</span>
                       </Button>
                     </div>
                   </PopoverContent>
@@ -1001,6 +1042,13 @@ export default function Chat() {
         onOpenChange={setIsInstanceSelectorOpen}
         onSelectInstance={(instance) => setSelectedInstance(instance)}
         selectedInstanceId={selectedInstance?.id}
+      />
+
+      {/* Audio Recorder Dialog */}
+      <AudioRecorderDialog
+        open={isRecorderOpen}
+        onOpenChange={setIsRecorderOpen}
+        onSendAudio={handleSendAudio}
       />
     </div>
   );
