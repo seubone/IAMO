@@ -108,6 +108,7 @@ export const settings = pgTable("settings", {
 export const uazapiInstances = pgTable("uazapi_instances", {
   instanceNumber: text("instance_number").primaryKey(), // Número no formato brasileiro 55XXYYYYYYYY
   apiToken: text("api_token").notNull(), // Token da instância no Uazapi
+  sendApi: text("send_api").notNull().default("evolution"), // API para envio: 'evolution' ou 'uazapi'
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,6 +1,9 @@
 import { EvolutionSender } from './senders/evolution-sender';
 import { UazAPISender } from './senders/uazapi-sender';
 import { evolutionPool } from './evolution-db';
+import { db } from './db';
+import { uazapiInstances } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import type {
   MessageData,
   MediaData,
@@ -27,16 +30,15 @@ export class UnifiedSender {
    */
   private async getSendConfig(instanceNumber: string): Promise<SendAPI> {
     try {
-      const result = await evolutionPool.query(
-        'SELECT send_api FROM uazapi_instances WHERE instance_number = $1',
-        [instanceNumber]
-      );
+      const result = await db.select({ sendApi: uazapiInstances.sendApi })
+        .from(uazapiInstances)
+        .where(eq(uazapiInstances.instanceNumber, instanceNumber));
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return 'evolution'; // padrão
       }
 
-      return result.rows[0].send_api || 'evolution';
+      return (result[0].sendApi as SendAPI) || 'evolution';
     } catch (error) {
       console.error('Erro ao obter configuração de envio:', error);
       return 'evolution';
@@ -48,12 +50,9 @@ export class UnifiedSender {
    */
   async setSendConfig(instanceNumber: string, sendAPI: SendAPI): Promise<void> {
     try {
-      await evolutionPool.query(
-        `UPDATE uazapi_instances
-         SET send_api = $1
-         WHERE instance_number = $2`,
-        [sendAPI, instanceNumber]
-      );
+      await db.update(uazapiInstances)
+        .set({ sendApi: sendAPI })
+        .where(eq(uazapiInstances.instanceNumber, instanceNumber));
     } catch (error) {
       console.error('Erro ao salvar configuração de envio:', error);
       throw error;
