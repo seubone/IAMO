@@ -24,6 +24,7 @@ export class UnifiedSender {
 
   /**
    * Obter configuração de envio da instância (do Supabase)
+   * Retorna 'evolution' como padrão se a tabela não existir ou houver erro
    */
   async getSendConfig(instanceNumber: string): Promise<SendAPI> {
     try {
@@ -34,17 +35,22 @@ export class UnifiedSender {
         .maybeSingle();
 
       if (error) {
-        console.error('Erro ao obter configuração de envio:', error.message);
+        // Se tabela não existe ou coluna não existe, usar fallback
+        console.warn(`⚠️  Aviso ao obter configuração de envio (${error.code}): ${error.message}. Usando Evolution como padrão.`);
         return 'evolution';
       }
 
       if (!data) {
-        return 'evolution'; // padrão se não encontrada
+        // Instância não encontrada na Supabase, usar padrão
+        console.log(`📋 Instância ${instanceNumber} não encontrada em uazapi_instances. Usando Evolution como padrão.`);
+        return 'evolution';
       }
 
-      return (data.send_api as SendAPI) || 'evolution';
-    } catch (error) {
-      console.error('Erro ao obter configuração de envio:', error);
+      const api = (data.send_api as SendAPI) || 'evolution';
+      console.log(`📤 Configuração de envio para ${instanceNumber}: ${api}`);
+      return api;
+    } catch (error: any) {
+      console.error(`❌ Erro crítico ao obter configuração de envio: ${error?.message || error}`);
       return 'evolution';
     }
   }
@@ -52,6 +58,7 @@ export class UnifiedSender {
   /**
    * Salvar configuração de envio (no Supabase)
    * Usa UPSERT para criar instância se não existir
+   * Se a tabela não existir, apenas registra aviso (não é crítico)
    */
   async setSendConfig(instanceNumber: string, sendAPI: SendAPI): Promise<void> {
     try {
@@ -66,14 +73,16 @@ export class UnifiedSender {
         });
 
       if (error) {
-        console.error('Erro ao salvar configuração de envio:', error.message);
-        throw new Error(`Erro ao salvar configuração: ${error.message}`);
+        // Se tabela não existe, apenas avisar (não é bloqueante)
+        console.warn(`⚠️  Aviso ao salvar configuração de envio (${error.code}): ${error.message}. Configuração não foi persistida no Supabase.`);
+        // Não lançar erro, pois o envio pode continuar funcionar via Evolution
+        return;
       }
 
       console.log(`✅ Configuração de envio atualizada: ${instanceNumber} -> ${sendAPI}`);
-    } catch (error) {
-      console.error('Erro ao salvar configuração de envio:', error);
-      throw error;
+    } catch (error: any) {
+      console.warn(`⚠️  Erro ao salvar configuração de envio: ${error?.message || error}. Configuração não foi persistida.`);
+      // Não lançar erro, pois o envio pode continuar funcionar via Evolution
     }
   }
 

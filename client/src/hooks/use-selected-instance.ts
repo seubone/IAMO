@@ -13,9 +13,11 @@ export const useSelectedInstance = create<SelectedInstanceState>()(
     (set) => ({
       selectedInstance: null,
       setSelectedInstance: (instance) => {
+        console.log(`📱 Instância selecionada: ${instance.name} (${instance.id})`);
         set({ selectedInstance: instance });
       },
       clearSelectedInstance: () => {
+        console.log(`📱 Instância limpa`);
         set({ selectedInstance: null });
       },
     }),

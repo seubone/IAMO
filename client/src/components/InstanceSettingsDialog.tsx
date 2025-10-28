@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -46,14 +46,12 @@ export function InstanceSettingsDialog({
   const [testRecipient, setTestRecipient] = useState("");
   const { toast } = useToast();
   const selectedInstanceState = useSelectedInstance((state) => state.selectedInstance);
-  const effectiveInstanceNumber =
-    instanceNumber?.trim() || selectedInstanceState?.number || "";
+
+  // Use Zustand store as single source of truth
+  const resolvedInstanceNumber = selectedInstanceState?.number || instanceNumber || "";
   const effectiveInstanceName =
-    instanceName ||
-    selectedInstanceState?.name ||
-    selectedInstanceState?.number ||
-    effectiveInstanceNumber;
-  const isInstanceAvailable = Boolean(effectiveInstanceNumber);
+    instanceName || selectedInstanceState?.name || selectedInstanceState?.number || resolvedInstanceNumber;
+  const isInstanceAvailable = Boolean(resolvedInstanceNumber);
 
   useEffect(() => {
     if (!isInstanceAvailable && showDeleteDialog) {
@@ -62,15 +60,15 @@ export function InstanceSettingsDialog({
   }, [isInstanceAvailable, showDeleteDialog]);
   // Check if instance has a token
   const { data: instanceData } = useQuery({
-    queryKey: ["/api/uazapi/instances", effectiveInstanceNumber],
+    queryKey: ["/api/uazapi/instances", resolvedInstanceNumber],
     enabled: open && isInstanceAvailable,
   });
 
   // Get send API config
   const { data: sendConfigData } = useQuery({
-    queryKey: ["/api/send-config", effectiveInstanceNumber],
+    queryKey: ["/api/send-config", resolvedInstanceNumber],
     queryFn: async () => {
-      const response = await apiRequest(`/api/send-config/${effectiveInstanceNumber}`);
+      const response = await apiRequest(`/api/send-config/${resolvedInstanceNumber}`);
       return response as { sendAPI: "evolution" | "uazapi" };
     },
     enabled: open && isInstanceAvailable,
@@ -93,8 +91,8 @@ export function InstanceSettingsDialog({
         description: "Token Uazapi configurado com sucesso!",
       });
       setApiToken("");
-      if (effectiveInstanceNumber) {
-        queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", effectiveInstanceNumber] });
+      if (resolvedInstanceNumber) {
+        queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", resolvedInstanceNumber] });
       }
       onOpenChange(false);
     },
@@ -119,8 +117,8 @@ export function InstanceSettingsDialog({
         description: "Token Uazapi removido com sucesso!",
       });
       setShowDeleteDialog(false);
-      if (effectiveInstanceNumber) {
-        queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", effectiveInstanceNumber] });
+      if (resolvedInstanceNumber) {
+        queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", resolvedInstanceNumber] });
       }
       onOpenChange(false);
     },
@@ -135,7 +133,7 @@ export function InstanceSettingsDialog({
 
   const saveSendConfigMutation = useMutation({
     mutationFn: async (api: "evolution" | "uazapi") => {
-      return await apiRequest(`/api/send-config/${effectiveInstanceNumber}`, {
+      return await apiRequest(`/api/send-config/${resolvedInstanceNumber}`, {
         method: "PUT",
         body: JSON.stringify({ sendAPI: api }),
         headers: { "Content-Type": "application/json" },
@@ -146,7 +144,7 @@ export function InstanceSettingsDialog({
         title: "Configuração salva",
         description: "API de envio configurada com sucesso!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/send-config", effectiveInstanceNumber] });
+      queryClient.invalidateQueries({ queryKey: ["/api/send-config", resolvedInstanceNumber] });
     },
     onError: (error: any) => {
       toast({
@@ -162,7 +160,7 @@ export function InstanceSettingsDialog({
       return await apiRequest("/api/whatsapp/test-send", {
         method: "POST",
         body: JSON.stringify({
-          instanceNumber: effectiveInstanceNumber,
+          instanceNumber: resolvedInstanceNumber,
           recipientNumber: testRecipient,
           message: "Teste de envio",
         }),
@@ -204,7 +202,7 @@ export function InstanceSettingsDialog({
     }
 
     saveTokenMutation.mutate({
-      instanceNumber: effectiveInstanceNumber,
+      instanceNumber: resolvedInstanceNumber,
       apiToken: apiToken.trim(),
     });
   };
@@ -225,6 +223,7 @@ export function InstanceSettingsDialog({
               <div>
                 <p className="text-xs uppercase text-muted-foreground tracking-wide">Instância selecionada</p>
                 <p className="text-sm font-medium text-foreground">{effectiveInstanceName}</p>
+                <p className="text-xs text-muted-foreground">Número: {resolvedInstanceNumber}</p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -342,7 +341,7 @@ export function InstanceSettingsDialog({
                         toast({
                           variant: "destructive",
                           title: "Instância não selecionada",
-                          description: "Selecione uma instância antes de testar.",
+                          description: "Escolha uma instância antes de testar o envio.",
                         });
                         return;
                       }
@@ -387,7 +386,7 @@ export function InstanceSettingsDialog({
                       toast({
                         variant: "destructive",
                         title: "Instância não selecionada",
-                        description: "Selecione uma instância antes de salvar.",
+                        description: "Selecione uma instância antes de salvar a API de envio.",
                       });
                       return;
                     }
@@ -421,12 +420,22 @@ export function InstanceSettingsDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteTokenMutation.isPending || !isInstanceAvailable}>
+            <AlertDialogCancel disabled={deleteTokenMutation.isPending}>
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => effectiveInstanceNumber && deleteTokenMutation.mutate(effectiveInstanceNumber)}
-              disabled={deleteTokenMutation.isPending || !isInstanceAvailable}
+              onClick={() => {
+                if (!isInstanceAvailable) {
+                  toast({
+                    variant: "destructive",
+                    title: "Instância não selecionada",
+                    description: "Selecione uma instância antes de remover o token.",
+                  });
+                  return;
+                }
+                deleteTokenMutation.mutate(resolvedInstanceNumber);
+              }}
+              disabled={deleteTokenMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteTokenMutation.isPending ? (

@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { setTheme as saveTheme, getTheme as loadTheme } from "@/lib/storage";
 
 type Theme = "light" | "dark";
 
@@ -21,85 +20,72 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
+// Chave ÚNICA e simples
+const THEME_STORAGE_KEY = "theme";
+
 export function ThemeProvider({
   children,
   defaultTheme = "light",
-  storageKey = "ui-theme",
+  storageKey = "ui-theme", // mantém por compatibilidade
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Tentar recuperar do storage primeiro (chave centralizada "app_theme")
+    // Tentar recuperar do localStorage com chave simples
     try {
-      const savedTheme = loadTheme();
-      if (savedTheme === "light" || savedTheme === "dark") {
-        console.log(`🎨 Tema carregado: ${savedTheme}`);
-        return savedTheme;
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === "light" || saved === "dark") {
+        console.log(`🎨 Tema carregado: ${saved}`);
+        return saved;
       }
     } catch (error) {
-      console.warn("Erro ao carregar tema do storage:", error);
+      console.warn("Erro ao carregar tema:", error);
     }
 
-    // Fallback para localStorage (storageKey antigo para compatibilidade)
-    try {
-      const localTheme = localStorage.getItem(storageKey) as Theme;
-      if (localTheme === "light" || localTheme === "dark") {
-        console.log(`🎨 Tema carregado do localStorage: ${localTheme}`);
-        return localTheme;
-      }
-    } catch (error) {
-      console.warn("Erro ao carregar tema do localStorage:", error);
-    }
-
-    // Último fallback
+    // Se não encontrou, usar padrão
     console.log(`🎨 Tema padrão: ${defaultTheme}`);
     return defaultTheme;
   });
 
-  // Atualizar classe no HTML quando tema mudar (imediatamente)
+  // Aplicar tema no HTML IMEDIATAMENTE quando mudar
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-    document.documentElement.style.colorScheme = theme;
+    const html = document.documentElement;
+    // Remover ambas as classes
+    html.classList.remove("light", "dark");
+    // Adicionar a classe correta
+    html.classList.add(theme);
+    html.style.colorScheme = theme;
+    console.log(`🎨 Classe adicionada ao HTML: ${theme}`);
   }, [theme]);
 
-  // Sincronizar tema entre abas E garantir que HTML tenha a classe correta imediatamente
+  // Listener para sincronizar entre abas
   useEffect(() => {
-    // Aplicar tema imediatamente na montagem (antes do render)
-    const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-    root.style.colorScheme = theme;
-
     const handleStorageChange = (e: StorageEvent) => {
-      // Detectar mudanças da chave "app_theme" (do storage.ts)
-      if (e.key === "app_theme" && e.newValue) {
+      if (e.key === THEME_STORAGE_KEY && e.newValue) {
         const newTheme = e.newValue as Theme;
         if (newTheme === "light" || newTheme === "dark") {
           console.log(`🌓 Tema sincronizado de outra aba: ${newTheme}`);
           setTheme(newTheme);
-          // Aplicar imediatamente
-          root.classList.remove("light", "dark");
-          root.classList.add(newTheme);
-          root.style.colorScheme = newTheme;
         }
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
-  }, [theme]);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      // Salvar em ambos os storages (compatibilidade)
-      localStorage.setItem(storageKey, theme);
-      saveTheme(theme);
-      setTheme(theme);
+    setTheme: (newTheme: Theme) => {
+      console.log(`💾 Salvando tema: ${newTheme}`);
+      // Salvar no localStorage com chave simples
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      // Atualizar estado
+      setTheme(newTheme);
+      // Aplicar imediatamente no HTML
+      const html = document.documentElement;
+      html.classList.remove("light", "dark");
+      html.classList.add(newTheme);
+      html.style.colorScheme = newTheme;
     },
   };
 

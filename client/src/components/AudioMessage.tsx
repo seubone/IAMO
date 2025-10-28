@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Play, Pause, MoreVertical, Download } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { generateAvatarDataUri } from "@/lib/avatar-generator";
+import { generateAvatarDataUri, resolveAvatarIdentifier } from "@/lib/avatar-generator";
 
 interface AudioMessageProps {
   messageId: string;
@@ -12,9 +12,19 @@ interface AudioMessageProps {
   senderAvatar?: string;
   fromMe?: boolean;
   onReply?: (messageId: string) => void;
+  senderIdentifier?: string;
 }
 
-export function AudioMessage({ messageId, caption, senderName, timestamp, senderAvatar, fromMe, onReply }: AudioMessageProps) {
+export function AudioMessage({
+  messageId,
+  caption,
+  senderName,
+  timestamp,
+  senderAvatar,
+  fromMe,
+  onReply,
+  senderIdentifier,
+}: AudioMessageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -283,7 +293,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
         )}
 
         {/* Player Box - Com bordas lg iguais às caixas de texto */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-lg border border-gray-300 shadow-sm hover:shadow-md hover:border-gray-400 transition-all w-full">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border/60 bg-card text-card-foreground shadow-sm hover:shadow-md hover:bg-accent/40 transition-all w-full">
           {/* Play/Pause Button - Apenas o ícone roxo */}
           <button
             onClick={togglePlayPause}
@@ -298,15 +308,15 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
             data-testid={`audio-play-${messageId}`}
           >
             {isPlaying ? (
-              <Pause className="h-6 w-6" fill="#6366F1" stroke="#6366F1" />
+              <Pause className="h-6 w-6 text-primary" strokeWidth={2} />
             ) : (
-              <Play className="h-6 w-6" fill="#6366F1" stroke="#6366F1" />
+              <Play className="h-6 w-6 text-primary" fill="currentColor" strokeWidth={2} />
             )}
           </button>
 
           {/* Barra de progresso reta */}
           <div
-            className="flex-1 flex items-center h-1.5 bg-gray-300 rounded-full cursor-pointer group relative"
+            className="flex-1 flex items-center h-1.5 rounded-full cursor-pointer group relative bg-muted"
             onClick={handleWaveformClick}
             role="slider"
             aria-label="Barra de progresso do áudio"
@@ -316,7 +326,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           >
             {/* Barra preenchida (progresso) */}
             <div
-              className="h-full bg-indigo-500 rounded-full transition-all"
+              className="h-full bg-primary rounded-full transition-all"
               style={{
                 width: `${progressPercent}%`,
               }}
@@ -324,7 +334,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           </div>
 
           {/* Time display - Tempo atual / Total */}
-          <span className="text-xs font-medium text-gray-600 min-w-fit tabular-nums whitespace-nowrap">
+          <span className="text-xs font-medium text-muted-foreground min-w-fit tabular-nums whitespace-nowrap">
             {formatTime(currentTime)}/{formatTime(duration)}
           </span>
 
@@ -332,7 +342,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="flex-shrink-0 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex-shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Opções de áudio"
             >
               <MoreVertical className="h-5 w-5" />
@@ -340,11 +350,11 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
 
             {/* Dropdown Menu */}
             {showMenu && (
-              <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+              <div className="absolute right-0 mt-1 w-40 rounded-lg border border-border bg-popover text-popover-foreground shadow-lg z-50">
                 {/* Download */}
                 <button
                   onClick={handleDownload}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors border-b border-gray-200"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/40"
                 >
                   <Download className="h-4 w-4" />
                   Baixar áudio
@@ -353,10 +363,10 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
                 {/* Velocidade 1.5x */}
                 <button
                   onClick={() => handleSpeedChange(1.5)}
-                  className={`w-full px-4 py-2 text-sm text-left transition-colors border-b border-gray-200 ${
+                  className={`w-full px-4 py-2 text-sm text-left transition-colors border-b border-border/40 ${
                     playbackSpeed === 1.5
-                      ? 'bg-indigo-50 text-indigo-600 font-medium'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-primary/15 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
                 >
                   {playbackSpeed === 1.5 ? '✓ ' : ''}Velocidade 1.5x
@@ -365,10 +375,10 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
                 {/* Velocidade 2x */}
                 <button
                   onClick={() => handleSpeedChange(2)}
-                  className={`w-full px-4 py-2 text-sm text-left transition-colors border-b border-gray-200 ${
+                  className={`w-full px-4 py-2 text-sm text-left transition-colors border-b border-border/40 ${
                     playbackSpeed === 2
-                      ? 'bg-indigo-50 text-indigo-600 font-medium'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-primary/15 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
                 >
                   {playbackSpeed === 2 ? '✓ ' : ''}Velocidade 2x
@@ -377,7 +387,7 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
                 {/* Responder */}
                 <button
                   onClick={handleReply}
-                  className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  className="w-full px-4 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
                   Responder
                 </button>
@@ -390,16 +400,16 @@ export function AudioMessage({ messageId, caption, senderName, timestamp, sender
             <img
               src={senderAvatar}
               alt={senderName || 'Remetente'}
-              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-gray-300"
+              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border border-border/60"
             />
           ) : (
             <img
               src={generateAvatarDataUri(
-                senderName || 'unknown',
+                resolveAvatarIdentifier(senderIdentifier, senderName, messageId),
                 senderName?.charAt(0).toUpperCase() || 'U'
               )}
               alt={senderName || 'Remetente'}
-              className="flex-shrink-0 w-10 h-10 rounded-full border border-gray-300"
+              className="flex-shrink-0 w-10 h-10 rounded-full border border-border/60"
             />
           )}
         </div>

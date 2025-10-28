@@ -1,31 +1,31 @@
 import axios from 'axios';
-import { evolutionPool } from '../evolution-db';
+import { supabase } from '../supabase';
+import { getUazapiTokenByInstanceNumber } from '../uazapi-supabase';
 import type { MessageData, MediaData, SendResult } from '../types/sender.types';
 
 /**
  * Adapter para enviar mensagens via UazAPI
- * Usa tokens armazenados na tabela uazapi_instances
+ * Usa tokens armazenados no Supabase (tabela uazapi_instances)
  */
 export class UazAPISender {
   private uazapiBaseUrl: string = 'https://api.uazapi.com';
 
   /**
-   * Obter token da instância
+   * Obter token da instância via Supabase
    */
   private async getInstanceToken(instanceNumber: string): Promise<string | null> {
     try {
-      const result = await evolutionPool.query(
-        'SELECT api_token FROM uazapi_instances WHERE instance_number = $1',
-        [instanceNumber]
-      );
+      const record = await getUazapiTokenByInstanceNumber(instanceNumber);
 
-      if (result.rows.length === 0) {
+      if (!record || !record.apiToken) {
+        console.log(`ℹ️  Token UazAPI não configurado para ${instanceNumber}`);
         return null;
       }
 
-      return result.rows[0].api_token;
-    } catch (error) {
-      console.error('Erro ao buscar token UazAPI:', error);
+      console.log(`🔑 Token UazAPI encontrado para ${instanceNumber}`);
+      return record.apiToken;
+    } catch (error: any) {
+      console.warn(`⚠️  Erro ao buscar token UazAPI para ${instanceNumber}: ${error.message}`);
       return null;
     }
   }

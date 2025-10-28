@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type JSX } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { generateAvatarDataUri } from "@/lib/avatar-generator";
+import { generateAvatarDataUri, resolveAvatarIdentifier } from "@/lib/avatar-generator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,6 @@ import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkel
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { EvolutionInstance, EvolutionChat, EvolutionMessage } from "@/types/whatsapp";
-import profileEmptyImage from "@assets/profile empty_1760640302262.png";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -69,22 +69,78 @@ const formatJidDisplay = (jid?: string | null): string => {
 
 const getNameInitials = (value: string): string => {
   if (!value) return "?";
-  const tokens = value
-    .trim()
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return "?";
+
+  const digitsOnly = trimmed.replace(/\D/g, "");
+  const hasLetters = /[A-Za-z]/.test(trimmed);
+  if (digitsOnly && !hasLetters) {
+    return digitsOnly.length >= 2 ? digitsOnly.slice(-2) : digitsOnly;
+  }
+
+  const tokens = trimmed
     .split(/\s+/)
+    .map((token) => token.replace(/[^A-Za-z0-9]/g, ""))
     .filter(Boolean);
+
   if (tokens.length === 0) {
-    const letters = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const letters = trimmed.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
     return letters.slice(0, 2) || "?";
   }
-  const initials = tokens.slice(0, 2).map((token) => token[0]?.toUpperCase() || "").join("");
+
+  const initials = tokens
+    .slice(0, 2)
+    .map((token) => token[0]?.toUpperCase() || "")
+    .join("");
+
   if (initials.length > 0) return initials;
-  const letters = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
+  const letters = trimmed.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   return letters.slice(0, 2) || "?";
+};
+
+const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string => {
+  if (!text) return text;
+
+  const regex = /((https?:\/\/|www\.)[^\s]+)/gi;
+  const nodes: Array<string | JSX.Element> = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(regex)) {
+    const url = match[0];
+    const index = match.index ?? 0;
+
+    if (index > lastIndex) {
+      nodes.push(text.slice(lastIndex, index));
+    }
+
+    const href = url.startsWith("http") ? url : `https://${url}`;
+    nodes.push(
+      <a
+        key={`url-${index}-${url}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary hover:underline break-all"
+      >
+        {url}
+      </a>
+    );
+
+    lastIndex = index + url.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : text;
 };
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [chatTypeFilter, setChatTypeFilter] = useState<"contacts" | "groups" | "all">("contacts");
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
@@ -313,8 +369,8 @@ export default function WhatsApp() {
   }, [allMessages, isLoadingMessages, messagesError, selectedInstanceId, selectedChatJid]);
 
   // Helper function to clean markdown formatting from text
-  const cleanMarkdownFormatting = (text: string): string => {
-    if (!text) return text;
+  const cleanMarkdownFormatting = (text?: string | null): string => {
+    if (!text) return "";
     // Remove asterisks that are used for bold formatting (*text*)
     // Keep single asterisks that might be intentional (emoji-like)
     return text.replace(/\*([^\*]+)\*/g, '$1');
@@ -355,12 +411,38 @@ export default function WhatsApp() {
   });
 
   // Filter and sort chats using debounced search: pinned first, then by timestamp
-  const filteredChats = (chats?.filter(chat => 
-    chat.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-    chat.pushName?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-    chat.last_message?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-    chat.remoteJid?.includes(debouncedSearchQuery)
-  ) || []).sort((a, b) => {
+  const normalizedChatSearch = debouncedSearchQuery.trim().toLowerCase();
+
+  const groupNameByJid = useMemo(() => {
+    const map = new Map<string, string>();
+    chats?.forEach((chat) => {
+      if (chat.remoteJid?.endsWith("@g.us") && chat.name) {
+        map.set(chat.remoteJid, chat.name);
+      }
+    });
+    return map;
+  }, [chats]);
+
+  const filteredChats = (chats?.filter(chat => {
+    const isGroupItem = chat.remoteJid?.endsWith("@g.us");
+    const matchesType =
+      chatTypeFilter === "all" ||
+      (chatTypeFilter === "groups" && isGroupItem) ||
+      (chatTypeFilter === "contacts" && !isGroupItem);
+
+    if (!matchesType) return false;
+
+    if (!normalizedChatSearch) return true;
+
+    const remoteLower = chat.remoteJid?.toLowerCase() ?? "";
+
+    return (
+      chat.name?.toLowerCase().includes(normalizedChatSearch) ||
+      chat.pushName?.toLowerCase().includes(normalizedChatSearch) ||
+      chat.last_message?.toLowerCase().includes(normalizedChatSearch) ||
+      remoteLower.includes(normalizedChatSearch)
+    );
+  }) || []).sort((a, b) => {
     const aPinned = isPinned(a.remoteJid);
     const bPinned = isPinned(b.remoteJid);
     
@@ -371,10 +453,27 @@ export default function WhatsApp() {
     // Depois por timestamp
     return (b.last_message_timestamp || 0) - (a.last_message_timestamp || 0);
   });
-
+  
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
   const isGroupChat = selectedChat?.remoteJid?.endsWith("@g.us");
+  const selectedChatDisplayName = selectedChat
+    ? selectedChat.remoteJid?.endsWith("@g.us")
+      ? groupNameByJid.get(selectedChat.remoteJid) ||
+        selectedChat.name ||
+        selectedChat.pushName ||
+        `Grupo ${selectedChat.remoteJid.split("@")[0]}`
+      : selectedChat.name || selectedChat.pushName || formatJidDisplay(selectedChat.remoteJid)
+    : "Contato";
+  const selectedChatAvatarInitials = getNameInitials(selectedChatDisplayName);
+  const selectedChatAvatarIdentifier = resolveAvatarIdentifier(
+    selectedChat?.remoteJid,
+    selectedChat?.id,
+    selectedChatDisplayName
+  );
+  const selectedChatAvatarSrc = selectedChat?.profilePicUrl
+    ? selectedChat.profilePicUrl
+    : generateAvatarDataUri(selectedChatAvatarIdentifier, selectedChatAvatarInitials);
 
   const groupParticipants = useMemo(() => {
     if (!isGroupChat || !selectedInstanceId || !messages) {
@@ -448,11 +547,8 @@ export default function WhatsApp() {
     };
   }, [groupParticipants, isGroupChat, participantProfiles, selectedInstanceId]);
 
-  // Check if instance has Uazapi token
-  const { data: uazapiInstanceData } = useQuery<{ instanceNumber: string; hasToken: boolean }>({
-    queryKey: [`/api/uazapi/instances/${selectedInstance?.number}`],
-    enabled: !!selectedInstance?.number,
-  });
+  // Note: Uazapi token is no longer required for sending messages
+  // The backend now supports fallback to Evolution API if Uazapi is not available
 
   // Auto-scroll to bottom when messages load or change
   useEffect(() => {
@@ -800,6 +896,24 @@ export default function WhatsApp() {
                   className="w-full"
                   data-testid="input-search-chats"
                 />
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">
+                    Tipo de conversa
+                  </p>
+                  <Select
+                    value={chatTypeFilter}
+                    onValueChange={(value) => setChatTypeFilter(value as "contacts" | "groups" | "all")}
+                  >
+                    <SelectTrigger className="w-full text-sm" data-testid="select-chat-type-filter">
+                      <SelectValue placeholder="Selecionar tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="contacts">Usuários</SelectItem>
+                      <SelectItem value="groups">Grupos</SelectItem>
+                      <SelectItem value="all">Usuários e grupos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto">
@@ -811,67 +925,79 @@ export default function WhatsApp() {
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {filteredChats.map((chat) => (
-                      <div key={chat.id} className="relative group">
-                        <button
-                          onClick={() => setSelectedChatJid(chat.remoteJid)}
-                          className={`w-full p-3 flex items-start gap-3 hover-elevate text-left ${
-                            selectedChatJid === chat.remoteJid ? 'bg-accent/50' : ''
-                          }`}
-                          data-testid={`chat-item-${chat.remoteJid}`}
-                        >
-                          <Avatar className="h-12 w-12 flex-shrink-0">
-                            <AvatarImage src={chat.profilePicUrl || profileEmptyImage} />
-                            <AvatarFallback>
-                              {(chat.name || chat.pushName || '?')[0].toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <div className="flex items-center gap-1 flex-1 min-w-0">
-                                {isPinned(chat.remoteJid) && (
-                                  <Pin className="h-3 w-3 text-[#3442AD] flex-shrink-0" />
-                                )}
-                                <h3 className="font-medium truncate">
-                                  {chat.name || chat.pushName || chat.remoteJid}
-                                </h3>
-                              </div>
-                              <span className="text-xs text-muted-foreground flex-shrink-0">
-                                {formatChatTime(chat.last_message_timestamp)}
-                              </span>
-                            </div>
+                    {filteredChats.map((chat) => {
+                      const isGroupRow = chat.remoteJid?.endsWith("@g.us");
+                      const chatDisplayName = isGroupRow
+                        ? groupNameByJid.get(chat.remoteJid) ||
+                          chat.name ||
+                          chat.pushName ||
+                          `Grupo ${chat.remoteJid.split("@")[0]}`
+                        : chat.name || chat.pushName || formatJidDisplay(chat.remoteJid);
+                      const chatAvatarInitials = getNameInitials(chatDisplayName);
+                      const chatAvatarIdentifier = resolveAvatarIdentifier(chat.remoteJid, chat.id, chatDisplayName);
+                      const chatAvatarSrc =
+                        chat.profilePicUrl || generateAvatarDataUri(chatAvatarIdentifier, chatAvatarInitials);
+
+                      return (
+                        <div key={chat.id} className="relative group">
+                          <button
+                            onClick={() => setSelectedChatJid(chat.remoteJid)}
+                            className={`w-full p-3 flex items-start gap-3 hover-elevate text-left ${
+                              selectedChatJid === chat.remoteJid ? 'bg-accent/50' : ''
+                            }`}
+                            data-testid={`chat-item-${chat.remoteJid}`}
+                          >
+                            <Avatar className="h-12 w-12 flex-shrink-0">
+                              <AvatarImage src={chatAvatarSrc} alt={chatDisplayName} />
+                              <AvatarFallback>{chatAvatarInitials}</AvatarFallback>
+                            </Avatar>
                             
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm text-muted-foreground truncate flex-1">
-                                {chat.last_message || 'Sem mensagens'}
-                              </p>
-                              {chat.unreadMessages > 0 && (
-                                <Badge 
-                                  variant="default" 
-                                  className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#3442AD] hover:bg-[#3442AD] text-white font-semibold"
-                                  data-testid={`badge-unread-${chat.remoteJid}`}
-                                >
-                                  {chat.unreadMessages}
-                                </Badge>
-                              )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-1 flex-1 min-w-0">
+                                  {isPinned(chat.remoteJid) && (
+                                    <Pin className="h-3 w-3 text-[#3442AD] flex-shrink-0" />
+                                  )}
+                                  <h3 className="font-medium truncate">
+                                    {chat.name || chat.pushName || chat.remoteJid}
+                                  </h3>
+                                </div>
+                                <span className="text-xs text-muted-foreground flex-shrink-0">
+                                  {formatChatTime(chat.last_message_timestamp)}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-muted-foreground truncate flex-1">
+                                  {chat.last_message || 'Sem mensagens'}
+                                </p>
+                                {chat.unreadMessages > 0 && (
+                                  <Badge 
+                                    variant="default" 
+                                    className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#3442AD] hover:bg-[#3442AD] text-white font-semibold"
+                                    data-testid={`badge-unread-${chat.remoteJid}`}
+                                  >
+                                    {chat.unreadMessages}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePin(chat.remoteJid);
-                          }}
-                          className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                          data-testid={`button-pin-${chat.remoteJid}`}
-                        >
-                          <Pin
-                            className={`h-4 w-4 ${isPinned(chat.remoteJid) ? 'text-[#3442AD] fill-[#3442AD]' : 'text-muted-foreground'}`}
-                          />
-                        </button>
-                      </div>
-                    ))}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePin(chat.remoteJid);
+                            }}
+                            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                            data-testid={`button-pin-${chat.remoteJid}`}
+                          >
+                            <Pin
+                              className={`h-4 w-4 ${isPinned(chat.remoteJid) ? 'text-[#3442AD] fill-[#3442AD]' : 'text-muted-foreground'}`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -894,14 +1020,12 @@ export default function WhatsApp() {
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                       </Button>
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={selectedChat?.profilePicUrl || profileEmptyImage} />
-                        <AvatarFallback>
-                          {(selectedChat?.name || selectedChat?.pushName || '?')[0].toUpperCase()}
-                        </AvatarFallback>
+                        <AvatarImage src={selectedChatAvatarSrc} alt={selectedChatDisplayName} />
+                        <AvatarFallback>{selectedChatAvatarInitials}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <h3 className="font-medium" data-testid="text-chat-name">
-                          {selectedChat?.name || selectedChat?.pushName || selectedChat?.remoteJid}
+                          {selectedChatDisplayName}
                         </h3>
                         <p className="text-xs text-muted-foreground">
                           {selectedChat?.remoteJid}
@@ -1002,6 +1126,12 @@ export default function WhatsApp() {
                                 || message.pushName
                                 || formatJidDisplay(participantJid);
                               const avatarInitials = getNameInitials(senderDisplayName);
+                              const avatarIdentifier = resolveAvatarIdentifier(
+                                participantJid,
+                                message.key.remoteJid,
+                                selectedChat?.remoteJid,
+                                senderDisplayName
+                              );
                               const shouldReserveAvatarSpace = Boolean(isGroupChat && !fromMe);
                               const shouldShowAvatar = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
                               const showSenderLabel = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
@@ -1041,7 +1171,7 @@ export default function WhatsApp() {
                                       {shouldShowAvatar ? (
                                         <Avatar className="h-8 w-8">
                                           <AvatarImage
-                                            src={senderProfile?.profilePicUrl || generateAvatarDataUri(senderDisplayName, avatarInitials)}
+                                            src={senderProfile?.profilePicUrl || generateAvatarDataUri(avatarIdentifier, avatarInitials)}
                                             alt={senderDisplayName}
                                           />
                                           <AvatarFallback>{avatarInitials}</AvatarFallback>
@@ -1057,7 +1187,8 @@ export default function WhatsApp() {
                                     <AudioMessage
                                       messageId={message.id}
                                       senderName={senderDisplayName}
-                                      senderAvatar={senderProfile?.profilePicUrl}
+                                      senderAvatar={senderProfile?.profilePicUrl ?? undefined}
+                                      senderIdentifier={avatarIdentifier}
                                       timestamp={formatFullTimestamp(message.messageTimestamp)}
                                       fromMe={fromMe}
                                     />
@@ -1196,7 +1327,7 @@ export default function WhatsApp() {
                                         </div>
                                         {message.message.editedMessage.message?.conversation && (
                                           <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-                                            {cleanMarkdownFormatting(message.message.editedMessage.message.conversation)}
+                                            {renderTextWithLinks(cleanMarkdownFormatting(message.message.editedMessage.message.conversation))}
                                           </p>
                                         )}
                                       </div>
@@ -1212,9 +1343,9 @@ export default function WhatsApp() {
                                      !message.message?.locationMessage &&
                                      !message.message?.contactMessage &&
                                      !message.message?.reactionMessage &&
-                                     !message.message?.editedMessage && (
+                                      !message.message?.editedMessage && (
                                       <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-                                        {cleanMarkdownFormatting(message.message?.conversation || "")}
+                                        {renderTextWithLinks(cleanMarkdownFormatting(message.message?.conversation || ""))}
                                       </p>
                                     )}
                                     
@@ -1267,7 +1398,7 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Input de Mensagem - Estilo WhatsApp Web CORRIGIDO */}
-                  {uazapiInstanceData?.hasToken ? (
+                  {selectedInstance?.number ? (
                     <div className="flex-shrink-0 border-t px-3 py-2 relative bg-[#11111300] text-[#f5f5f5e8]">
                       {/* Input file oculto */}
                       <input
@@ -1447,24 +1578,7 @@ export default function WhatsApp() {
                         </DialogContent>
                       </Dialog>
                     </div>
-                  ) : (
-                    <div className="flex-shrink-0 border-t px-4 py-3 bg-card">
-                      <div className="flex items-center justify-between gap-4">
-                        <p className="text-sm text-muted-foreground">
-                          ⚠️ Instância não cadastrada no Uazapi
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsSettingsDialogOpen(true)}
-                          data-testid="button-configure-uazapi"
-                        >
-                          <Settings className="h-4 w-4 mr-2" />
-                          Configurar
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  ) : null}
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
@@ -1496,7 +1610,7 @@ export default function WhatsApp() {
       <InstanceSettingsDialog
         open={isSettingsDialogOpen}
         onOpenChange={setIsSettingsDialogOpen}
-        instanceNumber={selectedInstance?.number || ""}
+        instanceNumber={selectedInstance?.number}
         instanceName={selectedInstance?.name || selectedInstance?.number || ""}
       />
 
@@ -1507,7 +1621,7 @@ export default function WhatsApp() {
           onClose={() => setIsContactMetadataDialogOpen(false)}
           instanceId={selectedInstanceId}
           remoteJid={selectedChatJid}
-          contactName={selectedChat?.name || selectedChat?.pushName}
+          contactName={selectedChatDisplayName}
         />
       )}
 

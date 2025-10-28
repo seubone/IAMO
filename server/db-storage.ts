@@ -1,5 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./db";
+import { deleteUazapiToken, getUazapiTokenByInstanceNumber, upsertUazapiToken } from "./uazapi-supabase";
 import {
   users,
   ias,
@@ -210,39 +211,57 @@ export class DatabaseStorage implements IStorage {
 
   // Uazapi Instances
   async getUazapiInstance(instanceNumber: string): Promise<import("@shared/schema").UazapiInstance | undefined> {
-    const { uazapiInstances } = await import("@shared/schema");
-    const result = await db
-      .select()
-      .from(uazapiInstances)
-      .where(eq(uazapiInstances.instanceNumber, instanceNumber));
-    return result[0];
+    const record = await getUazapiTokenByInstanceNumber(instanceNumber);
+    if (!record || !record.apiToken) {
+      return undefined;
+    }
+
+    return {
+      instanceNumber: record.instanceNumber,
+      apiToken: record.apiToken,
+      createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+      updatedAt: record.updatedAt ? new Date(record.updatedAt) : new Date(),
+    };
   }
 
   async createUazapiInstance(data: import("@shared/schema").InsertUazapiInstance): Promise<import("@shared/schema").UazapiInstance> {
-    const { uazapiInstances } = await import("@shared/schema");
-    const result = await db.insert(uazapiInstances).values(data).returning();
-    return result[0];
+    const record = await upsertUazapiToken(data.instanceNumber, data.apiToken);
+    return {
+      instanceNumber: record.instanceNumber,
+      apiToken: record.apiToken ?? data.apiToken,
+      createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+      updatedAt: record.updatedAt ? new Date(record.updatedAt) : new Date(),
+    };
   }
 
   async updateUazapiInstance(
     instanceNumber: string,
     data: Partial<import("@shared/schema").InsertUazapiInstance>
   ): Promise<import("@shared/schema").UazapiInstance | undefined> {
-    const { uazapiInstances } = await import("@shared/schema");
-    const result = await db
-      .update(uazapiInstances)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(uazapiInstances.instanceNumber, instanceNumber))
-      .returning();
-    return result[0];
+    if (!data.apiToken) {
+      const existing = await getUazapiTokenByInstanceNumber(instanceNumber);
+      if (!existing || !existing.apiToken) {
+        return undefined;
+      }
+      return {
+        instanceNumber: existing.instanceNumber,
+        apiToken: existing.apiToken,
+        createdAt: existing.createdAt ? new Date(existing.createdAt) : new Date(),
+        updatedAt: existing.updatedAt ? new Date(existing.updatedAt) : new Date(),
+      };
+    }
+
+    const record = await upsertUazapiToken(instanceNumber, data.apiToken);
+    return {
+      instanceNumber: record.instanceNumber,
+      apiToken: record.apiToken ?? data.apiToken,
+      createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+      updatedAt: record.updatedAt ? new Date(record.updatedAt) : new Date(),
+    };
   }
 
   async deleteUazapiInstance(instanceNumber: string): Promise<boolean> {
-    const { uazapiInstances } = await import("@shared/schema");
-    const result = await db
-      .delete(uazapiInstances)
-      .where(eq(uazapiInstances.instanceNumber, instanceNumber));
-    return result.rowCount !== null && result.rowCount > 0;
+    return await deleteUazapiToken(instanceNumber);
   }
 
   // Contact Metadata

@@ -1197,16 +1197,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validação de campos obrigatórios
       if (!instanceNumber || !recipientNumber || !text) {
-        return res.status(400).json({ 
-          error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, text" 
+        return res.status(400).json({
+          error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, text"
         });
       }
 
       // Validar formato brasileiro do número da instância (55 + 10-11 dígitos)
       const brazilNumberPattern = /^55\d{10,11}$/;
       if (!brazilNumberPattern.test(instanceNumber)) {
-        return res.status(400).json({ 
-          error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)" 
+        return res.status(400).json({
+          error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)"
         });
       }
 
@@ -1214,16 +1214,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Aceita números com 8-15 dígitos (flexível para formato internacional)
       const recipientNumberPattern = /^\d{8,15}$/;
       if (!recipientNumberPattern.test(recipientNumber)) {
-        return res.status(400).json({ 
-          error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)" 
-        });
-      }
-
-      // Buscar token da instância no banco
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
-      if (!uazapiInstance) {
-        return res.status(404).json({ 
-          error: "Instância não cadastrada no Uazapi. Configure o token nas configurações." 
+        return res.status(400).json({
+          error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)"
         });
       }
 
@@ -1236,8 +1228,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `, [instanceNumber]);
 
       if (instanceResult.rows.length === 0) {
-        return res.status(404).json({ 
-          error: "Instância não encontrada no Evolution Database com o número fornecido" 
+        return res.status(404).json({
+          error: "Instância não encontrada no Evolution Database com o número fornecido"
         });
       }
 
@@ -1245,41 +1237,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verificar se a instância está ativa
       if (instance.connectionStatus !== "open") {
-        return res.status(400).json({ 
-          error: "Instância não está conectada. Status: " + instance.connectionStatus 
+        return res.status(400).json({
+          error: "Instância não está conectada. Status: " + instance.connectionStatus
         });
       }
 
-      // Chamar API do Uazapi para enviar mensagem usando token específico da instância
-      const UAZAPI_BASE_URL = "https://quatro-cinco.uazapi.com";
-
-      const response = await fetch(`${UAZAPI_BASE_URL}/send/text`, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "token": uazapiInstance.apiToken, // Token específico da instância
-        },
-        body: JSON.stringify({
-          number: recipientNumber,
-          text: text,
-        }),
+      // Usar UnifiedSender para enviar mensagem com fallback automático
+      const result = await unifiedSender.sendMessage({
+        instanceNumber,
+        recipientNumber,
+        content: text,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("Uazapi error:", data);
-        return res.status(response.status).json({ 
-          error: "Erro ao enviar mensagem via Uazapi",
-          details: data
+      if (!result.success) {
+        console.error("Failed to send message:", result.error);
+        return res.status(400).json({
+          error: result.error || "Erro ao enviar mensagem"
         });
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: "Mensagem enviada com sucesso",
-        data 
+        api: result.api,
+        note: result.note,
+        data: result
       });
     } catch (error: any) {
       console.error("Error sending message:", error);
@@ -1863,6 +1845,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating send config:", error);
       res.status(500).json({ error: "Erro ao atualizar configuração de envio" });
+    }
+  });
+
+  // ============ SYNC UAZAPI INSTANCE DATA ============
+  // Sync instance_number from Evolution DB to Supabase uazapi_instances
+  app.post("/api/sync/uazapi-instances", authMiddleware, async (req, res) => {
+    try {
+      console.log("🔄 Iniciando sincronização de instâncias Uazapi...");
+
+      const { evolutionPool } = await import("./evolution-db");
+
+      // Get all instances from Evolution DB
+      const instancesResult = await evolutionPool.query(`
+        SELECT id, number, name, "connectionStatus"
+        FROM "Instance"
+        ORDER BY number
+      `);
+
+      const instances = instancesResult.rows;
+      console.log(`📊 Encontradas ${instances.length} instâncias no Evolution DB`);
+
+      let synced = 0;
+      let errors = 0;
+
+      // Sync each instance to Supabase
+      for (const instance of instances) {
+        try {
+          const { error } = await supabase
+            .from("uazapi_instances")
+            .upsert(
+              {
+                instance_id: instance.id,
+                instance_number: instance.number,
+                send_api: "evolution", // Default
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "instance_id" }
+            );
+
+          if (error) {
+            console.warn(`⚠️  Erro ao sincronizar ${instance.number}: ${error.message}`);
+            errors++;
+          } else {
+            console.log(`✅ Sincronizado: ${instance.number} (${instance.id})`);
+            synced++;
+          }
+        } catch (err: any) {
+          console.error(`❌ Erro crítico ao sincronizar ${instance.number}:`, err.message);
+          errors++;
+        }
+      }
+
+      res.json({
+        message: "Sincronização concluída",
+        total: instances.length,
+        synced,
+        errors,
+        instances: instances.map((i) => ({
+          id: i.id,
+          number: i.number,
+          name: i.name,
+          status: i.connectionStatus,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error syncing uazapi instances:", error);
+      res.status(500).json({ error: error.message || "Erro ao sincronizar instâncias" });
     }
   });
 

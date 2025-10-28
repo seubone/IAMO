@@ -22,6 +22,7 @@ export interface SendResult {
   messageId?: string;
   data?: any;
   error?: string;
+  note?: string; // Usado para fallback (ex: "Enviado via UazAPI (Evolution falhou)")
   latency: number; // em ms
   timestamp: string; // ISO 8601
 }
