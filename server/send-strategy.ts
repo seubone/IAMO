@@ -41,17 +41,17 @@ export class UnifiedSender {
       }
 
       if (!data) {
-        // Instância não encontrada na Supabase, usar padrão
-        console.log(`📋 Instância ${instanceNumber} não encontrada em uazapi_instances. Usando Evolution como padrão.`);
-        return 'evolution';
+        // Instância não encontrada na Supabase, usar UazAPI como padrão (com fallback automático)
+        console.log(`📋 Instância ${instanceNumber} não encontrada em uazapi_instances. Usando UazAPI como padrão.`);
+        return 'uazapi';
       }
 
-      const api = (data.send_api as SendAPI) || 'evolution';
+      const api = (data.send_api as SendAPI) || 'uazapi';
       console.log(`📤 Configuração de envio para ${instanceNumber}: ${api}`);
       return api;
     } catch (error: any) {
       console.error(`❌ Erro crítico ao obter configuração de envio: ${error?.message || error}`);
-      return 'evolution';
+      return 'uazapi';
     }
   }
 
