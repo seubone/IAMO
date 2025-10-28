@@ -8,7 +8,7 @@ import type { MessageData, MediaData, SendResult } from '../types/sender.types';
  * Usa tokens armazenados no Supabase (tabela uazapi_instances)
  */
 export class UazAPISender {
-  private uazapiBaseUrl: string = 'https://api.uazapi.com';
+  private uazapiBaseUrl: string = 'https://quatro-cinco.uazapi.com';
 
   /**
    * Obter token da instância via Supabase

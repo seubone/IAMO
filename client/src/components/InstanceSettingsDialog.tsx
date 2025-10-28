@@ -47,10 +47,10 @@ export function InstanceSettingsDialog({
   const { toast } = useToast();
   const selectedInstanceState = useSelectedInstance((state) => state.selectedInstance);
 
-  // Use Zustand store as single source of truth
-  const resolvedInstanceNumber = selectedInstanceState?.number || instanceNumber || "";
+  // Use props as primary source, fallback to Zustand store
+  const resolvedInstanceNumber = instanceNumber || selectedInstanceState?.number || "";
   const effectiveInstanceName =
-    instanceName || selectedInstanceState?.name || selectedInstanceState?.number || resolvedInstanceNumber;
+    instanceName || selectedInstanceState?.name || resolvedInstanceNumber;
   const isInstanceAvailable = Boolean(resolvedInstanceNumber);
 
   useEffect(() => {
@@ -227,7 +227,7 @@ export function InstanceSettingsDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Selecione uma instância na lista antes de configurar o token.
+                ⚠️ Instância não carregada. Feche o modal e tente novamente.
               </p>
             )}
           </div>
