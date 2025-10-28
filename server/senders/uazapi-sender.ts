@@ -51,8 +51,8 @@ export class UazAPISender {
       }
 
       const payload = {
-        phone: data.recipientNumber,
-        message: data.content,
+        number: data.recipientNumber,
+        text: data.content,
       };
 
       const response = await axios.post(
