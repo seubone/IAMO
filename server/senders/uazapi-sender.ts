@@ -56,7 +56,7 @@ export class UazAPISender {
       };
 
       const response = await axios.post(
-        `${this.uazapiBaseUrl}/v2/send-message`,
+        `${this.uazapiBaseUrl}/send/text`,
         payload,
         {
           headers: {
@@ -80,10 +80,16 @@ export class UazAPISender {
     } catch (error: any) {
       const latency = Date.now() - startTime;
 
+      // Log detalhado do erro
+      console.error(`[UazAPI Error] Status: ${error.response?.status}, Message: ${error.message}`);
+      if (error.response?.data) {
+        console.error(`[UazAPI Response] ${JSON.stringify(error.response.data)}`);
+      }
+
       return {
         success: false,
         api: 'uazapi',
-        error: error.message || 'Erro ao enviar via UazAPI',
+        error: error.response?.data?.message || error.message || 'Erro ao enviar via UazAPI',
         latency,
         timestamp: new Date().toISOString(),
       };
@@ -118,7 +124,7 @@ export class UazAPISender {
       };
 
       const response = await axios.post(
-        `${this.uazapiBaseUrl}/v2/send-media`,
+        `${this.uazapiBaseUrl}/send/media`,
         payload,
         {
           headers: {
