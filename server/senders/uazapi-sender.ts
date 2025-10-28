@@ -8,7 +8,11 @@ import type { MessageData, MediaData, SendResult } from '../types/sender.types';
  * Usa tokens armazenados no Supabase (tabela uazapi_instances)
  */
 export class UazAPISender {
-  private uazapiBaseUrl: string = 'https://quatro-cinco.uazapi.com';
+  private uazapiBaseUrl: string;
+
+  constructor() {
+    this.uazapiBaseUrl = process.env.UAZAPI_BASE_URL || 'https://quatro-cinco.uazapi.com';
+  }
 
   /**
    * Obter token da instância via Supabase
@@ -55,13 +59,21 @@ export class UazAPISender {
         text: data.content,
       };
 
+      // Log detalhado do request
+      console.log('🔍 [UazAPI Request Debug]');
+      console.log('  URL:', `${this.uazapiBaseUrl}/send/text`);
+      console.log('  Token (primeiros 10 chars):', token.substring(0, 10) + '...');
+      console.log('  Token (tamanho):', token.length);
+      console.log('  Payload:', JSON.stringify(payload));
+
       const response = await axios.post(
         `${this.uazapiBaseUrl}/send/text`,
         payload,
         {
           headers: {
+            'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'token': token,
           },
           timeout: 30000,
         }
@@ -128,8 +140,9 @@ export class UazAPISender {
         payload,
         {
           headers: {
+            'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'token': token,
           },
           timeout: 30000,
         }
