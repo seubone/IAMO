@@ -16,6 +16,7 @@ import { Loader2, Trash2, Send, CheckCircle, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { EvolutionInstance } from "@/types/whatsapp";
 
 interface InstanceSettingsDialogProps {
   open: boolean;
@@ -45,13 +47,70 @@ export function InstanceSettingsDialog({
   const [sendAPI, setSendAPI] = useState<"evolution" | "uazapi">("evolution");
   const [testRecipient, setTestRecipient] = useState("");
   const { toast } = useToast();
-  const selectedInstanceState = useSelectedInstance((state) => state.selectedInstance);
+  const selectedInstance = useSelectedInstance((state) => state.selectedInstance);
+  const setSelectedInstance = useSelectedInstance((state) => state.setSelectedInstance);
 
-  // Use props as primary source, fallback to Zustand store
-  const resolvedInstanceNumber = instanceNumber || selectedInstanceState?.number || "";
-  const effectiveInstanceName =
-    instanceName || selectedInstanceState?.name || resolvedInstanceNumber;
+  const persistedInstanceNumber = useMemo(() => {
+    if (typeof window === "undefined" || !open) return "";
+    try {
+      const persisted = localStorage.getItem("selected-instance-storage");
+      if (persisted) {
+        const parsed = JSON.parse(persisted);
+        return parsed?.state?.selectedInstance?.number?.trim() || "";
+      }
+    } catch (error) {
+      console.warn("Não foi possível recuperar instância persistida:", error);
+    }
+    return "";
+  }, [open]);
+
+  const baseInstanceNumber = useMemo(() => {
+    return (
+      instanceNumber?.trim() ||
+      selectedInstance?.number?.trim() ||
+      persistedInstanceNumber ||
+      ""
+    );
+  }, [instanceNumber, selectedInstance?.number, persistedInstanceNumber]);
+
+  const baseInstanceName = useMemo(() => {
+    return (
+      instanceName ||
+      selectedInstance?.name ||
+      selectedInstance?.number ||
+      baseInstanceNumber
+    );
+  }, [instanceName, selectedInstance?.name, selectedInstance?.number, baseInstanceNumber]);
+
+  const [manualInstanceNumber, setManualInstanceNumber] = useState("");
+  const [manualInstanceName, setManualInstanceName] = useState("");
+
+  useEffect(() => {
+    if (baseInstanceNumber && manualInstanceNumber !== baseInstanceNumber) {
+      setManualInstanceNumber(baseInstanceNumber);
+      setManualInstanceName(baseInstanceName || baseInstanceNumber);
+    }
+  }, [baseInstanceNumber, baseInstanceName, manualInstanceNumber]);
+
+  const resolvedInstanceNumber = manualInstanceNumber;
+  const effectiveInstanceName = manualInstanceName || baseInstanceName || resolvedInstanceNumber;
   const isInstanceAvailable = Boolean(resolvedInstanceNumber);
+
+  const { data: availableInstances = [] } = useQuery<EvolutionInstance[]>({
+    queryKey: ["/api/whatsapp/instances", { modal: "settings" }],
+    enabled: open,
+  });
+
+  const handleInstanceChange = (value: string) => {
+    setManualInstanceNumber(value);
+    const instance = availableInstances.find((item) => item.number === value);
+    if (instance) {
+      setManualInstanceName(instance.name || instance.number);
+      setSelectedInstance(instance);
+    } else {
+      setManualInstanceName("");
+    }
+  };
 
   useEffect(() => {
     if (!isInstanceAvailable && showDeleteDialog) {
@@ -93,6 +152,8 @@ export function InstanceSettingsDialog({
       setApiToken("");
       if (resolvedInstanceNumber) {
         queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", resolvedInstanceNumber] });
+        // Recarrega chats da instância para refletir a mudança
+        queryClient.invalidateQueries({ queryKey: [`/api/whatsapp/instances/${resolvedInstanceNumber}/chats`] });
       }
       onOpenChange(false);
     },
@@ -119,6 +180,8 @@ export function InstanceSettingsDialog({
       setShowDeleteDialog(false);
       if (resolvedInstanceNumber) {
         queryClient.invalidateQueries({ queryKey: ["/api/uazapi/instances", resolvedInstanceNumber] });
+        // Recarrega chats da instância para refletir a mudança
+        queryClient.invalidateQueries({ queryKey: [`/api/whatsapp/instances/${resolvedInstanceNumber}/chats`] });
       }
       onOpenChange(false);
     },
@@ -218,6 +281,28 @@ export function InstanceSettingsDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {!baseInstanceNumber && (
+            <div className="space-y-2">
+              <Label>Escolha uma instância</Label>
+              <Select
+                value={manualInstanceNumber || undefined}
+                onValueChange={handleInstanceChange}
+                disabled={availableInstances.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma instância disponível" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableInstances?.map((instance: any) => (
+                    <SelectItem key={instance.id} value={instance.number}>
+                      {instance.name ? `${instance.name} (${instance.number})` : instance.number}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/10 p-3">
             {isInstanceAvailable ? (
               <div>
@@ -227,7 +312,7 @@ export function InstanceSettingsDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                ⚠️ Instância não carregada. Feche o modal e tente novamente.
+                ⚠️ Instância não carregada. Escolha uma instância na lista acima.
               </p>
             )}
           </div>
