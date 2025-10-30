@@ -5,6 +5,10 @@ import {
   Filter,
   Pin,
   Loader2,
+  Archive,
+  Bell,
+  BellOff,
+  Check,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +19,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { EvolutionInstance, EvolutionChat } from "@/types/whatsapp";
@@ -68,6 +78,10 @@ interface ChatListSidebarProps {
   isPinned: (jid: string) => boolean;
   onTogglePin: (jid: string) => void;
   groupNameByJid: Map<string, string>;
+  onArchiveChat?: (jid: string) => void;
+  onMarkAsRead?: (jid: string) => void;
+  onMuteChat?: (jid: string) => void;
+  isMuted?: (jid: string) => boolean;
 }
 
 const formatChatTime = (timestamp?: number): string => {
@@ -111,6 +125,10 @@ export function ChatListSidebar({
   isPinned,
   onTogglePin,
   groupNameByJid,
+  onArchiveChat,
+  onMarkAsRead,
+  onMuteChat,
+  isMuted,
 }: ChatListSidebarProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -142,58 +160,124 @@ export function ChatListSidebar({
     const chatAvatarSrc =
       chat.profilePicUrl ||
       generateAvatarDataUri(chatAvatarIdentifier, chatAvatarInitials);
+    const chatMuted = isMuted?.(chat.remoteJid) ?? false;
 
     return (
-      <button
-        key={chat.id}
-        onClick={() => onSelectChat(chat.remoteJid)}
-        className={`w-full px-2 py-2 flex items-start gap-3 rounded-lg transition-colors text-left hover:bg-accent/40 ${
-          selectedChatJid === chat.remoteJid ? "bg-accent/60" : ""
-        }`}
-        data-testid={`chat-item-${chat.remoteJid}`}
-      >
-        {/* Avatar */}
-        <div className="relative flex-shrink-0">
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={chatAvatarSrc} alt={chatDisplayName} />
-            <AvatarFallback>{chatAvatarInitials}</AvatarFallback>
-          </Avatar>
-          {isGroup && (
-            <div className="absolute -bottom-1 -right-1 bg-accent/80 rounded-full p-1">
-              <span className="text-xs font-bold text-accent-foreground">👥</span>
+      <ContextMenu key={chat.id}>
+        <ContextMenuTrigger asChild>
+          <button
+            onClick={() => onSelectChat(chat.remoteJid)}
+            className={`w-full px-2 py-2 flex items-start gap-3 rounded-lg transition-colors text-left hover:bg-accent/40 ${
+              selectedChatJid === chat.remoteJid ? "bg-accent/60" : ""
+            }`}
+            data-testid={`chat-item-${chat.remoteJid}`}
+          >
+            {/* Avatar */}
+            <div className="relative flex-shrink-0">
+              <Avatar className="h-12 w-12">
+                <AvatarImage src={chatAvatarSrc} alt={chatDisplayName} />
+                <AvatarFallback>{chatAvatarInitials}</AvatarFallback>
+              </Avatar>
+              {isGroup && (
+                <div className="absolute -bottom-1 -right-1 bg-accent/80 rounded-full p-1">
+                  <span className="text-xs font-bold text-accent-foreground">👥</span>
+                </div>
+              )}
             </div>
+
+            {/* Chat Info */}
+            <div className="flex-1 min-w-0">
+              {/* Header: Name + Time */}
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  {isPinnedItem && <Pin className="h-4 w-4 text-primary flex-shrink-0" />}
+                  <h3 className="font-medium truncate text-sm">{chatDisplayName}</h3>
+                </div>
+                <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">
+                  {formatChatTime(chat.last_message_timestamp)}
+                </span>
+              </div>
+
+              {/* Last Message + Unread Badge */}
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground truncate flex-1">
+                  {chat.last_message || "Sem mensagens"}
+                </p>
+                {chat.unreadMessages > 0 && (
+                  <Badge
+                    variant="default"
+                    className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground font-semibold flex-shrink-0"
+                  >
+                    {chat.unreadMessages > 99 ? "99+" : chat.unreadMessages}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </button>
+        </ContextMenuTrigger>
+
+        {/* Context Menu Content */}
+        <ContextMenuContent className="w-48">
+          {/* Pin/Unpin Option */}
+          <ContextMenuItem
+            onClick={(e) => {
+              e.preventDefault();
+              onTogglePin(chat.remoteJid);
+            }}
+          >
+            <Pin className="h-4 w-4 mr-2" />
+            {isPinnedItem ? "Desafixar" : "Fixar"}
+          </ContextMenuItem>
+
+          {/* Mark as Read Option */}
+          {chat.unreadMessages > 0 && onMarkAsRead && (
+            <ContextMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                onMarkAsRead(chat.remoteJid);
+              }}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Marcar como lido
+            </ContextMenuItem>
           )}
-        </div>
 
-        {/* Chat Info */}
-        <div className="flex-1 min-w-0">
-          {/* Header: Name + Time */}
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              {isPinnedItem && <Pin className="h-4 w-4 text-primary flex-shrink-0" />}
-              <h3 className="font-medium truncate text-sm">{chatDisplayName}</h3>
-            </div>
-            <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">
-              {formatChatTime(chat.last_message_timestamp)}
-            </span>
-          </div>
+          {/* Mute/Unmute Option */}
+          {onMuteChat && (
+            <ContextMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                onMuteChat(chat.remoteJid);
+              }}
+            >
+              {chatMuted ? (
+                <>
+                  <Bell className="h-4 w-4 mr-2" />
+                  Desativar silêncio
+                </>
+              ) : (
+                <>
+                  <BellOff className="h-4 w-4 mr-2" />
+                  Silenciar chat
+                </>
+              )}
+            </ContextMenuItem>
+          )}
 
-          {/* Last Message + Unread Badge */}
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground truncate flex-1">
-              {chat.last_message || "Sem mensagens"}
-            </p>
-            {chat.unreadMessages > 0 && (
-              <Badge
-                variant="default"
-                className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-primary hover:bg-primary text-primary-foreground font-semibold flex-shrink-0"
-              >
-                {chat.unreadMessages > 99 ? "99+" : chat.unreadMessages}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </button>
+          {/* Archive Option */}
+          {onArchiveChat && (
+            <ContextMenuItem
+              onClick={(e) => {
+                e.preventDefault();
+                onArchiveChat(chat.remoteJid);
+              }}
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              Arquivar
+            </ContextMenuItem>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
     );
   };
 

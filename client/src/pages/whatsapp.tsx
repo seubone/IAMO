@@ -161,6 +161,8 @@ export default function WhatsApp() {
   const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
   const [fileCaption, setFileCaption] = useState("");
   const [participantProfiles, setParticipantProfiles] = useState<Record<string, ParticipantProfile>>({});
+  const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
+  const [archivedChats, setArchivedChats] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,6 +175,65 @@ export default function WhatsApp() {
 
   // Detectar se a aba está ativa (Page Visibility API)
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
+
+  // Callbacks para ações de contexto no chat
+  const handleMuteChat = useCallback((jid: string) => {
+    setMutedChats((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(jid)) {
+        newSet.delete(jid);
+        toast({
+          title: "Chat desmutado",
+          description: "Você receberá notificações deste chat",
+          duration: 2000,
+        });
+      } else {
+        newSet.add(jid);
+        toast({
+          title: "Chat silenciado",
+          description: "Você não receberá notificações deste chat",
+          duration: 2000,
+        });
+      }
+      return newSet;
+    });
+  }, [toast]);
+
+  const handleMarkAsRead = useCallback((jid: string) => {
+    toast({
+      title: "Marcado como lido",
+      description: "As mensagens não lidas foram marcadas como lidas",
+      duration: 2000,
+    });
+  }, [toast]);
+
+  const handleArchiveChat = useCallback((jid: string) => {
+    setArchivedChats((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(jid)) {
+        newSet.delete(jid);
+        toast({
+          title: "Chat restaurado",
+          description: "O chat foi restaurado",
+          duration: 2000,
+        });
+      } else {
+        newSet.add(jid);
+        toast({
+          title: "Chat arquivado",
+          description: "O chat foi movido para arquivo",
+          duration: 2000,
+        });
+        // Se estava selecionado, desseleciona
+        if (selectedChatJid === jid) {
+          setSelectedChatJid(null);
+        }
+      }
+      return newSet;
+    });
+  }, [selectedChatJid, toast]);
+
+  const isMutedChat = useCallback((jid: string) => mutedChats.has(jid), [mutedChats]);
 
   // Stable callback for WebSocket messages
   const handleWhatsAppMessage = useCallback((data: any) => {
@@ -878,6 +939,10 @@ export default function WhatsApp() {
                 isPinned={isPinned}
                 onTogglePin={togglePin}
                 groupNameByJid={groupNameByJid}
+                onArchiveChat={handleArchiveChat}
+                onMarkAsRead={handleMarkAsRead}
+                onMuteChat={handleMuteChat}
+                isMuted={isMutedChat}
               />
 
               {/* Resize Handle */}
