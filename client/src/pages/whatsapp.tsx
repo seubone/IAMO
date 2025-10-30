@@ -1376,17 +1376,17 @@ export default function WhatsApp() {
                       />
 
                       {/* Caixa de Input com borda */}
-                      <div className="flex items-end gap-2 border rounded-2xl px-4 py-2 bg-muted/30 border-border/50 focus-within:border-primary/50 transition-colors">
+                      <div className="flex items-center gap-2 border rounded-2xl px-4 py-1 bg-muted/30 border-border/50 focus-within:border-primary/50 transition-colors">
                         {/* Botão Anexar */}
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => fileInputRef.current?.click()}
-                          className="shrink-0 h-10 w-10 rounded-full hover:bg-accent"
+                          className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
                           data-testid="button-attach"
                           title="Anexar arquivo (ou Ctrl+V)"
                         >
-                          <Plus className="h-5 w-5" />
+                          <Plus className="h-4 w-4" />
                         </Button>
 
                         {/* Input de Texto */}
@@ -1402,15 +1402,17 @@ export default function WhatsApp() {
                           placeholder="Digite uma mensagem"
                           disabled={sendMessageMutation.isPending}
                           rows={1}
-                          className="flex-1 border-0 bg-transparent focus-visible:ring-0 resize-none text-sm"
+                          className="flex-1 border-0 bg-transparent focus-visible:ring-0 resize-none text-sm py-2"
                           style={{
-                            height: 'auto',
-                            overflowY: messageText.split('\n').length > 4 ? 'auto' : 'hidden'
+                            height: '24px',
+                            minHeight: '24px',
+                            maxHeight: '96px',
+                            overflowY: messageText.split('\n').length > 3 ? 'auto' : 'hidden'
                           }}
                           onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
-                            target.style.height = 'auto';
-                            target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+                            target.style.height = '24px';
+                            target.style.height = `${Math.min(target.scrollHeight, 96)}px`;
                           }}
                           data-testid="input-message"
                         />
@@ -1421,7 +1423,7 @@ export default function WhatsApp() {
                             onClick={handleSendMessage}
                             disabled={sendMessageMutation.isPending}
                             size="icon"
-                            className="shrink-0 h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                            className="shrink-0 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
                             data-testid="button-send-message"
                           >
                             {sendMessageMutation.isPending ? (
@@ -1434,12 +1436,12 @@ export default function WhatsApp() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="shrink-0 h-10 w-10 rounded-full hover:bg-accent"
+                            className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
                             data-testid="button-voice"
                             title="Mensagem de voz (em breve)"
                             onClick={() => toast({ title: "Gravação de áudio em desenvolvimento" })}
                           >
-                            <Mic className="h-5 w-5" />
+                            <Mic className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
