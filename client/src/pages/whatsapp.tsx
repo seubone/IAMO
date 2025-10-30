@@ -140,7 +140,7 @@ const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string
 
 export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [chatTypeFilter, setChatTypeFilter] = useState<"contacts" | "groups" | "all">("contacts");
+  const [chatTypeFilter, setChatTypeFilter] = useState<"contacts" | "groups" | "all">("all");
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
