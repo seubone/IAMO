@@ -1375,8 +1375,8 @@ export default function WhatsApp() {
                         className="hidden"
                       />
 
-                      {/* Caixa de Input com borda */}
-                      <div className="flex items-center gap-2 border rounded-2xl px-4 py-1 bg-muted/30 border-border/50 focus-within:border-primary/50 transition-colors">
+                      {/* Caixa de Input sem borda */}
+                      <div className="flex items-center gap-2 rounded-2xl px-4 py-1 bg-muted/30 transition-colors">
                         {/* Botão Anexar */}
                         <Button
                           variant="ghost"
