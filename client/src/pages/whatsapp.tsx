@@ -43,7 +43,9 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
+import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { ChatListSidebar } from "@/components/ChatListSidebar";
+import { GripVertical } from "lucide-react";
 import { Smartphone } from "lucide-react";
 import {
   setSelectedInstanceId,
@@ -167,6 +169,7 @@ export default function WhatsApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
   const { togglePin, isPinned, getPinnedChats } = usePinnedChats(selectedInstanceId);
+  const { sidebarWidth, isResizing, setIsResizing } = useSidebarWidth();
 
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const debouncedMessageSearchQuery = useDebounce(messageSearchQuery, 500);
@@ -893,8 +896,8 @@ export default function WhatsApp() {
       <div className="flex-1 flex w-full overflow-hidden">
         {selectedInstanceId ? (
           <>
-            {/* Chat List Sidebar */}
-            <div className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} w-full md:w-[400px]`}>
+            {/* Chat List Sidebar with Resizable Handle */}
+            <div className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative`} style={{ width: `${sidebarWidth}px` }}>
               <ChatListSidebar
                 selectedInstance={selectedInstance}
                 onInstanceClick={() => setIsInstanceSelectorOpen(true)}
@@ -910,6 +913,15 @@ export default function WhatsApp() {
                 isPinned={isPinned}
                 onTogglePin={togglePin}
                 groupNameByJid={groupNameByJid}
+              />
+
+              {/* Resize Handle */}
+              <div
+                onMouseDown={() => setIsResizing(true)}
+                className={`w-1 bg-border/20 hover:bg-primary/40 hover:w-1 cursor-col-resize transition-colors flex-shrink-0 ${
+                  isResizing ? 'bg-primary/60 w-1' : ''
+                }`}
+                data-testid="sidebar-resize-handle"
               />
             </div>
 
