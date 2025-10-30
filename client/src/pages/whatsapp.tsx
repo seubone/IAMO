@@ -343,6 +343,9 @@ export default function WhatsApp() {
     return (a.name || a.number).localeCompare(b.name || b.number);
   });
 
+  // Get the current Evolution instance that's selected in the chat (not from Zustand)
+  const currentInstance = allInstances?.find(inst => inst.id === selectedInstanceId);
+
   // Sincronizar selectedInstance com storage.ts quando mudar
   useEffect(() => {
     if (selectedInstance) {
@@ -739,7 +742,7 @@ export default function WhatsApp() {
   });
 
   const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid || !selectedInstance?.number) {
+    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid || !currentInstance?.number) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -756,7 +759,7 @@ export default function WhatsApp() {
 
     // Use instance number in Brazilian format (55XXYYYYYYYY)
     sendMessageMutation.mutate({
-      instanceNumber: selectedInstance.number,
+      instanceNumber: currentInstance.number,
       recipientNumber: recipientNumber,
       text: messageText.trim(),
     });
