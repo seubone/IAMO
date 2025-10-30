@@ -1365,7 +1365,7 @@ export default function WhatsApp() {
 
                   {/* Input de Mensagem - Design Simples */}
                   {selectedInstance?.number ? (
-                    <div className="flex-shrink-0 border-t px-4 py-3 relative bg-background text-foreground">
+                    <div className="flex-shrink-0 px-4 py-3 relative bg-background text-foreground">
                       {/* Input file oculto */}
                       <input
                         ref={fileInputRef}
