@@ -120,6 +120,11 @@ export function InstanceSettingsDialog({
   // Check if instance has a token
   const { data: instanceData } = useQuery({
     queryKey: ["/api/uazapi/instances", resolvedInstanceNumber],
+    queryFn: async () => {
+      if (!resolvedInstanceNumber) return null;
+      const response = await apiRequest(`/api/uazapi/instances/${resolvedInstanceNumber}`);
+      return response;
+    },
     enabled: open && isInstanceAvailable,
   });
 
@@ -281,27 +286,6 @@ export function InstanceSettingsDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {!baseInstanceNumber && (
-            <div className="space-y-2">
-              <Label>Escolha uma instância</Label>
-              <Select
-                value={manualInstanceNumber || undefined}
-                onValueChange={handleInstanceChange}
-                disabled={availableInstances.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma instância disponível" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableInstances?.map((instance: any) => (
-                    <SelectItem key={instance.id} value={instance.number}>
-                      {instance.name ? `${instance.name} (${instance.number})` : instance.number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/10 p-3">
             {isInstanceAvailable ? (
