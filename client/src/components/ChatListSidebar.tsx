@@ -231,70 +231,63 @@ export function ChatListSidebar({
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="px-4 py-3 flex-shrink-0 space-y-2">
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+      <div className="px-4 py-3 flex-shrink-0">
+        {/* Search Input with Filter Button */}
+        <div className="relative flex items-center">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
           <Input
             id="chat-search-input"
             type="text"
             placeholder="Pesquisar..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 h-9 text-sm"
+            className="pl-12 pr-12 h-11 text-sm rounded-full"
             data-testid="input-search-chats"
             autoComplete="off"
           />
-        </div>
 
-        {/* Filter Popover */}
-        <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start gap-2 h-9"
-              data-testid="button-filter-chats"
-            >
-              <Filter className="h-4 w-4" />
-              <span className="text-xs">
-                {chatTypeFilter === "all"
-                  ? "Todos"
-                  : chatTypeFilter === "groups"
-                    ? "Grupos"
-                    : "Contatos"}
-              </span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-3" align="start">
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Filtrar por tipo</p>
-              <div className="space-y-2">
-                {[
-                  { value: "all", label: "Todos" },
-                  { value: "contacts", label: "Contatos" },
-                  { value: "groups", label: "Grupos" },
-                ].map((option) => (
-                  <div key={option.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`filter-${option.value}`}
-                      checked={chatTypeFilter === option.value}
-                      onCheckedChange={() =>
-                        onChatTypeFilterChange(option.value as "contacts" | "groups" | "all")
-                      }
-                    />
-                    <Label
-                      htmlFor={`filter-${option.value}`}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {option.label}
-                    </Label>
-                  </div>
-                ))}
+          {/* Filter Button inside Input */}
+          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 h-8 w-8 p-0 rounded-full hover:bg-accent/30"
+                data-testid="button-filter-chats"
+              >
+                <Filter className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-3" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Filtrar por tipo</p>
+                <div className="space-y-2">
+                  {[
+                    { value: "all", label: "Todos" },
+                    { value: "contacts", label: "Contatos" },
+                    { value: "groups", label: "Grupos" },
+                  ].map((option) => (
+                    <div key={option.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`filter-${option.value}`}
+                        checked={chatTypeFilter === option.value}
+                        onCheckedChange={() =>
+                          onChatTypeFilterChange(option.value as "contacts" | "groups" | "all")
+                        }
+                      />
+                      <Label
+                        htmlFor={`filter-${option.value}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {option.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Chat List */}
