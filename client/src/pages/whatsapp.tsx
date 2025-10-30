@@ -1363,9 +1363,9 @@ export default function WhatsApp() {
                     )}
                   </div>
 
-                  {/* Input de Mensagem - Estilo WhatsApp com Design Dividido */}
+                  {/* Input de Mensagem - Design Simples */}
                   {selectedInstance?.number ? (
-                    <div className="flex-shrink-0 border-t relative bg-gradient-to-r from-[#2a2a2a] to-[#3a3a3a] text-[#f5f5f5e8]">
+                    <div className="flex-shrink-0 border-t px-4 py-3 relative bg-background text-foreground">
                       {/* Input file oculto */}
                       <input
                         ref={fileInputRef}
@@ -1375,100 +1375,78 @@ export default function WhatsApp() {
                         className="hidden"
                       />
 
-                      <div className="flex items-center h-16">
-                        {/* SEÇÃO ESQUERDA - Botões de Ações */}
-                        <div className="flex items-center gap-1 px-3 py-2">
-                          {/* Botão Anexar */}
+                      {/* Caixa de Input com borda */}
+                      <div className="flex items-end gap-2 border rounded-2xl px-4 py-2 bg-muted/30 border-border/50 focus-within:border-primary/50 transition-colors">
+                        {/* Botão Anexar */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="shrink-0 h-10 w-10 rounded-full hover:bg-accent"
+                          data-testid="button-attach"
+                          title="Anexar arquivo (ou Ctrl+V)"
+                        >
+                          <Plus className="h-5 w-5" />
+                        </Button>
+
+                        {/* Input de Texto */}
+                        <Textarea
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          placeholder="Digite uma mensagem"
+                          disabled={sendMessageMutation.isPending}
+                          rows={1}
+                          className="flex-1 border-0 bg-transparent focus-visible:ring-0 resize-none text-sm"
+                          style={{
+                            height: 'auto',
+                            overflowY: messageText.split('\n').length > 4 ? 'auto' : 'hidden'
+                          }}
+                          onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+                          }}
+                          data-testid="input-message"
+                        />
+
+                        {/* Botão Microfone ou Enviar */}
+                        {messageText.trim() ? (
+                          <Button
+                            onClick={handleSendMessage}
+                            disabled={sendMessageMutation.isPending}
+                            size="icon"
+                            className="shrink-0 h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                            data-testid="button-send-message"
+                          >
+                            {sendMessageMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                          </Button>
+                        ) : (
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="shrink-0 text-gray-300 hover:text-white hover:bg-white/10 rounded-full transition-colors"
-                            data-testid="button-attach"
-                            title="Anexar arquivo (ou Ctrl+V)"
+                            className="shrink-0 h-10 w-10 rounded-full hover:bg-accent"
+                            data-testid="button-voice"
+                            title="Mensagem de voz (em breve)"
+                            onClick={() => toast({ title: "Gravação de áudio em desenvolvimento" })}
                           >
-                            <Plus className="h-6 w-6" />
+                            <Mic className="h-5 w-5" />
                           </Button>
-
-                          {/* Botão Emoji */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                            className="shrink-0 text-gray-300 hover:text-white hover:bg-white/10 rounded-full transition-colors"
-                            data-testid="button-emoji"
-                            title="Emoji"
-                          >
-                            <Smile className="h-6 w-6" />
-                          </Button>
-                        </div>
-
-                        {/* DIVISOR VERTICAL */}
-                        <div className="w-px h-12 bg-gradient-to-b from-transparent via-gray-400 to-transparent opacity-30" />
-
-                        {/* SEÇÃO DIREITA - Input e Envio */}
-                        <div className="flex-1 flex items-center gap-2 px-4 py-2">
-                          {/* Input de Texto */}
-                          <div className="flex-1 relative">
-                            <Textarea
-                              value={messageText}
-                              onChange={(e) => setMessageText(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleSendMessage();
-                                }
-                              }}
-                              placeholder="Digite uma mensagem"
-                              disabled={sendMessageMutation.isPending}
-                              rows={1}
-                              className="min-h-[40px] max-h-32 rounded-lg bg-white/5 border border-white/10 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-white/10 resize-none text-white placeholder:text-gray-400"
-                              style={{
-                                height: 'auto',
-                                overflowY: messageText.split('\n').length > 4 ? 'auto' : 'hidden'
-                              }}
-                              onInput={(e) => {
-                                const target = e.target as HTMLTextAreaElement;
-                                target.style.height = 'auto';
-                                target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-                              }}
-                              data-testid="input-message"
-                            />
-                          </div>
-
-                          {/* Botão Microfone ou Enviar */}
-                          {messageText.trim() ? (
-                            <Button
-                              onClick={handleSendMessage}
-                              disabled={sendMessageMutation.isPending}
-                              size="icon"
-                              className="shrink-0 rounded-full bg-blue-500 hover:bg-blue-600 text-white"
-                              data-testid="button-send-message"
-                            >
-                              {sendMessageMutation.isPending ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                              ) : (
-                                <Send className="h-5 w-5" />
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="shrink-0 text-gray-300 hover:text-white hover:bg-white/10 rounded-full transition-colors"
-                              data-testid="button-voice"
-                              title="Mensagem de voz (em breve)"
-                              onClick={() => toast({ title: "Gravação de áudio em desenvolvimento" })}
-                            >
-                              <Mic className="h-6 w-6" />
-                            </Button>
-                          )}
-                        </div>
+                        )}
                       </div>
 
                       {/* Emoji Picker */}
                       {isEmojiPickerOpen && (
-                        <div className="absolute bottom-full left-3 mb-2 z-50">
+                        <div className="absolute bottom-full left-4 mb-2 z-50">
                           <div className="relative">
                             <Button
                               variant="ghost"
