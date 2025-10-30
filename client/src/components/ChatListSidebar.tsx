@@ -18,8 +18,40 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { EvolutionInstance, EvolutionChat } from "@/types/whatsapp";
-import { getNameInitials } from "@/lib/utils";
 import { generateAvatarDataUri, resolveAvatarIdentifier } from "@/lib/avatar-generator";
+
+const getNameInitials = (value: string): string => {
+  if (!value) return "?";
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return "?";
+
+  const digitsOnly = trimmed.replace(/\D/g, "");
+  const hasLetters = /[A-Za-z]/.test(trimmed);
+  if (digitsOnly && !hasLetters) {
+    return digitsOnly.length >= 2 ? digitsOnly.slice(-2) : digitsOnly;
+  }
+
+  const tokens = trimmed
+    .split(/\s+/)
+    .map((token) => token.replace(/[^A-Za-z0-9]/g, ""))
+    .filter(Boolean);
+
+  if (tokens.length === 0) {
+    const letters = trimmed.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    return letters.slice(0, 2) || "?";
+  }
+
+  const initials = tokens
+    .slice(0, 2)
+    .map((token) => token[0]?.toUpperCase() || "")
+    .join("");
+
+  if (initials.length > 0) return initials;
+
+  const letters = trimmed.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return letters.slice(0, 2) || "?";
+};
 
 interface ChatListSidebarProps {
   selectedInstance: EvolutionInstance | null;
