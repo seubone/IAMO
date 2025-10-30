@@ -294,6 +294,14 @@ export default function WhatsApp() {
     }
   }, [selectedInstance]);
 
+  // Clear search queries when settings dialog opens (prevent accidental search)
+  useEffect(() => {
+    if (isSettingsDialogOpen) {
+      setSearchQuery("");
+      setMessageSearchQuery("");
+    }
+  }, [isSettingsDialogOpen]);
+
   // Monitor página visibilidade
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -889,12 +897,14 @@ export default function WhatsApp() {
               <div className="p-3 md:p-4 flex-shrink-0">
                 <h2 className="font-semibold text-lg mb-3 md:mb-4">Conversas</h2>
                 <Input
+                  id="chat-search-input"
                   type="text"
                   placeholder="Buscar conversas..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full"
                   data-testid="input-search-chats"
+                  autoComplete="off"
                 />
                 <div className="mt-3">
                   <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">
@@ -1072,6 +1082,7 @@ export default function WhatsApp() {
                           onChange={(e) => setMessageSearchQuery(e.target.value)}
                           className="w-full"
                           data-testid="input-search-messages"
+                          autoComplete="off"
                         />
                       </div>
                     )}
