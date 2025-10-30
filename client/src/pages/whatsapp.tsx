@@ -43,6 +43,7 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
+import { ChatListSidebar } from "@/components/ChatListSidebar";
 import { Smartphone } from "lucide-react";
 import {
   setSelectedInstanceId,
@@ -892,125 +893,24 @@ export default function WhatsApp() {
       <div className="flex-1 flex w-full overflow-hidden">
         {selectedInstanceId ? (
           <>
-            {/* Lista de Conversas (Esquerda) */}
-            <div className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} w-full md:w-[400px] flex-col bg-card/40 backdrop-blur-sm overflow-hidden md:border-r border-border/30`}>
-              <div className="p-3 md:p-4 flex-shrink-0">
-                <h2 className="font-semibold text-lg mb-3 md:mb-4">Conversas</h2>
-                <Input
-                  id="chat-search-input"
-                  type="text"
-                  placeholder="Buscar conversas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                  data-testid="input-search-chats"
-                  autoComplete="off"
-                />
-                <div className="mt-3">
-                  <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">
-                    Tipo de conversa
-                  </p>
-                  <Select
-                    value={chatTypeFilter}
-                    onValueChange={(value) => setChatTypeFilter(value as "contacts" | "groups" | "all")}
-                  >
-                    <SelectTrigger className="w-full text-sm" data-testid="select-chat-type-filter">
-                      <SelectValue placeholder="Selecionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="contacts">Usuários</SelectItem>
-                      <SelectItem value="groups">Grupos</SelectItem>
-                      <SelectItem value="all">Usuários e grupos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto">
-                {isLoadingChats ? (
-                  <ChatListSkeleton />
-                ) : filteredChats.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground">
-                    <p>Nenhuma conversa encontrada</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {filteredChats.map((chat) => {
-                      const isGroupRow = chat.remoteJid?.endsWith("@g.us");
-                      const chatDisplayName = isGroupRow
-                        ? groupNameByJid.get(chat.remoteJid) ||
-                          chat.name ||
-                          chat.pushName ||
-                          `Grupo ${chat.remoteJid.split("@")[0]}`
-                        : chat.name || chat.pushName || formatJidDisplay(chat.remoteJid);
-                      const chatAvatarInitials = getNameInitials(chatDisplayName);
-                      const chatAvatarIdentifier = resolveAvatarIdentifier(chat.remoteJid, chat.id, chatDisplayName);
-                      const chatAvatarSrc =
-                        chat.profilePicUrl || generateAvatarDataUri(chatAvatarIdentifier, chatAvatarInitials);
-
-                      return (
-                        <div key={chat.id} className="relative group">
-                          <button
-                            onClick={() => setSelectedChatJid(chat.remoteJid)}
-                            className={`w-full p-3 flex items-start gap-3 hover-elevate text-left ${
-                              selectedChatJid === chat.remoteJid ? 'bg-accent/50' : ''
-                            }`}
-                            data-testid={`chat-item-${chat.remoteJid}`}
-                          >
-                            <Avatar className="h-12 w-12 flex-shrink-0">
-                              <AvatarImage src={chatAvatarSrc} alt={chatDisplayName} />
-                              <AvatarFallback>{chatAvatarInitials}</AvatarFallback>
-                            </Avatar>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <div className="flex items-center gap-1 flex-1 min-w-0">
-                                  {isPinned(chat.remoteJid) && (
-                                    <Pin className="h-3 w-3 text-[#3442AD] flex-shrink-0" />
-                                  )}
-                                  <h3 className="font-medium truncate">
-                                    {chat.name || chat.pushName || chat.remoteJid}
-                                  </h3>
-                                </div>
-                                <span className="text-xs text-muted-foreground flex-shrink-0">
-                                  {formatChatTime(chat.last_message_timestamp)}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm text-muted-foreground truncate flex-1">
-                                  {chat.last_message || 'Sem mensagens'}
-                                </p>
-                                {chat.unreadMessages > 0 && (
-                                  <Badge 
-                                    variant="default" 
-                                    className="h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#3442AD] hover:bg-[#3442AD] text-white font-semibold"
-                                    data-testid={`badge-unread-${chat.remoteJid}`}
-                                  >
-                                    {chat.unreadMessages}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePin(chat.remoteJid);
-                            }}
-                            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                            data-testid={`button-pin-${chat.remoteJid}`}
-                          >
-                            <Pin
-                              className={`h-4 w-4 ${isPinned(chat.remoteJid) ? 'text-[#3442AD] fill-[#3442AD]' : 'text-muted-foreground'}`}
-                            />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+            {/* Chat List Sidebar */}
+            <div className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} w-full md:w-[400px]`}>
+              <ChatListSidebar
+                selectedInstance={selectedInstance}
+                onInstanceClick={() => setIsInstanceSelectorOpen(true)}
+                isLoadingChats={isLoadingChats}
+                chats={chats || []}
+                filteredChats={filteredChats}
+                selectedChatJid={selectedChatJid}
+                onSelectChat={setSelectedChatJid}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                chatTypeFilter={chatTypeFilter}
+                onChatTypeFilterChange={setChatTypeFilter}
+                isPinned={isPinned}
+                onTogglePin={togglePin}
+                groupNameByJid={groupNameByJid}
+              />
             </div>
 
             {/* Área de Mensagens (Direita) */}
