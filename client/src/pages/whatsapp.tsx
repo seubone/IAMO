@@ -356,6 +356,15 @@ export default function WhatsApp() {
     }
   }, [selectedInstance]);
 
+  // Auto-select first instance if none is selected and instances are loaded
+  useEffect(() => {
+    if (!selectedInstance && instances && instances.length > 0) {
+      const firstInstance = instances[0];
+      console.log(`📱 Selecionando instância padrão: ${firstInstance.name}`);
+      setSelectedInstance(firstInstance);
+    }
+  }, [instances, selectedInstance, setSelectedInstance]);
+
   // Prevent text selection while resizing
   useEffect(() => {
     if (isResizing) {
