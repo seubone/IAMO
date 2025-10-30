@@ -20,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Check, CheckCheck, Filter, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
+import { Loader2, Check, CheckCheck, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
@@ -45,8 +45,6 @@ import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { ChatListSidebar } from "@/components/ChatListSidebar";
-import { GripVertical } from "lucide-react";
-import { Smartphone } from "lucide-react";
 import {
   setSelectedInstanceId,
   deleteSelectedInstanceId,
@@ -145,7 +143,6 @@ export default function WhatsApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [chatTypeFilter, setChatTypeFilter] = useState<"contacts" | "groups" | "all">("contacts");
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
-  const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
@@ -263,30 +260,28 @@ export default function WhatsApp() {
   }, [messageText, selectedInstanceId, selectedChatJid]);
 
   // Fetch instances
-  const { data: allInstances, isLoading: isLoadingInstances } = useQuery<EvolutionInstance[]>({
+  const { data: allInstances } = useQuery<EvolutionInstance[]>({
     queryKey: ["/api/whatsapp/instances"],
   });
 
-  // Filter instances based on status and sort by favorites + recents
-  const instances = (showOnlyActive
-    ? allInstances?.filter(i => i.connectionStatus === "open")
-    : allInstances)?.sort((a, b) => {
-      // Favoritos primeiro
-      const aFav = isFavorite(a.id);
-      const bFav = isFavorite(b.id);
-      if (aFav && !bFav) return -1;
-      if (!aFav && bFav) return 1;
+  // Sort instances by favorites + recents
+  const instances = allInstances?.sort((a, b) => {
+    // Favoritos primeiro
+    const aFav = isFavorite(a.id);
+    const bFav = isFavorite(b.id);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
 
-      // Depois recentes
-      const aRecent = recentInstances.indexOf(a.id);
-      const bRecent = recentInstances.indexOf(b.id);
-      if (aRecent !== -1 && bRecent === -1) return -1;
-      if (aRecent === -1 && bRecent !== -1) return 1;
-      if (aRecent !== -1 && bRecent !== -1) return aRecent - bRecent;
+    // Depois recentes
+    const aRecent = recentInstances.indexOf(a.id);
+    const bRecent = recentInstances.indexOf(b.id);
+    if (aRecent !== -1 && bRecent === -1) return -1;
+    if (aRecent === -1 && bRecent !== -1) return 1;
+    if (aRecent !== -1 && bRecent !== -1) return aRecent - bRecent;
 
-      // Por último, alfabético
-      return (a.name || a.number).localeCompare(b.name || b.number);
-    });
+    // Por último, alfabético
+    return (a.name || a.number).localeCompare(b.name || b.number);
+  });
 
   // Sincronizar selectedInstance com storage.ts quando mudar
   useEffect(() => {
@@ -862,52 +857,6 @@ export default function WhatsApp() {
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden">
-      {/* Pills de Instâncias */}
-      <div className="border-b bg-card px-4 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between gap-4 mb-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Instâncias WhatsApp</h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowOnlyActive(!showOnlyActive)}
-            data-testid="button-filter-instances"
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            {showOnlyActive ? 'Mostrar Todas' : 'Apenas Ativas'}
-          </Button>
-        </div>
-        
-        {isLoadingInstances ? (
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Carregando instâncias...</span>
-          </div>
-        ) : !instances || instances.length === 0 ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Nenhuma instância cadastrada. Verifique suas configurações.</span>
-          </div>
-        ) : instances.length > 0 ? (
-          <div className="flex gap-2 items-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsInstanceSelectorOpen(true)}
-              className="gap-2"
-              data-testid="button-select-instance"
-            >
-              <Smartphone className="h-4 w-4" />
-              {selectedInstance
-                ? `Instância: ${selectedInstance.name || selectedInstance.number}`
-                : "Selecionar Instância"}
-            </Button>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {showOnlyActive ? 'Nenhuma instância ativa encontrada' : 'Nenhuma instância encontrada'}
-          </p>
-        )}
-      </div>
-
       {/* Main Content - WhatsApp Layout */}
       <div className="flex-1 flex w-full overflow-hidden">
         {selectedInstanceId ? (
