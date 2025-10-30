@@ -163,6 +163,7 @@ export default function WhatsApp() {
   const [participantProfiles, setParticipantProfiles] = useState<Record<string, ParticipantProfile>>({});
   const [mutedChats, setMutedChats] = useState<Set<string>>(new Set());
   const [archivedChats, setArchivedChats] = useState<Set<string>>(new Set());
+  const [messageLimit, setMessageLimit] = useState(500); // Máximo padrão do backend: 500
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -431,7 +432,13 @@ export default function WhatsApp() {
 
   // Fetch messages for selected chat com polling otimizado
   const { data: allMessages, isLoading: isLoadingMessages, error: messagesError } = useQuery<EvolutionMessage[]>({
-    queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+    queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`, { limit: messageLimit }],
+    queryFn: async () => {
+      const response = await apiRequest(
+        `/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages?limit=${messageLimit}`
+      );
+      return response;
+    },
     enabled: !!selectedInstanceId && !!selectedChatJid,
     // Polling a cada 10s (reduzido de 2s para menos log spam)
     // WebSocket cuida do tempo real, polling é backup
@@ -439,6 +446,16 @@ export default function WhatsApp() {
     // Cache otimizado
     staleTime: 5000, // Dados ficam "fresh" por 5s
   });
+
+  // Reset mensagens quando troca de chat
+  useEffect(() => {
+    if (selectedChatJid) {
+      // Invalida cache para forçar nova requisição
+      queryClient.invalidateQueries({
+        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+      });
+    }
+  }, [selectedChatJid, selectedInstanceId]);
 
   // Debug: Log messages data
   useEffect(() => {
@@ -449,8 +466,9 @@ export default function WhatsApp() {
       error: messagesError,
       selectedInstanceId,
       selectedChatJid,
+      messageLimit,
     });
-  }, [allMessages, isLoadingMessages, messagesError, selectedInstanceId, selectedChatJid]);
+  }, [allMessages, isLoadingMessages, messagesError, selectedInstanceId, selectedChatJid, messageLimit]);
 
   // Helper function to clean markdown formatting from text
   const cleanMarkdownFormatting = (text?: string | null): string => {
