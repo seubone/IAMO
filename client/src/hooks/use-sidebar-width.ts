@@ -8,6 +8,8 @@ const DEFAULT_WIDTH = 400; // Largura padrão (px)
 export function useSidebarWidth() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(DEFAULT_WIDTH);
 
   // Carregar largura salva do localStorage
   useEffect(() => {
@@ -30,7 +32,9 @@ export function useSidebarWidth() {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = e.clientX;
+      const delta = e.clientX - startX;
+      const newWidth = startWidth + delta;
+
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
         setSidebarWidth(newWidth);
       }
@@ -47,12 +51,19 @@ export function useSidebarWidth() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
+  }, [isResizing, startX, startWidth]);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    setIsResizing(true);
+    setStartX(e.clientX);
+    setStartWidth(sidebarWidth);
+  };
 
   return {
     sidebarWidth,
     isResizing,
     setIsResizing,
+    handleResizeStart,
     MIN_WIDTH,
     MAX_WIDTH,
     DEFAULT_WIDTH,

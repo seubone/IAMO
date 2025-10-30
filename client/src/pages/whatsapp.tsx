@@ -169,7 +169,7 @@ export default function WhatsApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { favorites, recentInstances, toggleFavorite, addToRecent, isFavorite } = useInstancePreferences();
   const { togglePin, isPinned, getPinnedChats } = usePinnedChats(selectedInstanceId);
-  const { sidebarWidth, isResizing, setIsResizing } = useSidebarWidth();
+  const { sidebarWidth, isResizing, handleResizeStart } = useSidebarWidth();
 
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const debouncedMessageSearchQuery = useDebounce(messageSearchQuery, 500);
@@ -305,6 +305,22 @@ export default function WhatsApp() {
       setMessageSearchQuery("");
     }
   }, [isSettingsDialogOpen]);
+
+  // Prevent text selection while resizing
+  useEffect(() => {
+    if (isResizing) {
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+    } else {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isResizing]);
 
   // Monitor página visibilidade
   useEffect(() => {
@@ -917,10 +933,11 @@ export default function WhatsApp() {
 
               {/* Resize Handle */}
               <div
-                onMouseDown={() => setIsResizing(true)}
-                className={`w-1 bg-border/20 hover:bg-primary/40 hover:w-1 cursor-col-resize transition-colors flex-shrink-0 ${
-                  isResizing ? 'bg-primary/60 w-1' : ''
+                onMouseDown={handleResizeStart}
+                className={`w-1 bg-border/20 hover:bg-primary/40 cursor-col-resize transition-colors flex-shrink-0 select-none ${
+                  isResizing ? 'bg-primary/60' : ''
                 }`}
+                style={{ userSelect: 'none' }}
                 data-testid="sidebar-resize-handle"
               />
             </div>
