@@ -1,8 +1,9 @@
-# Chat Context Menu (Botão Direito)
+# Chat Menu Actions (Dropdown)
 
 ## Visão Geral
 
-Implementação de menu de contexto (click direito) para todos os chats na sidebar. Fornece acesso rápido a ações importantes sem precisar abrir o chat.
+Implementação de menu de ações para todos os chats na sidebar. Um botão (⋮) aparece ao passar o mouse
+sobre o chat, fornecendo acesso rápido a ações importantes sem precisar abrir o chat.
 
 ## Funcionalidades
 
@@ -57,26 +58,39 @@ const [archivedChats, setArchivedChats] = useState<Set<string>>(new Set());
 
 ## Interface do Menu
 
+### Visualização
 ```
-┌─────────────────────────┐
-│ 📌 Fixar                │  (ou Desafixar)
-├─────────────────────────┤
-│ ✓ Marcar como lido      │  (apenas se não lido)
-├─────────────────────────┤
-│ 🔕 Silenciar chat       │  (ou 🔔 Desativar silêncio)
-├─────────────────────────┤
-│ 📦 Arquivar             │
-└─────────────────────────┘
+Chat item ao hover (mouse over):
+[Avatar] Chat Name          Time ⋮
+         Last message         ↑ (botão aparece aqui)
+
+Ao clicar em ⋮:
+┌──────────────────────┐
+│ 📌 Fixar             │  (ou Desafixar)
+├──────────────────────┤
+│ ✓ Marcar como lido   │  (apenas se não lido)
+├──────────────────────┤
+│ 🔕 Silenciar chat    │  (ou 🔔 Desativar silêncio)
+├──────────────────────┤
+│ 📦 Arquivar          │
+└──────────────────────┘
 ```
+
+### Características
+- ✅ Botão (⋮) está invisível por padrão (`opacity-0`)
+- ✅ Botão aparece ao passar mouse sobre o chat (`group-hover:opacity-100`)
+- ✅ Menu dropdown aparece ao clicar no botão
+- ✅ Responsive e mobile-friendly
 
 ## Implementação Técnica
 
 ### Componentes Envolvidos
 
 **ChatListSidebar.tsx**
-- `ContextMenu` wrapper (Radix UI)
-- `ContextMenuTrigger` + `ContextMenuContent`
-- 4 `ContextMenuItem` components
+- `DropdownMenu` wrapper (Radix UI)
+- `DropdownMenuTrigger` + `DropdownMenuContent`
+- 4 `DropdownMenuItem` components
+- Usar `group` e `group-hover` para mostrar/esconder botão
 
 **whatsapp.tsx**
 - 3 callbacks: `handleMuteChat`, `handleMarkAsRead`, `handleArchiveChat`
@@ -86,11 +100,13 @@ const [archivedChats, setArchivedChats] = useState<Set<string>>(new Set());
 ### Fluxo de Dados
 
 ```
-User Right-Click
+User hovers over chat
     ↓
-ContextMenu detects click
+Button (⋮) becomes visible (group-hover effect)
     ↓
-Menu appears
+User clicks button
+    ↓
+Dropdown menu appears
     ↓
 User selects option
     ↓
@@ -149,9 +165,24 @@ Para persistência, integre com:
 ## Commits Relacionados
 
 - `e4e56d0` - feat: Adicionar menu de contexto (botão direito) para chats
+- `a9ad1f4` - fix: Usar DropdownMenu ao invés de ContextMenu para menu de chats
+- `7464f72` - docs: Adicionar documentação do menu de contexto para chats
+
+## Histórico de Alterações
+
+### v1.0 (ContextMenu - Descontinuado)
+- Implementação inicial com ContextMenu (click direito)
+- Causava erro com React Context quando múltiplos ContextMenus existiam
+
+### v2.0 (DropdownMenu - Atual) ✅
+- Substituído por DropdownMenu para melhor compatibilidade
+- Botão (⋮) ao hover ao invés de click direito
+- Melhor UX e previsibilidade
+- Sem erros de React Context
 
 ---
 
 **Status**: ✅ Implementado e testado com build bem-sucedido
 **Bundle Size**: +10 KB (minimal)
-**Compatibilidade**: Todos os navegadores modernos (ContextMenu é Radix UI)
+**Compatibilidade**: Todos os navegadores modernos (DropdownMenu é Radix UI)
+**Método de Ativação**: Hover + Click (vs. Right-Click original)
