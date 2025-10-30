@@ -166,7 +166,7 @@ export function ChatListSidebar({
     return (
       <div
         key={chat.id}
-        className="group w-full px-2 py-2 flex items-start gap-3 rounded-lg transition-colors text-left hover:bg-accent/40"
+        className="group w-full px-2 py-2 flex items-start gap-3 rounded-lg transition-colors text-left"
       >
         <button
           onClick={() => onSelectChat(chat.remoteJid)}
