@@ -92,7 +92,7 @@ export function InstanceSettingsDialog({
     }
   }, [baseInstanceNumber, baseInstanceName, manualInstanceNumber]);
 
-  const resolvedInstanceNumber = manualInstanceNumber;
+  const resolvedInstanceNumber = manualInstanceNumber || baseInstanceNumber;
   const effectiveInstanceName = manualInstanceName || baseInstanceName || resolvedInstanceNumber;
   const isInstanceAvailable = Boolean(resolvedInstanceNumber);
 
