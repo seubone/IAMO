@@ -21,7 +21,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Loader2, Check, CheckCheck, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
-import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -144,7 +143,6 @@ export default function WhatsApp() {
   const [chatTypeFilter, setChatTypeFilter] = useState<"contacts" | "groups" | "all">("contacts");
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
 
@@ -354,14 +352,6 @@ export default function WhatsApp() {
       deleteSelectedInstanceId();
     }
   }, [selectedInstance]);
-
-  // Clear search queries when settings dialog opens (prevent accidental search)
-  useEffect(() => {
-    if (isSettingsDialogOpen) {
-      setSearchQuery("");
-      setMessageSearchQuery("");
-    }
-  }, [isSettingsDialogOpen]);
 
   // Prevent text selection while resizing
   useEffect(() => {
@@ -1024,14 +1014,6 @@ export default function WhatsApp() {
                       >
                         <Tag className="h-5 w-5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setIsSettingsDialogOpen(true)}
-                        data-testid="button-settings"
-                      >
-                        <Settings className="h-5 w-5" />
-                      </Button>
                     </div>
                     {messageSearchQuery !== null && (
                       <div className="px-4 pb-3">
@@ -1577,14 +1559,6 @@ export default function WhatsApp() {
           </div>
         )}
       </div>
-
-      {/* Instance Settings Dialog */}
-      <InstanceSettingsDialog
-        open={isSettingsDialogOpen}
-        onOpenChange={setIsSettingsDialogOpen}
-        instanceNumber={selectedInstance?.number}
-        instanceName={selectedInstance?.name || selectedInstance?.number || ""}
-      />
 
       {/* Contact Metadata Dialog */}
       {selectedInstanceId && selectedChatJid && (
