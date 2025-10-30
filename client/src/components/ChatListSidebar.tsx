@@ -170,7 +170,7 @@ export function ChatListSidebar({
       >
         <button
           onClick={() => onSelectChat(chat.remoteJid)}
-          className={`flex-1 flex items-start gap-3 rounded-3xl transition-colors text-left px-2 py-2 ${
+          className={`flex-1 flex items-center gap-3 rounded-3xl transition-colors text-left px-2 py-2 ${
             selectedChatJid === chat.remoteJid ? "bg-accent/60" : ""
           }`}
           data-testid={`chat-item-${chat.remoteJid}`}
@@ -216,23 +216,22 @@ export function ChatListSidebar({
               )}
             </div>
           </div>
-        </button>
 
-        {/* Dropdown Menu Button - visible on hover */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-              data-testid={`chat-menu-${chat.remoteJid}`}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
+          {/* Dropdown Menu Button - inside the button, visible on hover */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                data-testid={`chat-menu-${chat.remoteJid}`}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-          {/* Dropdown Menu Content */}
-          <DropdownMenuContent align="end" className="w-48">
+            {/* Dropdown Menu Content */}
+            <DropdownMenuContent align="end" className="w-48">
             {/* Pin/Unpin Option */}
             <DropdownMenuItem
               onClick={() => onTogglePin(chat.remoteJid)}
@@ -279,8 +278,9 @@ export function ChatListSidebar({
                 Arquivar
               </DropdownMenuItem>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </button>
       </div>
     );
   };
