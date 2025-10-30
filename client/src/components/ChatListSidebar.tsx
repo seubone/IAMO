@@ -329,7 +329,7 @@ export function ChatListSidebar({
             placeholder="Pesquisar..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-12 pr-12 h-11 text-sm rounded-full"
+            className="pl-12 pr-12 h-11 text-sm rounded-full outline-none ring-0 focus:outline-none focus:ring-0"
             data-testid="input-search-chats"
             autoComplete="off"
           />
