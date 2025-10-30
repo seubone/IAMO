@@ -1402,7 +1402,7 @@ export default function WhatsApp() {
                           placeholder="Digite uma mensagem"
                           disabled={sendMessageMutation.isPending}
                           rows={1}
-                          className="flex-1 border-0 bg-transparent focus-visible:ring-0 resize-none text-sm py-2"
+                          className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:outline-0 outline-none resize-none text-sm py-2"
                           style={{
                             height: '24px',
                             minHeight: '24px',
