@@ -1250,7 +1250,12 @@ export default function WhatsApp() {
 
                                   {/* Document/PDF Message - Sem container */}
                                   {message.message?.documentMessage && (
-                                    <div className="w-80 bg-gradient-to-br from-purple-700 to-purple-800 rounded-xl p-4 text-white relative group">
+                                    <div
+                                      className="w-80 rounded-xl p-4 text-white relative group"
+                                      style={{
+                                        backgroundColor: 'var(--color-message-sent, #7885E3)',
+                                      }}
+                                    >
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-start gap-3 flex-1">
@@ -1283,7 +1288,10 @@ export default function WhatsApp() {
                                             link.download = message.message.documentMessage!.fileName || 'documento';
                                             link.click();
                                           }}
-                                          className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                          className="flex-1 text-white text-sm font-medium py-2 rounded-lg transition-colors hover:opacity-80"
+                                          style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                          }}
                                           data-testid={`document-open-${message.id}`}
                                         >
                                           Abrir
@@ -1296,7 +1304,10 @@ export default function WhatsApp() {
                                             link.download = message.message.documentMessage!.fileName || 'documento';
                                             link.click();
                                           }}
-                                          className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                          className="flex-1 text-white text-sm font-medium py-2 rounded-lg transition-colors hover:opacity-80"
+                                          style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                          }}
                                           data-testid={`document-save-${message.id}`}
                                         >
                                           Salvar como...
