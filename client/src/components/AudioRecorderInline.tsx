@@ -219,19 +219,30 @@ export function AudioRecorderInline({
     onStopRecording();
   };
 
-  const handleSendAudio = () => {
-    if (audioBlob && waveformData) {
+  const handleSendAudio = async () => {
+    // Se ainda está gravando, para antes de enviar
+    if (isLocallyRecording) {
+      stopRecording();
+      onStopRecording();
+      // Aguarda o blob ser criado
+      setTimeout(() => {
+        if (audioBlob && waveformData) {
+          onSendAudio(audioBlob, waveformData, duration);
+        }
+      }, 300);
+    } else if (audioBlob && waveformData) {
+      // Se já parou, envia direto
       onSendAudio(audioBlob, waveformData, duration);
     }
   };
+
+  // Determinar o estado local da gravação
+  const isLocallyRecording = mediaRecorderRef.current?.state === 'recording';
 
   const handleCancel = () => {
     cancelRecording();
     onCancelRecording();
   };
-
-  // Determinar o estado local da gravação
-  const isLocallyRecording = mediaRecorderRef.current?.state === 'recording';
 
   // Mostrar o gravador se está gravando ou tem áudio gravado
   if (!isRecording && !audioBlob) {
@@ -299,7 +310,7 @@ export function AudioRecorderInline({
             size="icon"
             className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
             onClick={handleSendAudio}
-            disabled={isSending || !audioBlob}
+            disabled={isSending}
             title="Enviar áudio"
           >
             {isSending ? (
