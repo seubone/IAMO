@@ -10,6 +10,7 @@ import {
   BellOff,
   Check,
   MoreVertical,
+  Settings,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ const getNameInitials = (value: string): string => {
 interface ChatListSidebarProps {
   selectedInstance: EvolutionInstance | null;
   onInstanceClick: () => void;
+  onInstanceSettingsClick?: () => void;
   isLoadingChats: boolean;
   chats: EvolutionChat[];
   filteredChats: EvolutionChat[];
@@ -114,6 +116,7 @@ const formatJidDisplay = (jid?: string | null): string => {
 export function ChatListSidebar({
   selectedInstance,
   onInstanceClick,
+  onInstanceSettingsClick,
   isLoadingChats,
   chats,
   filteredChats,
@@ -286,36 +289,49 @@ export function ChatListSidebar({
   };
 
   return (
-    <div className="flex flex-col h-full bg-card/40 backdrop-blur-sm overflow-hidden border-r border-border/30">
+    <div className="flex flex-col h-full bg-muted/5 backdrop-blur-sm overflow-hidden border-r border-border/30">
       {/* Instance Selector Header */}
       <div className="px-4 py-3 flex-shrink-0 border-b border-border/20">
-        <button
-          onClick={onInstanceClick}
-          className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors"
-        >
-          {selectedInstance && (
-            <>
-              <Avatar className="h-10 w-10">
-                <AvatarImage
-                  src={selectedInstance.profilePicUrl || undefined}
-                  alt={selectedInstance.name || selectedInstance.number}
-                />
-                <AvatarFallback>
-                  {getNameInitials(selectedInstance.name || selectedInstance.number)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold truncate">
-                  {selectedInstance.name || selectedInstance.number}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {selectedInstance.number}
-                </p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            </>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onInstanceClick}
+            className="flex-1 flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors"
+          >
+            {selectedInstance && (
+              <>
+                <Avatar className="h-10 w-10">
+                  <AvatarImage
+                    src={selectedInstance.profilePicUrl || undefined}
+                    alt={selectedInstance.name || selectedInstance.number}
+                  />
+                  <AvatarFallback>
+                    {getNameInitials(selectedInstance.name || selectedInstance.number)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-semibold truncate">
+                    {selectedInstance.name || selectedInstance.number}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedInstance.number}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </>
+            )}
+          </button>
+          {selectedInstance && onInstanceSettingsClick && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10"
+              onClick={onInstanceSettingsClick}
+              title="Configurações da instância"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Search and Filter Bar */}
