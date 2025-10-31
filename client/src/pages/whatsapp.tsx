@@ -41,6 +41,7 @@ import { AudioMessage } from "@/components/AudioMessage";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
+import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { ChatListSidebar } from "@/components/ChatListSidebar";
@@ -144,7 +145,27 @@ export default function WhatsApp() {
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
+  const [isInstanceSettingsDialogOpen, setIsInstanceSettingsDialogOpen] = useState(false);
+  const [instanceSettingsContext, setInstanceSettingsContext] = useState<{ number?: string; name?: string } | null>(null);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
+  const openInstanceSettings = useCallback((instance?: EvolutionInstance | null) => {
+    const target = instance ?? selectedInstance ?? null;
+
+    if (target) {
+      const normalizedNumber = target.number || undefined;
+      const displayName = target.name || target.number || target.profileName || undefined;
+
+      setInstanceSettingsContext({
+        number: normalizedNumber,
+        name: displayName,
+      });
+    } else {
+      setInstanceSettingsContext(null);
+    }
+
+    setIsInstanceSettingsDialogOpen(true);
+  }, [selectedInstance]);
+
 
   // ID da instância selecionada (extraído do Zustand) - deve estar aqui antes de usar em hooks
   const selectedInstanceId = selectedInstance?.id || null;
@@ -947,6 +968,7 @@ export default function WhatsApp() {
               <ChatListSidebar
                 selectedInstance={selectedInstance}
                 onInstanceClick={() => setIsInstanceSelectorOpen(true)}
+                onInstanceSettingsClick={() => openInstanceSettings()}
                 isLoadingChats={isLoadingChats}
                 chats={chats || []}
                 filteredChats={filteredChats}
@@ -1160,8 +1182,78 @@ export default function WhatsApp() {
                                     />
                                   )}
 
+                                  {/* Sticker Message - Sem container */}
+                                  {message.message?.stickerMessage && (
+                                    <div className="flex flex-col gap-1">
+                                      <StickerMessage messageId={message.id} />
+                                      {!isSameSenderAsNext && (
+                                        <div className="flex items-center gap-1">
+                                          <p className="text-[10px] opacity-60">
+                                            {formatTimestamp(message.messageTimestamp)}
+                                          </p>
+                                          <MessageStatus status={message.status} fromMe={fromMe} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Image Message - Sem container */}
+                                  {message.message?.imageMessage && (
+                                    <div className="flex flex-col gap-1 relative">
+                                      <ImageMessage
+                                        messageId={message.id}
+                                        caption={message.message.imageMessage.caption}
+                                      />
+                                      {!isSameSenderAsNext && (
+                                        <div className="flex items-center gap-1 absolute bottom-2 left-2">
+                                          <p className="text-[10px] opacity-60 text-white drop-shadow">
+                                            {formatTimestamp(message.messageTimestamp)}
+                                          </p>
+                                          <MessageStatus status={message.status} fromMe={fromMe} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Video Message - Sem container */}
+                                  {message.message?.videoMessage && (
+                                    <div className="flex flex-col gap-1 relative">
+                                      <VideoMessage
+                                        messageId={message.id}
+                                        caption={message.message.videoMessage.caption}
+                                      />
+                                      {!isSameSenderAsNext && (
+                                        <div className="flex items-center gap-1 absolute bottom-2 left-2">
+                                          <p className="text-[10px] opacity-60 text-white drop-shadow">
+                                            {formatTimestamp(message.messageTimestamp)}
+                                          </p>
+                                          <MessageStatus status={message.status} fromMe={fromMe} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* PTV Message (video redondo) - Sem container */}
+                                  {message.message?.ptvMessage && (
+                                    <div className="flex flex-col gap-1 relative">
+                                      <VideoMessage messageId={message.id} />
+                                      {!isSameSenderAsNext && (
+                                        <div className="flex items-center gap-1 absolute bottom-2 left-2">
+                                          <p className="text-[10px] opacity-60 text-white drop-shadow">
+                                            {formatTimestamp(message.messageTimestamp)}
+                                          </p>
+                                          <MessageStatus status={message.status} fromMe={fromMe} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
                                   {/* Todas as outras mensagens com caixa */}
-                                  {!message.message?.audioMessage && (
+                                  {!message.message?.audioMessage &&
+                                   !message.message?.stickerMessage &&
+                                   !message.message?.imageMessage &&
+                                   !message.message?.videoMessage &&
+                                   !message.message?.ptvMessage && (
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-lg px-4 py-2 break-words overflow-hidden ${
                                       fromMe
@@ -1186,32 +1278,6 @@ export default function WhatsApp() {
                                       <div className="mb-2 pl-2 border-l-4 border-primary/50 text-xs opacity-70">
                                         <p>Respondendo...</p>
                                       </div>
-                                    )}
-
-                                    {/* Sticker Message */}
-                                    {message.message?.stickerMessage && (
-                                      <StickerMessage messageId={message.id} />
-                                    )}
-
-                                    {/* Image Message */}
-                                    {message.message?.imageMessage && (
-                                      <ImageMessage
-                                        messageId={message.id}
-                                        caption={message.message.imageMessage.caption}
-                                      />
-                                    )}
-
-                                    {/* Video Message */}
-                                    {message.message?.videoMessage && (
-                                      <VideoMessage
-                                        messageId={message.id}
-                                        caption={message.message.videoMessage.caption}
-                                      />
-                                    )}
-
-                                    {/* PTV Message (video redondo) */}
-                                    {message.message?.ptvMessage && (
-                                      <VideoMessage messageId={message.id} />
                                     )}
 
                                     {/* Document/PDF Message */}
@@ -1581,7 +1647,23 @@ export default function WhatsApp() {
           setSelectedChatJid(null);
           addToRecent(instance.id);
         }}
+        onConfigureInstance={(instance) => {
+          setIsInstanceSelectorOpen(false);
+          openInstanceSettings(instance);
+        }}
         selectedInstanceId={selectedInstance?.id}
+      />
+
+      <InstanceSettingsDialog
+        open={isInstanceSettingsDialogOpen}
+        onOpenChange={(open) => {
+          setIsInstanceSettingsDialogOpen(open);
+          if (!open) {
+            setInstanceSettingsContext(null);
+          }
+        }}
+        instanceNumber={instanceSettingsContext?.number ?? undefined}
+        instanceName={instanceSettingsContext?.name ?? undefined}
       />
     </div>
   );
