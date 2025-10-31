@@ -1354,12 +1354,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Verificar se a instância está ativa
-      if (instance.connectionStatus !== "open") {
+      // Verificar se a instância tem status válido
+      // Evolution API pode enviar mesmo com status "close" (desconectado)
+      // Validamos apenas se o campo existe
+      if (!instance.connectionStatus) {
         return res.status(400).json({
-          error: "Instância não está conectada. Status: " + instance.connectionStatus
+          error: "Instância sem status de conexão registrado"
         });
       }
+
+      console.log(`✅ Instância ${normalizedNumber} com status: ${instance.connectionStatus}. Prosseguindo com envio...`);
 
       // Usar UnifiedSender para enviar mensagem com fallback automático
       const result = await unifiedSender.sendMessage({
@@ -1440,12 +1444,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Verificar se a instância está ativa
-      if (instance.connectionStatus !== "open") {
+      // Verificar se a instância tem status válido
+      // Evolution API pode enviar mesmo com status "close" (desconectado)
+      // Validamos apenas se o campo existe
+      if (!instance.connectionStatus) {
         return res.status(400).json({
-          error: "Instância não está conectada. Status: " + instance.connectionStatus
+          error: "Instância sem status de conexão registrado"
         });
       }
+
+      console.log(`✅ Instância ${normalizedNumber} com status: ${instance.connectionStatus}. Prosseguindo com envio de áudio...`);
 
       // Usar UnifiedSender para enviar áudio com fallback automático
       const result = await unifiedSender.sendMedia({
