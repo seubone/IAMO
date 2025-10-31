@@ -25,6 +25,7 @@ export function AudioRecorderInline({
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasAudioData, setHasAudioData] = useState(false);
 
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -87,6 +88,7 @@ export function AudioRecorderInline({
 
       mediaRecorder.start();
       startTimeRef.current = Date.now();
+      setHasAudioData(true); // Marca que tem dados sendo gravados
       startTimer();
       visualizeRecording();
     } catch (error: any) {
@@ -144,6 +146,7 @@ export function AudioRecorderInline({
     setWaveformData([]);
     setAudioBlob(null);
     setError(null);
+    setHasAudioData(false);
   };
 
   // Timer
@@ -214,12 +217,12 @@ export function AudioRecorderInline({
   const handleStopAndSend = () => {
     stopRecording();
     onStopRecording();
-    // Aguardar um pouco para o blob ser processado
-    setTimeout(() => {
-      if (audioBlob && waveformData) {
-        onSendAudio(audioBlob, waveformData, duration);
-      }
-    }, 100);
+  };
+
+  const handleSendAudio = () => {
+    if (audioBlob && waveformData) {
+      onSendAudio(audioBlob, waveformData, duration);
+    }
   };
 
   const handleCancel = () => {
@@ -290,13 +293,13 @@ export function AudioRecorderInline({
           </Button>
         )}
 
-        {/* Enviar áudio (visível quando tem blob) */}
-        {audioBlob && (
+        {/* Enviar áudio (visível quando tem dados ou blob) */}
+        {(hasAudioData || audioBlob) && (
           <Button
             size="icon"
             className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
-            onClick={() => onSendAudio(audioBlob, waveformData || [], duration)}
-            disabled={isSending}
+            onClick={handleSendAudio}
+            disabled={isSending || !audioBlob}
             title="Enviar áudio"
           >
             {isSending ? (
