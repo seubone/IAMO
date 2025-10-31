@@ -227,6 +227,9 @@ export function AudioRecorderInline({
     onCancelRecording();
   };
 
+  // Determinar o estado local da gravação
+  const isLocallyRecording = mediaRecorderRef.current?.state === 'recording';
+
   // Mostrar o gravador se está gravando ou tem áudio gravado
   if (!isRecording && !audioBlob) {
     return null;
@@ -240,7 +243,7 @@ export function AudioRecorderInline({
     <div className="flex items-center gap-2 w-full px-2 py-1">
       {/* Ícone de microfone ou animação */}
       <div className="flex-shrink-0">
-        {isRecording ? (
+        {isLocallyRecording ? (
           <div className="animate-pulse">
             <Mic className="h-5 w-5 text-red-500" />
           </div>
@@ -257,12 +260,12 @@ export function AudioRecorderInline({
           <div
             key={index}
             className={`flex-shrink-0 rounded-sm transition-all ${
-              isRecording ? 'bg-red-500' : 'bg-primary'
+              isLocallyRecording ? 'bg-red-500' : 'bg-primary'
             }`}
             style={{
               width: '3px',
               height: `${Math.max(3, Math.min(28, value * 1.5))}px`,
-              opacity: isRecording ? 0.9 : 1,
+              opacity: isLocallyRecording ? 0.9 : 1,
             }}
           />
         ))}
@@ -275,9 +278,9 @@ export function AudioRecorderInline({
 
       {/* Botões de ação */}
       <div className="flex gap-1 flex-shrink-0">
-        {isRecording ? (
+        {isLocallyRecording ? (
           <>
-            {/* Parar e enviar */}
+            {/* Parar gravação */}
             <Button
               size="icon"
               className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white"
