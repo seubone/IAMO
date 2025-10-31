@@ -1282,28 +1282,59 @@ export default function WhatsApp() {
 
                                     {/* Document/PDF Message */}
                                     {message.message?.documentMessage && (
-                                      <button 
-                                        onClick={() => {
-                                          // Download via endpoint de descriptografia
-                                          const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
-                                          const link = document.createElement('a');
-                                          link.href = downloadUrl;
-                                          link.download = message.message.documentMessage!.fileName || 'documento';
-                                          link.click();
-                                        }}
-                                        className="flex items-center gap-2 p-2 rounded bg-muted/20 hover:bg-muted/40 transition-colors mb-2"
-                                        data-testid={`document-${message.id}`}
-                                      >
-                                        <div className="text-2xl">📄</div>
-                                        <div className="flex-1 min-w-0 text-left">
-                                          <p className="text-sm font-medium truncate">
-                                            {message.message.documentMessage.fileName || 'Documento'}
-                                          </p>
-                                          <p className="text-xs opacity-70">
-                                            Clique para baixar
-                                          </p>
+                                      <div className="w-80 bg-gradient-to-br from-green-700 to-green-800 rounded-xl p-4 text-white relative group">
+                                        {/* Header com ícone e info */}
+                                        <div className="flex items-start justify-between mb-4">
+                                          <div className="flex items-start gap-3 flex-1">
+                                            <div className="text-3xl">📄</div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-semibold text-sm truncate">
+                                                {message.message.documentMessage.fileName || 'Documento'}
+                                              </p>
+                                              <p className="text-xs opacity-80">
+                                                {message.message.documentMessage.mimetype?.split('/')[1]?.toUpperCase() || 'ARQUIVO'}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          {/* Timestamp no canto superior direito */}
+                                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                            <p className="text-[10px] opacity-80">
+                                              {formatTimestamp(message.messageTimestamp)}
+                                            </p>
+                                            <MessageStatus status={message.status} fromMe={fromMe} />
+                                          </div>
                                         </div>
-                                      </button>
+
+                                        {/* Botões de ação */}
+                                        <div className="flex gap-3 justify-between">
+                                          <button
+                                            onClick={() => {
+                                              const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
+                                              const link = document.createElement('a');
+                                              link.href = downloadUrl;
+                                              link.download = message.message.documentMessage!.fileName || 'documento';
+                                              link.click();
+                                            }}
+                                            className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                            data-testid={`document-open-${message.id}`}
+                                          >
+                                            Abrir
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
+                                              const link = document.createElement('a');
+                                              link.href = downloadUrl;
+                                              link.download = message.message.documentMessage!.fileName || 'documento';
+                                              link.click();
+                                            }}
+                                            className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                            data-testid={`document-save-${message.id}`}
+                                          >
+                                            Salvar como...
+                                          </button>
+                                        </div>
+                                      </div>
                                     )}
                                     
                                     {/* Location Message */}
