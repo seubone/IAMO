@@ -278,58 +278,45 @@ export function AudioRecorderInline({
 
       {/* Botões de ação */}
       <div className="flex gap-1 flex-shrink-0">
-        {isLocallyRecording ? (
-          <>
-            {/* Parar gravação */}
-            <Button
-              size="icon"
-              className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white"
-              onClick={handleStopAndSend}
-              title="Parar gravação"
-            >
-              <Square className="h-3 w-3 fill-white" />
-            </Button>
+        {/* Parar gravação (visível enquanto gravando) */}
+        {isLocallyRecording && (
+          <Button
+            size="icon"
+            className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white"
+            onClick={handleStopAndSend}
+            title="Parar gravação"
+          >
+            <Square className="h-3 w-3 fill-white" />
+          </Button>
+        )}
 
-            {/* Cancelar */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full hover:bg-destructive/20"
-              onClick={handleCancel}
-              title="Cancelar"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </>
-        ) : audioBlob ? (
-          <>
-            {/* Enviar áudio */}
-            <Button
-              size="icon"
-              className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
-              onClick={() => onSendAudio(audioBlob, waveformData || [], duration)}
-              disabled={isSending}
-              title="Enviar áudio"
-            >
-              {isSending ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <SendIcon className="h-3 w-3" />
-              )}
-            </Button>
+        {/* Enviar áudio (visível quando tem blob) */}
+        {audioBlob && (
+          <Button
+            size="icon"
+            className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
+            onClick={() => onSendAudio(audioBlob, waveformData || [], duration)}
+            disabled={isSending}
+            title="Enviar áudio"
+          >
+            {isSending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <SendIcon className="h-3 w-3" />
+            )}
+          </Button>
+        )}
 
-            {/* Cancelar */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full hover:bg-destructive/20"
-              onClick={handleCancel}
-              title="Cancelar"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </>
-        ) : null}
+        {/* Cancelar (sempre visível) */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 rounded-full hover:bg-destructive/20"
+          onClick={handleCancel}
+          title="Cancelar"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
