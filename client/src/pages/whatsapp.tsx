@@ -1248,12 +1248,70 @@ export default function WhatsApp() {
                                     </div>
                                   )}
 
+                                  {/* Document/PDF Message - Sem container */}
+                                  {message.message?.documentMessage && (
+                                    <div className="w-80 bg-gradient-to-br from-green-700 to-green-800 rounded-xl p-4 text-white relative group">
+                                      {/* Header com ícone e info */}
+                                      <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-start gap-3 flex-1">
+                                          <div className="text-3xl">📄</div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-sm truncate">
+                                              {message.message.documentMessage.fileName || 'Documento'}
+                                            </p>
+                                            <p className="text-xs opacity-80">
+                                              {message.message.documentMessage.mimetype?.split('/')[1]?.toUpperCase() || 'ARQUIVO'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        {/* Timestamp no canto superior direito */}
+                                        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                          <p className="text-[10px] opacity-80">
+                                            {formatTimestamp(message.messageTimestamp)}
+                                          </p>
+                                          <MessageStatus status={message.status} fromMe={fromMe} />
+                                        </div>
+                                      </div>
+
+                                      {/* Botões de ação */}
+                                      <div className="flex gap-3 justify-between">
+                                        <button
+                                          onClick={() => {
+                                            const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
+                                            const link = document.createElement('a');
+                                            link.href = downloadUrl;
+                                            link.download = message.message.documentMessage!.fileName || 'documento';
+                                            link.click();
+                                          }}
+                                          className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                          data-testid={`document-open-${message.id}`}
+                                        >
+                                          Abrir
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
+                                            const link = document.createElement('a');
+                                            link.href = downloadUrl;
+                                            link.download = message.message.documentMessage!.fileName || 'documento';
+                                            link.click();
+                                          }}
+                                          className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                          data-testid={`document-save-${message.id}`}
+                                        >
+                                          Salvar como...
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Todas as outras mensagens com caixa */}
                                   {!message.message?.audioMessage &&
                                    !message.message?.stickerMessage &&
                                    !message.message?.imageMessage &&
                                    !message.message?.videoMessage &&
-                                   !message.message?.ptvMessage && (
+                                   !message.message?.ptvMessage &&
+                                   !message.message?.documentMessage && (
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-lg px-4 py-2 break-words overflow-hidden ${
                                       fromMe
@@ -1280,63 +1338,6 @@ export default function WhatsApp() {
                                       </div>
                                     )}
 
-                                    {/* Document/PDF Message */}
-                                    {message.message?.documentMessage && (
-                                      <div className="w-80 bg-gradient-to-br from-green-700 to-green-800 rounded-xl p-4 text-white relative group">
-                                        {/* Header com ícone e info */}
-                                        <div className="flex items-start justify-between mb-4">
-                                          <div className="flex items-start gap-3 flex-1">
-                                            <div className="text-3xl">📄</div>
-                                            <div className="flex-1 min-w-0">
-                                              <p className="font-semibold text-sm truncate">
-                                                {message.message.documentMessage.fileName || 'Documento'}
-                                              </p>
-                                              <p className="text-xs opacity-80">
-                                                {message.message.documentMessage.mimetype?.split('/')[1]?.toUpperCase() || 'ARQUIVO'}
-                                              </p>
-                                            </div>
-                                          </div>
-                                          {/* Timestamp no canto superior direito */}
-                                          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                                            <p className="text-[10px] opacity-80">
-                                              {formatTimestamp(message.messageTimestamp)}
-                                            </p>
-                                            <MessageStatus status={message.status} fromMe={fromMe} />
-                                          </div>
-                                        </div>
-
-                                        {/* Botões de ação */}
-                                        <div className="flex gap-3 justify-between">
-                                          <button
-                                            onClick={() => {
-                                              const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
-                                              const link = document.createElement('a');
-                                              link.href = downloadUrl;
-                                              link.download = message.message.documentMessage!.fileName || 'documento';
-                                              link.click();
-                                            }}
-                                            className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                                            data-testid={`document-open-${message.id}`}
-                                          >
-                                            Abrir
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              const downloadUrl = `/api/whatsapp/media/decrypt/${message.id}`;
-                                              const link = document.createElement('a');
-                                              link.href = downloadUrl;
-                                              link.download = message.message.documentMessage!.fileName || 'documento';
-                                              link.click();
-                                            }}
-                                            className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                                            data-testid={`document-save-${message.id}`}
-                                          >
-                                            Salvar como...
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                    
                                     {/* Location Message */}
                                     {message.message?.locationMessage && (
                                       <div className="flex flex-col gap-1">
@@ -1359,7 +1360,7 @@ export default function WhatsApp() {
                                         )}
                                       </div>
                                     )}
-                                    
+
                                     {/* Contact Message */}
                                     {message.message?.contactMessage && (
                                       <div className="flex items-center gap-2 p-2 bg-muted/20 rounded">
@@ -1372,7 +1373,7 @@ export default function WhatsApp() {
                                         </div>
                                       </div>
                                     )}
-                                    
+
                                     {/* Reaction Message */}
                                     {message.message?.reactionMessage && (
                                       <div className="flex items-center gap-2">
@@ -1380,7 +1381,7 @@ export default function WhatsApp() {
                                         <p className="text-xs opacity-70">Reagiu a uma mensagem</p>
                                       </div>
                                     )}
-                                    
+
                                     {/* Edited Message */}
                                     {message.message?.editedMessage && (
                                       <div className="flex flex-col gap-1">
@@ -1395,7 +1396,7 @@ export default function WhatsApp() {
                                         )}
                                       </div>
                                     )}
-                                    
+
                                     {/* Text Message (only if not image/sticker/document/video/audio/location/contact/reaction/edited) */}
                                     {!message.message?.imageMessage &&
                                      !message.message?.stickerMessage &&
@@ -1411,7 +1412,7 @@ export default function WhatsApp() {
                                         {renderTextWithLinks(cleanMarkdownFormatting(message.message?.conversation || ""))}
                                       </p>
                                     )}
-                                    
+
                                     {/* Timestamp - mostrar apenas se for última do grupo ou on hover */}
                                     {!isSameSenderAsNext && (
                                       <div className="flex items-center justify-end gap-1 mt-1">
