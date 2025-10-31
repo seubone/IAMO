@@ -704,17 +704,22 @@ export default function WhatsApp() {
         headers: { "Content-Type": "application/json" },
       });
     },
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
       toast({
         title: "Mensagem enviada",
         description: "Mensagem enviada com sucesso!",
       });
       setMessageText("");
       deleteMessageDraft(); // Limpar rascunho após enviar
-      // Invalidate messages to reload
-      queryClient.invalidateQueries({
-        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`]
-      });
+
+      // Invalidate messages to reload with slight delay to ensure DB sync
+      // Use exact: false to also invalidate pagination variants
+      setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+          exact: false  // Also invalidates with limit/offset variants
+        });
+      }, 500); // Wait 500ms for message to be persisted in Evolution DB
     },
     onError: (error: any) => {
       toast({
