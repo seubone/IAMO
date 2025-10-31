@@ -69,6 +69,7 @@ interface ChatListSidebarProps {
   selectedInstance: EvolutionInstance | null;
   onInstanceClick: () => void;
   onInstanceSettingsClick?: () => void;
+  onUazapiConfigClick?: () => void;
   isLoadingChats: boolean;
   chats: EvolutionChat[];
   filteredChats: EvolutionChat[];
@@ -320,13 +321,13 @@ export function ChatListSidebar({
               </>
             )}
           </button>
-          {selectedInstance && onInstanceSettingsClick && (
+          {selectedInstance && onUazapiConfigClick && (
             <Button
               variant="ghost"
               size="icon"
               className="h-10 w-10"
-              onClick={onInstanceSettingsClick}
-              title="Configurações da instância"
+              onClick={onUazapiConfigClick}
+              title="Configurar API Uazapi"
             >
               <Settings className="h-4 w-4" />
             </Button>

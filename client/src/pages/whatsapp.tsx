@@ -42,6 +42,7 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
+import { UazapiConfigDialog } from "@/components/UazapiConfigDialog";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { ChatListSidebar } from "@/components/ChatListSidebar";
@@ -147,6 +148,7 @@ export default function WhatsApp() {
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const [isInstanceSettingsDialogOpen, setIsInstanceSettingsDialogOpen] = useState(false);
   const [instanceSettingsContext, setInstanceSettingsContext] = useState<{ number?: string; name?: string } | null>(null);
+  const [isUazapiConfigOpen, setIsUazapiConfigOpen] = useState(false);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
   const openInstanceSettings = useCallback((instance?: EvolutionInstance | null) => {
     const target = instance ?? selectedInstance ?? null;
@@ -975,6 +977,7 @@ export default function WhatsApp() {
                 selectedInstance={selectedInstance}
                 onInstanceClick={() => setIsInstanceSelectorOpen(true)}
                 onInstanceSettingsClick={() => openInstanceSettings()}
+                onUazapiConfigClick={() => setIsUazapiConfigOpen(true)}
                 isLoadingChats={isLoadingChats}
                 chats={chats || []}
                 filteredChats={filteredChats}
@@ -1715,6 +1718,15 @@ export default function WhatsApp() {
         }}
         instanceNumber={instanceSettingsContext?.number ?? undefined}
         instanceName={instanceSettingsContext?.name ?? undefined}
+      />
+
+      <UazapiConfigDialog
+        open={isUazapiConfigOpen}
+        onOpenChange={(open) => {
+          setIsUazapiConfigOpen(open);
+        }}
+        instanceNumber={selectedInstance?.number}
+        instanceName={selectedInstance?.name}
       />
     </div>
   );
