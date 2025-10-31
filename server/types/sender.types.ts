@@ -3,17 +3,20 @@
  */
 
 export interface MessageData {
-  instanceNumber: string;
+  instanceNumber: string; // número da instância (normalizado)
+  instanceRemoteJid?: string; // remoteJid da instância (sem @s.whatsapp.net)
   recipientNumber: string;
   content: string;
 }
 
 export interface MediaData {
   instanceNumber: string;
+  instanceRemoteJid?: string;
   recipientNumber: string;
   file: string; // base64 ou URL
-  type: 'image' | 'video' | 'audio' | 'document';
+  type: 'image' | 'video' | 'audio' | 'document' | 'myaudio' | 'ptt' | 'sticker';
   caption?: string;
+  docName?: string; // Nome do arquivo para documents
 }
 
 export interface SendResult {

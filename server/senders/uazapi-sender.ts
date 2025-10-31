@@ -110,6 +110,8 @@ export class UazAPISender {
 
   /**
    * Enviar mídia via UazAPI
+   * Usa o endpoint correto /send/media com os campos esperados pela API
+   * Documentação: https://api.uazapi.com/docs/send-media
    */
   async sendMedia(data: MediaData): Promise<SendResult> {
     const startTime = Date.now();
@@ -128,12 +130,31 @@ export class UazAPISender {
         };
       }
 
-      const payload = {
-        phone: data.recipientNumber,
-        mediaUrl: data.file,
-        caption: data.caption,
-        mediaType: data.type,
+      // Construir payload conforme documentação oficial do /send/media
+      // Campos obrigatórios: number, type, file
+      // Campos opcionais: text (caption), docName (para documents)
+      const payload: any = {
+        number: data.recipientNumber,
+        type: data.type,
+        file: data.file,
       };
+
+      // Adicionar caption/texto se fornecido
+      if (data.caption) {
+        payload.text = data.caption;
+      }
+
+      // Adicionar nome do documento se fornecido (apenas para type: document)
+      if (data.docName && data.type === 'document') {
+        payload.docName = data.docName;
+      }
+
+      // Log detalhado do request
+      console.log('🎥 [UazAPI Media Request Debug]');
+      console.log('  URL:', `${this.uazapiBaseUrl}/send/media`);
+      console.log('  Type:', data.type);
+      console.log('  Token (primeiros 10 chars):', token.substring(0, 10) + '...');
+      console.log('  Payload:', JSON.stringify(payload, null, 2));
 
       const response = await axios.post(
         `${this.uazapiBaseUrl}/send/media`,
@@ -150,6 +171,9 @@ export class UazAPISender {
 
       const latency = Date.now() - startTime;
 
+      console.log('✅ [UazAPI Media Success]');
+      console.log('  Response:', JSON.stringify(response.data, null, 2));
+
       return {
         success: true,
         api: 'uazapi',
@@ -161,10 +185,18 @@ export class UazAPISender {
     } catch (error: any) {
       const latency = Date.now() - startTime;
 
+      // Log detalhado do erro
+      console.error(`❌ [UazAPI Media Error]`);
+      console.error(`  Status: ${error.response?.status}`);
+      console.error(`  Message: ${error.message}`);
+      if (error.response?.data) {
+        console.error(`  Response: ${JSON.stringify(error.response.data)}`);
+      }
+
       return {
         success: false,
         api: 'uazapi',
-        error: error.message || 'Erro ao enviar mídia via UazAPI',
+        error: error.response?.data?.message || error.message || 'Erro ao enviar mídia via UazAPI',
         latency,
         timestamp: new Date().toISOString(),
       };
