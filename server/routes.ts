@@ -847,13 +847,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const { evolutionPool } = await import("./evolution-db");
-      const showInactive = req.query.inactive === "true"; // param para mostrar inativas também
 
-      let whereClause = "";
-      if (!showInactive) {
-        // Por padrão, só trazer instâncias ativas
-        whereClause = `WHERE "connectionStatus" = 'open'`;
-      }
+      // Show all instances regardless of connectionStatus
+      // Users need access to all instances from Evolution DB to send messages
+      const whereClause = "";
 
       const result = await evolutionPool.query(`
         SELECT
