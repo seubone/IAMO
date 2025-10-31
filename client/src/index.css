@@ -379,6 +379,35 @@
  */
 @layer utilities {
 
+  /* Remove outline/stroke from all inputs, textareas and focusable elements */
+  input,
+  textarea,
+  select,
+  button,
+  [role="button"] {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus,
+  button:focus,
+  [role="button"]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
