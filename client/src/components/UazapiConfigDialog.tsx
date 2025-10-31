@@ -106,7 +106,8 @@ export function UazapiConfigDialog({
               disabled={saveTokenMutation.isPending}
               data-testid="input-uazapi-token"
               autoFocus
-              className="focus-visible:ring-0 focus-visible:outline-none"
+              className="focus-visible:ring-0 focus-visible:outline-none border-0 focus:border-0"
+              style={{ outline: 'none', boxShadow: 'none' }}
             />
           </div>
 
