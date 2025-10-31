@@ -1336,7 +1336,7 @@ export default function WhatsApp() {
                                    !message.message?.ptvMessage &&
                                    !message.message?.documentMessage && (
                                   <div
-                                    className={`max-w-[65%] min-w-0 rounded-lg px-4 py-4 break-words overflow-hidden ${
+                                    className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden ${
                                       fromMe
                                         ? 'text-white'
                                         : 'bg-card border'
