@@ -473,11 +473,17 @@ export default function WhatsApp() {
       return response;
     },
     enabled: !!selectedInstanceId && !!selectedChatJid,
-    // Polling a cada 10s (reduzido de 2s para menos log spam)
-    // WebSocket cuida do tempo real, polling é backup
-    refetchInterval: selectedChatJid && isPageVisible ? 10000 : false,
-    // Cache otimizado
-    staleTime: 5000, // Dados ficam "fresh" por 5s
+    // FIXED: Reduzido de 10s para 3s para fallback mais rápido
+    // WebSocket é primário, polling é backup rápido
+    // Se WebSocket falhar, mensagens aparecem em 3s ao invés de 10s
+    refetchInterval: selectedChatJid && isPageVisible ? 3000 : false,
+    // FIXED: staleTime=0 para respeitar cache invalidations imediatamente
+    // Antes: staleTime=5000 causava race conditions com invalidations
+    // Resultado: invalidações eram ignoradas, mensagens demoravam 10s para aparecer
+    staleTime: 0,
+    // FIXED: Auto-refresh ao usuário voltar à aba
+    // Garante que mensagens novas são carregadas ao trocar de aba
+    refetchOnWindowFocus: true,
   });
 
   // Reset mensagens quando troca de chat
@@ -712,14 +718,14 @@ export default function WhatsApp() {
       setMessageText("");
       deleteMessageDraft(); // Limpar rascunho após enviar
 
-      // Invalidate messages to reload with slight delay to ensure DB sync
-      // Use exact: false to also invalidate pagination variants
-      setTimeout(() => {
-        queryClient.invalidateQueries({
-          queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-          exact: false  // Also invalidates with limit/offset variants
-        });
-      }, 500); // Wait 500ms for message to be persisted in Evolution DB
+      // FIXED: Invalidate messages IMMEDIATELY (removed 500ms delay)
+      // Why? With staleTime=0, cache invalidations are always respected
+      // The 500ms delay was arbitrary and caused race conditions
+      // Now: invalidation → immediate refetch → message appears in <1s
+      queryClient.invalidateQueries({
+        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+        exact: false  // Also invalidates with limit/offset variants
+      });
     },
     onError: (error: any) => {
       toast({
