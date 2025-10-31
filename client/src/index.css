@@ -286,6 +286,20 @@
     overflow-x: clip;
   }
 
+  /* Links com cor contrastante */
+  a {
+    color: #00BFFF;
+    text-decoration: underline;
+  }
+
+  a:hover {
+    color: #1E90FF;
+  }
+
+  a:visited {
+    color: #87CEEB;
+  }
+
   @keyframes scroll {
     0% {
       transform: translateX(0);
