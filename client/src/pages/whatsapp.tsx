@@ -793,7 +793,32 @@ export default function WhatsApp() {
   });
 
   const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid || !currentInstance?.number) {
+    if (!messageText.trim() || !selectedInstanceId || !selectedChatJid) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios.",
+      });
+      return;
+    }
+
+    if (!currentInstance) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Instância não encontrada. Recarregue a página.",
+      });
+      return;
+    }
+
+    // Get instance number from either 'number' field or extract from 'ownerJid'
+    let instanceNumber = currentInstance.number;
+    if (!instanceNumber && currentInstance.ownerJid) {
+      // Extract number from ownerJid: "558487168184@s.whatsapp.net" -> "558487168184"
+      instanceNumber = currentInstance.ownerJid.split('@')[0];
+    }
+
+    if (!instanceNumber) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -814,7 +839,7 @@ export default function WhatsApp() {
     const textWithName = `*${userDisplayName}:*\n${messageText.trim()}`;
 
     sendMessageMutation.mutate({
-      instanceNumber: currentInstance.number,
+      instanceNumber: instanceNumber,
       recipientNumber: recipientNumber,
       text: textWithName,
     });

@@ -22,16 +22,27 @@ export class UnifiedSender {
     this.uazapiSender = new UazAPISender();
   }
 
+  private normalizeInstanceNumber(instanceNumber: string): string {
+    return (instanceNumber || '').replace(/\D/g, '');
+  }
+
   /**
    * Obter configuração de envio da instância (do Supabase)
    * Retorna 'evolution' como padrão se a tabela não existir ou houver erro
    */
   async getSendConfig(instanceNumber: string): Promise<SendAPI> {
     try {
+      const normalizedInstanceNumber = this.normalizeInstanceNumber(instanceNumber);
+
+      if (!normalizedInstanceNumber) {
+        console.warn('⚠️  Instância sem número válido ao obter configuração de envio. Usando Evolution como padrão.');
+        return 'evolution';
+      }
+
       const { data, error } = await supabase
         .from('uazapi_instances')
         .select('send_api')
-        .eq('instance_number', instanceNumber)
+        .eq('instance_number', normalizedInstanceNumber)
         .maybeSingle();
 
       if (error) {
@@ -41,17 +52,17 @@ export class UnifiedSender {
       }
 
       if (!data) {
-        // Instância não encontrada na Supabase, usar UazAPI como padrão (com fallback automático)
-        console.log(`📋 Instância ${instanceNumber} não encontrada em uazapi_instances. Usando UazAPI como padrão.`);
-        return 'uazapi';
+        // Instância não encontrada na Supabase, usar Evolution como padrão (com fallback automático)
+        console.log(`📋 Instância ${normalizedInstanceNumber} não encontrada em uazapi_instances. Usando Evolution como padrão.`);
+        return 'evolution';
       }
 
-      const api = (data.send_api as SendAPI) || 'uazapi';
-      console.log(`📤 Configuração de envio para ${instanceNumber}: ${api}`);
+      const api = (data.send_api as SendAPI) || 'evolution';
+      console.log(`📤 Configuração de envio para ${normalizedInstanceNumber}: ${api}`);
       return api;
     } catch (error: any) {
       console.error(`❌ Erro crítico ao obter configuração de envio: ${error?.message || error}`);
-      return 'uazapi';
+      return 'evolution';
     }
   }
 
@@ -62,10 +73,17 @@ export class UnifiedSender {
    */
   async setSendConfig(instanceNumber: string, sendAPI: SendAPI): Promise<void> {
     try {
+      const normalizedInstanceNumber = this.normalizeInstanceNumber(instanceNumber);
+
+      if (!normalizedInstanceNumber) {
+        console.warn('⚠️  Instância sem número válido ao salvar configuração de envio. Operação ignorada.');
+        return;
+      }
+
       const { error } = await supabase
         .from('uazapi_instances')
         .upsert({
-          instance_number: instanceNumber,
+          instance_number: normalizedInstanceNumber,
           send_api: sendAPI,
           api_token: '', // Token vazio por padrão se não existir
         }, {
@@ -79,7 +97,7 @@ export class UnifiedSender {
         return;
       }
 
-      console.log(`✅ Configuração de envio atualizada: ${instanceNumber} -> ${sendAPI}`);
+      console.log(`✅ Configuração de envio atualizada: ${normalizedInstanceNumber} -> ${sendAPI}`);
     } catch (error: any) {
       console.warn(`⚠️  Erro ao salvar configuração de envio: ${error?.message || error}. Configuração não foi persistida.`);
       // Não lançar erro, pois o envio pode continuar funcionar via Evolution
@@ -91,19 +109,20 @@ export class UnifiedSender {
    * Se uma API falhar, tenta a outra como fallback
    */
   async sendMessage(data: MessageData): Promise<SendResult> {
-    const config = await this.getSendConfig(data.instanceNumber);
+    const normalizedInstanceNumber = this.normalizeInstanceNumber(data.instanceNumber);
+    const config = await this.getSendConfig(normalizedInstanceNumber);
 
     console.log(`📤 Enviando mensagem via ${config} para ${data.recipientNumber}`);
 
     switch (config) {
       case 'evolution':
-        return await this.sendViaEvolution(data);
+        return await this.sendViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber });
 
       case 'uazapi':
-        return await this.sendViaUazAPI(data);
+        return await this.sendViaUazAPI({ ...data, instanceNumber: normalizedInstanceNumber });
 
       default:
-        return await this.sendViaEvolution(data);
+        return await this.sendViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber });
     }
   }
 
@@ -177,19 +196,20 @@ export class UnifiedSender {
    * Enviar mídia com estratégia automática
    */
   async sendMedia(data: MediaData): Promise<SendResult> {
-    const config = await this.getSendConfig(data.instanceNumber);
+    const normalizedInstanceNumber = this.normalizeInstanceNumber(data.instanceNumber);
+    const config = await this.getSendConfig(normalizedInstanceNumber);
 
     console.log(`📸 Enviando mídia via ${config} para ${data.recipientNumber}`);
 
     switch (config) {
       case 'evolution':
-        return await this.sendMediaViaEvolution(data);
+        return await this.sendMediaViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber });
 
       case 'uazapi':
-        return await this.sendMediaViaUazAPI(data);
+        return await this.sendMediaViaUazAPI({ ...data, instanceNumber: normalizedInstanceNumber });
 
       default:
-        return await this.sendMediaViaEvolution(data);
+        return await this.sendMediaViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber });
     }
   }
 
@@ -262,8 +282,14 @@ export class UnifiedSender {
   ): Promise<TestSendResult> {
     console.log(`🧪 Testando envio para ${recipientNumber} via ${apis.join(', ')}`);
 
+    const normalizedInstanceNumber = this.normalizeInstanceNumber(instanceNumber);
+
+    if (!normalizedInstanceNumber) {
+      throw new Error('Número da instância inválido para teste de envio');
+    }
+
     const data: MessageData = {
-      instanceNumber,
+      instanceNumber: normalizedInstanceNumber,
       recipientNumber,
       content: `🧪 Teste de envio - ${new Date().toLocaleTimeString('pt-BR')} - ${message}`,
     };

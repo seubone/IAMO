@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Settings } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import type { EvolutionInstance } from "@/types/whatsapp";
 
 interface InstanceSelectorModalProps {
@@ -95,7 +96,12 @@ export function InstanceSelectorModal({
                     handleSelectInstance(instance);
                   }
                 }}
-                className="p-4 rounded-lg border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className={cn(
+                  "p-4 rounded-lg border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50",
+                  selectedInstanceId === instance.id
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50 hover:bg-muted"
+                )}
               >
                 {/* Avatar/Placeholder */}
                 <div className="mb-3 flex justify-center">
@@ -122,7 +128,11 @@ export function InstanceSelectorModal({
                   </p>
                   <div className="mt-2 flex items-center justify-center">
                     <span
-                      className="text-xs px-2 py-1 rounded-full"
+                      className={cn("text-xs px-2 py-1 rounded-full",
+                        instance.connectionStatus === "open"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
+                          : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100"
+                      )}
                     >
                       {instance.connectionStatus === "open" ? "Ativa" : "Inativa"}
                     </span>

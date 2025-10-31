@@ -12,6 +12,12 @@ export class EvolutionSender {
     this.evolutionBaseUrl = baseUrl;
   }
 
+  private sanitizeIdentifier(value?: string | null): string | null {
+    if (!value) return null;
+    const digitsOnly = String(value).replace(/[^0-9]/g, "");
+    return digitsOnly.length > 0 ? digitsOnly : null;
+  }
+
   /**
    * Enviar mensagem de texto via Evolution
    */
@@ -30,7 +36,7 @@ export class EvolutionSender {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.EVOLUTION_API_KEY}`,
+            'apikey': `${process.env.EVOLUTION_API_KEY}`,
           },
           timeout: 30000,
         }
@@ -49,10 +55,16 @@ export class EvolutionSender {
     } catch (error: any) {
       const latency = Date.now() - startTime;
 
+      // Log detalhado do erro
+      console.error(`[Evolution Error] Status: ${error.response?.status}, Message: ${error.message}`);
+      if (error.response?.data) {
+        console.error(`[Evolution Response] ${JSON.stringify(error.response.data)}`);
+      }
+
       return {
         success: false,
         api: 'evolution',
-        error: error.message || 'Erro ao enviar via Evolution',
+        error: error.response?.data?.message || error.message || 'Erro ao enviar via Evolution',
         latency,
         timestamp: new Date().toISOString(),
       };

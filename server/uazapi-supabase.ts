@@ -24,13 +24,32 @@ export interface UazapiTokenRecord {
 }
 
 async function resolveEvolutionInstanceByNumber(instanceNumber: string): Promise<EvolutionInstanceRecord | null> {
+  const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
+  if (!normalizedInstanceNumber) {
+    return null;
+  }
+
   const result = await evolutionPool.query<EvolutionInstanceRecord>(
     `
-      SELECT id, number, name, "connectionStatus"
+      SELECT
+        id,
+        COALESCE(
+          NULLIF(number, ''),
+          NULLIF(regexp_replace("ownerJid", '@.*$', ''), ''),
+          NULLIF(regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g'), ''),
+          NULLIF(regexp_replace(name, '\\D', '', 'g'), '')
+        ) AS number,
+        name,
+        "connectionStatus"
       FROM "Instance"
       WHERE number = $1
+         OR regexp_replace("ownerJid", '@.*$', '') = $1
+         OR regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g') = $1
+         OR regexp_replace(name, '\\D', '', 'g') = $1
+      LIMIT 1
     `,
-    [instanceNumber]
+    [normalizedInstanceNumber]
   );
 
   if (result.rows.length === 0) {

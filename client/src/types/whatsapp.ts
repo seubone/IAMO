@@ -3,7 +3,8 @@
 export interface EvolutionInstance {
   id: string;
   name: string;
-  number: string;
+  number?: string;
+  ownerJid?: string;
   profilePicUrl?: string;
   profileName?: string;
   connectionStatus: string;
