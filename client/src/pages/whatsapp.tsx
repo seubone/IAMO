@@ -964,7 +964,13 @@ export default function WhatsApp() {
         {selectedInstanceId ? (
           <>
             {/* Chat List Sidebar with Resizable Handle */}
-            <div className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative`} style={{ width: `${sidebarWidth}px` }}>
+            <div
+              className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative`}
+              style={{
+                width: `${sidebarWidth}px`,
+                backgroundColor: 'light-dark(#FFFFFF, #0A0A0B)',
+              }}
+            >
               <ChatListSidebar
                 selectedInstance={selectedInstance}
                 onInstanceClick={() => setIsInstanceSelectorOpen(true)}
