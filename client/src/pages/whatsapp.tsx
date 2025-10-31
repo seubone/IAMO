@@ -794,10 +794,14 @@ export default function WhatsApp() {
     recipientNumber = recipientNumber.split(':')[0]; // Remove :16 or other suffixes
 
     // Use instance number in Brazilian format (55XXYYYYYYYY)
+    // Adicionar nome do usuário ao início da mensagem
+    const userDisplayName = currentInstance?.name || 'Usuário';
+    const textWithName = `*${userDisplayName}:*\n${messageText.trim()}`;
+
     sendMessageMutation.mutate({
       instanceNumber: currentInstance.number,
       recipientNumber: recipientNumber,
-      text: messageText.trim(),
+      text: textWithName,
     });
   };
 
