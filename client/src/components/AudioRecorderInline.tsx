@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, Mic, Square, X } from 'lucide-react';
-import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { SendIcon } from '@/components/SendIcon';
 
 interface AudioRecorderInlineProps {
@@ -21,25 +20,198 @@ export function AudioRecorderInline({
   onSendAudio,
   isSending = false,
 }: AudioRecorderInlineProps) {
-  const {
-    isRecording: hookIsRecording,
-    duration,
-    waveformData,
-    audioBlob,
-    error,
-    startRecording,
-    stopRecording,
-    cancelRecording,
-  } = useAudioRecorder();
+  // Estado local do gravador
+  const [duration, setDuration] = useState('0:00');
+  const [waveformData, setWaveformData] = useState<number[]>([]);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Sincronizar estado do hook com o componente
+  // Refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const animationIdRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const timerIntervalRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Formatar tempo
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Iniciar gravação
+  const startRecording = async () => {
+    try {
+      setError(null);
+      setDuration('0:00');
+      setWaveformData([]);
+      setAudioBlob(null);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      // MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      // Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyserRef.current = analyser;
+      analyser.fftSize = 256;
+
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      dataArrayRef.current = dataArray;
+
+      // Salvar chunks
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        audioChunksRef.current.push(event.data);
+      });
+
+      // Ao parar
+      mediaRecorder.addEventListener('stop', () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+      });
+
+      mediaRecorder.start();
+      startTimeRef.current = Date.now();
+      startTimer();
+      visualizeRecording();
+    } catch (error: any) {
+      const errorMessage = error.name === 'NotAllowedError'
+        ? 'Permissão de microfone negada'
+        : error.name === 'NotFoundError'
+        ? 'Nenhum microfone encontrado'
+        : error.message || 'Erro ao acessar microfone';
+
+      setError(errorMessage);
+    }
+  };
+
+  // Parar gravação
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      stopTimer();
+
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    }
+  };
+
+  // Cancelar gravação
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+
+    stopTimer();
+    if (animationIdRef.current) {
+      cancelAnimationFrame(animationIdRef.current);
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+    }
+
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
+
+    audioChunksRef.current = [];
+    setDuration('0:00');
+    setWaveformData([]);
+    setAudioBlob(null);
+    setError(null);
+  };
+
+  // Timer
+  const startTimer = () => {
+    timerIntervalRef.current = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      setDuration(formatTime(elapsed));
+    }, 100);
+  };
+
+  // Parar timer
+  const stopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+  };
+
+  // Visualizar gravação
+  const visualizeRecording = () => {
+    const recordingWaveform = () => {
+      animationIdRef.current = requestAnimationFrame(recordingWaveform);
+
+      if (!analyserRef.current || !dataArrayRef.current) return;
+
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+
+      // Extrair 30 pontos
+      const samples = [];
+      const step = Math.floor(dataArrayRef.current.length / 30);
+
+      for (let i = 0; i < 30; i++) {
+        const value = dataArrayRef.current[i * step] || 0;
+        samples.push((value / 255) * 100);
+      }
+
+      setWaveformData(samples);
+    };
+
+    recordingWaveform();
+  };
+
+  // Iniciar gravação quando isRecording muda
   useEffect(() => {
-    if (isRecording && !hookIsRecording && !error) {
+    if (isRecording && !error) {
       startRecording();
     }
-  }, [isRecording, hookIsRecording, error, startRecording]);
+  }, [isRecording]);
 
-  const handleStopAndSend = async () => {
+  // Limpar ao desmontar
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      stopTimer();
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  const handleStopAndSend = () => {
     stopRecording();
     onStopRecording();
     // Aguardar um pouco para o blob ser processado
@@ -61,8 +233,8 @@ export function AudioRecorderInline({
   }
 
   const displayWaveform = waveformData && waveformData.length > 0
-    ? waveformData.slice(0, 30)
-    : Array(15).fill(0);
+    ? waveformData
+    : Array(30).fill(Math.random() * 20); // Fallback com barras aleatórias
 
   return (
     <div className="flex items-center gap-2 w-full px-2 py-1">
@@ -80,23 +252,24 @@ export function AudioRecorderInline({
       </div>
 
       {/* Forma de onda animada */}
-      <div className="flex-1 flex items-center gap-0.5 h-8 px-2">
+      <div className="flex-1 flex items-center justify-center gap-0.5 h-8 px-2">
         {displayWaveform.map((value, index) => (
           <div
             key={index}
-            className={`flex-1 rounded-sm transition-all ${
+            className={`flex-shrink-0 rounded-sm transition-all ${
               isRecording ? 'bg-red-500' : 'bg-primary'
-            } ${isRecording ? 'animate-pulse' : ''}`}
+            }`}
             style={{
-              height: `${Math.max(3, Math.min(30, (value / 100) * 30))}px`,
-              opacity: isRecording ? 0.8 : 1,
+              width: '3px',
+              height: `${Math.max(3, Math.min(28, value * 1.5))}px`,
+              opacity: isRecording ? 0.9 : 1,
             }}
           />
         ))}
       </div>
 
       {/* Duração */}
-      <span className="text-sm font-mono font-bold text-foreground w-12 text-right flex-shrink-0">
+      <span className="text-sm font-mono font-bold text-foreground w-14 text-right flex-shrink-0">
         {duration}
       </span>
 
