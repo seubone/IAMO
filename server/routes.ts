@@ -280,9 +280,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Polling loop otimizado (3s ao invés de 2s)
-  setInterval(pollNewMessages, 3000);
-  console.log("📱 WhatsApp message polling started (3s interval)");
+  // OPTIMIZATION: Removed server-side polling
+  // Why: Client-side polling (10s) is sufficient and more efficient
+  // - Client only polls the active chat (not all instances)
+  // - Server polling was creating duplicate work
+  // - WebSocket + client polling is enough for real-time updates
+  // - This reduces database queries by ~50%
+  //
+  // If real-time updates are critical, increase client polling frequency:
+  // whatsapp.tsx:478 -> change refetchInterval from 10000 to 5000
+  //
+  // setInterval(pollNewMessages, 3000);
+  console.log("📱 ℹ️ Server-side polling disabled (using WebSocket + client polling instead)");
 
   // ============ PUBLIC CONFIG ROUTES ============
 

@@ -116,33 +116,47 @@ export function useWebSocket(options?: UseWebSocketOptions) {
               });
               break;
             case "whatsapp_message_received":
-              // Invalidar queries de WhatsApp de forma mais específica
-              queryClient.invalidateQueries({ 
-                queryKey: ["/api/whatsapp/instances"]
-              });
-              
-              queryClient.invalidateQueries({ 
-                predicate: (query) => {
-                  const key = query.queryKey;
-                  return Array.isArray(key) && 
-                         key[0] === "/api/whatsapp/instances" && 
-                         key[2] === "chats";
-                }
-              });
-              
-              queryClient.invalidateQueries({ 
-                predicate: (query) => {
-                  const key = query.queryKey;
-                  return Array.isArray(key) && 
-                         key[0] === "/api/whatsapp/instances" && 
-                         key[2] === "chats" &&
-                         key[4] === "messages";
-                }
-              });
-              
-              console.log("📱 WhatsApp message received - invalidating queries");
-              
-              // Call callback if provided (usando ref para evitar dependency issues)
+              // OPTIMIZATION: Only invalidate the specific chat's queries
+              // Data structure: { instanceId, remoteJid, messageId, ... }
+              const { instanceId, remoteJid } = message.data || {};
+
+              if (instanceId && remoteJid) {
+                // 1. Invalidate only THIS chat's messages (most specific)
+                // This is the critical fix - prevents invalidating unrelated chats
+                queryClient.invalidateQueries({
+                  queryKey: [
+                    `/api/whatsapp/instances/${instanceId}/chats/${remoteJid}/messages`
+                  ],
+                  exact: false  // Also invalidates pagination variants
+                });
+
+                console.log(`📱 Message received - invalidating chat: ${remoteJid}`);
+              } else {
+                // Fallback: if data doesn't have instanceId/remoteJid, invalidate all messages
+                // (This should rarely happen)
+                console.warn("⚠️ WhatsApp message missing instanceId/remoteJid");
+
+                queryClient.invalidateQueries({
+                  predicate: (query) => {
+                    const key = query.queryKey;
+                    return Array.isArray(key) &&
+                           key[0] === "/api/whatsapp/instances" &&
+                           key[4] === "messages";
+                  }
+                });
+              }
+
+              // 2. Also update chat list (to show unread count, etc)
+              if (instanceId) {
+                queryClient.invalidateQueries({
+                  queryKey: [`/api/whatsapp/instances/${instanceId}/chats`],
+                  exact: false
+                });
+
+                console.log(`📱 Also invalidating chat list for instance: ${instanceId}`);
+              }
+
+              // Call callback if provided (using ref to avoid dependency issues)
               if (optionsRef.current?.onWhatsAppMessage) {
                 try {
                   optionsRef.current.onWhatsAppMessage(message.data);
