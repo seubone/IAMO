@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Mic, Square, X, Send } from 'lucide-react';
+import { Loader2, Mic, Square, X } from 'lucide-react';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { SendIcon } from '@/components/SendIcon';
 
@@ -9,7 +9,7 @@ interface AudioRecorderInlineProps {
   onStartRecording: () => void;
   onStopRecording: () => void;
   onCancelRecording: () => void;
-  onSendAudio: (blob: Blob, waveformData: number[], duration: number) => void;
+  onSendAudio: (blob: Blob, waveformData: number[], duration: string) => void;
   isSending?: boolean;
 }
 
@@ -22,6 +22,7 @@ export function AudioRecorderInline({
   isSending = false,
 }: AudioRecorderInlineProps) {
   const {
+    isRecording: hookIsRecording,
     duration,
     waveformData,
     audioBlob,
@@ -29,21 +30,24 @@ export function AudioRecorderInline({
     startRecording,
     stopRecording,
     cancelRecording,
-    formatTime,
   } = useAudioRecorder();
 
+  // Sincronizar estado do hook com o componente
   useEffect(() => {
-    if (isRecording && !error) {
+    if (isRecording && !hookIsRecording && !error) {
       startRecording();
     }
-  }, [isRecording]);
+  }, [isRecording, hookIsRecording, error, startRecording]);
 
   const handleStopAndSend = async () => {
-    const blob = await stopRecording();
+    stopRecording();
     onStopRecording();
-    if (blob && waveformData) {
-      onSendAudio(blob, waveformData, duration);
-    }
+    // Aguardar um pouco para o blob ser processado
+    setTimeout(() => {
+      if (audioBlob && waveformData) {
+        onSendAudio(audioBlob, waveformData, duration);
+      }
+    }, 100);
   };
 
   const handleCancel = () => {
@@ -51,58 +55,70 @@ export function AudioRecorderInline({
     onCancelRecording();
   };
 
+  // Mostrar o gravador se está gravando ou tem áudio gravado
   if (!isRecording && !audioBlob) {
     return null;
   }
 
+  const displayWaveform = waveformData && waveformData.length > 0
+    ? waveformData.slice(0, 30)
+    : Array(15).fill(0);
+
   return (
-    <div className="flex items-center gap-2 w-full">
-      {/* Forma de onda animada */}
-      <div className="flex-1 flex items-center gap-1 h-8">
-        {waveformData && waveformData.length > 0 ? (
-          waveformData.slice(0, 20).map((value, index) => (
-            <div
-              key={index}
-              className={`flex-1 rounded-full transition-all ${
-                isRecording ? 'bg-red-500 animate-pulse' : 'bg-primary'
-              }`}
-              style={{
-                height: `${Math.max(4, (value / 100) * 32)}px`,
-              }}
-            />
-          ))
+    <div className="flex items-center gap-2 w-full px-2 py-1">
+      {/* Ícone de microfone ou animação */}
+      <div className="flex-shrink-0">
+        {isRecording ? (
+          <div className="animate-pulse">
+            <Mic className="h-5 w-5 text-red-500" />
+          </div>
         ) : (
-          <div className="flex-1 h-8 bg-muted/30 rounded flex items-center justify-center">
-            <Mic className="h-4 w-4 text-muted-foreground" />
+          <div>
+            <Mic className="h-5 w-5 text-primary" />
           </div>
         )}
       </div>
 
+      {/* Forma de onda animada */}
+      <div className="flex-1 flex items-center gap-0.5 h-8 px-2">
+        {displayWaveform.map((value, index) => (
+          <div
+            key={index}
+            className={`flex-1 rounded-sm transition-all ${
+              isRecording ? 'bg-red-500' : 'bg-primary'
+            } ${isRecording ? 'animate-pulse' : ''}`}
+            style={{
+              height: `${Math.max(3, Math.min(30, (value / 100) * 30))}px`,
+              opacity: isRecording ? 0.8 : 1,
+            }}
+          />
+        ))}
+      </div>
+
       {/* Duração */}
-      <span className="text-sm font-mono text-muted-foreground w-12 text-right">
-        {formatTime(duration)}
+      <span className="text-sm font-mono font-bold text-foreground w-12 text-right flex-shrink-0">
+        {duration}
       </span>
 
-      {/* Botões */}
-      <div className="flex gap-2">
+      {/* Botões de ação */}
+      <div className="flex gap-1 flex-shrink-0">
         {isRecording ? (
           <>
-            {/* Parar gravação */}
+            {/* Parar e enviar */}
             <Button
-              variant="ghost"
               size="icon"
-              className="shrink-0 h-8 w-8 rounded-full hover:bg-destructive/10"
+              className="h-7 w-7 rounded-full bg-red-500 hover:bg-red-600 text-white"
               onClick={handleStopAndSend}
-              title="Parar e enviar"
+              title="Parar gravação"
             >
-              <Square className="h-4 w-4 fill-red-500 text-red-500" />
+              <Square className="h-3 w-3 fill-white" />
             </Button>
 
             {/* Cancelar */}
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
+              className="h-7 w-7 rounded-full hover:bg-destructive/20"
               onClick={handleCancel}
               title="Cancelar"
             >
@@ -113,17 +129,16 @@ export function AudioRecorderInline({
           <>
             {/* Enviar áudio */}
             <Button
-              variant="ghost"
               size="icon"
-              className="shrink-0 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
-              onClick={() => onSendAudio(audioBlob, waveformData, duration)}
+              className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
+              onClick={() => onSendAudio(audioBlob, waveformData || [], duration)}
               disabled={isSending}
               title="Enviar áudio"
             >
               {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <SendIcon className="h-4 w-4" />
+                <SendIcon className="h-3 w-3" />
               )}
             </Button>
 
@@ -131,7 +146,7 @@ export function AudioRecorderInline({
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
+              className="h-7 w-7 rounded-full hover:bg-destructive/20"
               onClick={handleCancel}
               title="Cancelar"
             >
