@@ -81,6 +81,7 @@
   --chart-5: 280 65% 50%;
 
   /* Message Colors */
+  --message-sent: 233 66% 68%;
   --color-message-sent: #7885E3;
 
   --font-sans: 'Inter', sans-serif;
@@ -208,6 +209,7 @@
   --scrollbar-thumb-hover: #777777;
 
   /* Message Colors */
+  --message-sent: 233 60% 52%;
   --color-message-sent: #4D5ABC;
 
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.40);

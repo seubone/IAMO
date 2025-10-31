@@ -48,6 +48,7 @@ import { UazapiConfigDialog } from "@/components/UazapiConfigDialog";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/components/ThemeProvider";
 import { ChatListSidebar } from "@/components/ChatListSidebar";
 import {
   setSelectedInstanceId,
@@ -154,6 +155,7 @@ export default function WhatsApp() {
   const [isUazapiConfigOpen, setIsUazapiConfigOpen] = useState(false);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
   const { user } = useAuth();
+  const { theme } = useTheme();
   const openInstanceSettings = useCallback((instance?: EvolutionInstance | null) => {
     const target = instance ?? selectedInstance ?? null;
 
@@ -977,10 +979,9 @@ export default function WhatsApp() {
           <>
             {/* Chat List Sidebar with Resizable Handle */}
             <div
-              className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative`}
+              className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative bg-sidebar`}
               style={{
                 width: `${sidebarWidth}px`,
-                backgroundColor: 'light-dark(#FFFFFF, #0A0A0B)',
               }}
             >
               <ChatListSidebar
@@ -1225,7 +1226,7 @@ export default function WhatsApp() {
                                       />
                                       {!isSameSenderAsNext && (
                                         <div className="flex items-center gap-1 absolute bottom-2 left-2">
-                                          <p className="text-[10px] opacity-60 text-white drop-shadow">
+                                          <p className="text-[10px] opacity-60 text-foreground drop-shadow">
                                             {formatTimestamp(message.messageTimestamp)}
                                           </p>
                                           <MessageStatus status={message.status} fromMe={fromMe} />
@@ -1243,7 +1244,7 @@ export default function WhatsApp() {
                                       />
                                       {!isSameSenderAsNext && (
                                         <div className="flex items-center gap-1 absolute bottom-2 left-2">
-                                          <p className="text-[10px] opacity-60 text-white drop-shadow">
+                                          <p className="text-[10px] opacity-60 text-foreground drop-shadow">
                                             {formatTimestamp(message.messageTimestamp)}
                                           </p>
                                           <MessageStatus status={message.status} fromMe={fromMe} />
@@ -1258,7 +1259,7 @@ export default function WhatsApp() {
                                       <VideoMessage messageId={message.id} />
                                       {!isSameSenderAsNext && (
                                         <div className="flex items-center gap-1 absolute bottom-2 left-2">
-                                          <p className="text-[10px] opacity-60 text-white drop-shadow">
+                                          <p className="text-[10px] opacity-60 text-foreground drop-shadow">
                                             {formatTimestamp(message.messageTimestamp)}
                                           </p>
                                           <MessageStatus status={message.status} fromMe={fromMe} />
@@ -1270,10 +1271,7 @@ export default function WhatsApp() {
                                   {/* Document/PDF Message - Sem container */}
                                   {message.message?.documentMessage && (
                                     <div
-                                      className="w-80 rounded-xl p-4 text-white relative group"
-                                      style={{
-                                        backgroundColor: 'var(--color-message-sent, #7885E3)',
-                                      }}
+                                      className="w-80 rounded-xl p-4 text-white relative group bg-message-sent"
                                     >
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
@@ -1347,13 +1345,10 @@ export default function WhatsApp() {
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden ${
                                       fromMe
-                                        ? 'text-white'
+                                        ? 'text-white bg-message-sent'
                                         : 'bg-card border'
                                     }`}
                                     style={{
-                                      ...(fromMe && {
-                                        backgroundColor: 'var(--color-message-sent, #7885E3)',
-                                      }),
                                       wordBreak: 'break-word',
                                       overflowWrap: 'anywhere',
                                     }}
@@ -1651,6 +1646,7 @@ export default function WhatsApp() {
                               }}
                               width={350}
                               height={450}
+                              theme={theme}
                             />
                           </div>
                         </div>
