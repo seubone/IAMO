@@ -289,7 +289,12 @@ export function ChatListSidebar({
   };
 
   return (
-    <div className="flex flex-col h-full bg-muted/5 overflow-hidden border-r border-border/30">
+    <div
+      className="flex flex-col h-full overflow-hidden border-r border-border/30"
+      style={{
+        backgroundColor: 'light-dark(#FFFFFF, #0A0A0B)',
+      }}
+    >
       {/* Instance Selector Header */}
       <div className="px-4 py-3 flex-shrink-0 border-b border-border/20">
         <div className="flex items-center gap-2">
