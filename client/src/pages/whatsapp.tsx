@@ -47,6 +47,7 @@ import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
 import { UazapiConfigDialog } from "@/components/UazapiConfigDialog";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
+import { useAuth } from "@/hooks/use-auth";
 import { ChatListSidebar } from "@/components/ChatListSidebar";
 import {
   setSelectedInstanceId,
@@ -152,6 +153,7 @@ export default function WhatsApp() {
   const [instanceSettingsContext, setInstanceSettingsContext] = useState<{ number?: string; name?: string } | null>(null);
   const [isUazapiConfigOpen, setIsUazapiConfigOpen] = useState(false);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
+  const { user } = useAuth();
   const openInstanceSettings = useCallback((instance?: EvolutionInstance | null) => {
     const target = instance ?? selectedInstance ?? null;
 
@@ -794,8 +796,8 @@ export default function WhatsApp() {
     recipientNumber = recipientNumber.split(':')[0]; // Remove :16 or other suffixes
 
     // Use instance number in Brazilian format (55XXYYYYYYYY)
-    // Adicionar nome do usuário ao início da mensagem
-    const userDisplayName = currentInstance?.name || 'Usuário';
+    // Adicionar nome do usuário logado ao início da mensagem
+    const userDisplayName = user?.name || 'Usuário';
     const textWithName = `*${userDisplayName}:*\n${messageText.trim()}`;
 
     sendMessageMutation.mutate({
