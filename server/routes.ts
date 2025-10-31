@@ -155,6 +155,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  async function resolveInstanceIdentifier(rawInstanceNumber: string | null | undefined) {
+    const identifier = (rawInstanceNumber ?? "").trim();
+    const digitsOnly = identifier.replace(/\D/g, "");
+
+    const { evolutionPool } = await import("./evolution-db");
+    const result = await evolutionPool.query(
+      `
+        SELECT
+          id,
+          name,
+          "connectionStatus",
+          number,
+          "ownerJid",
+          regexp_replace("ownerJid", '@.*$', '') AS owner_number,
+          regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g') AS id_digits,
+          regexp_replace(name, '\\D', '', 'g') AS name_digits
+        FROM "Instance"
+        WHERE number = $1
+           OR regexp_replace("ownerJid", '@.*$', '') = $1
+           OR regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g') = $1
+           OR regexp_replace(name, '\\D', '', 'g') = $1
+           OR id = $2
+           OR name = $3
+        ORDER BY "updatedAt" DESC NULLS LAST
+        LIMIT 1
+      `,
+      [digitsOnly, identifier, identifier]
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        normalizedNumber: /^\d{12,13}$/.test(digitsOnly) ? digitsOnly : null,
+        ownerNumber: /^\d{12,13}$/.test(digitsOnly) ? digitsOnly : null,
+        instance: null,
+      };
+    }
+
+    const instance = result.rows[0] as any;
+    const candidateNumbers = [
+      instance.number,
+      instance.owner_number,
+      digitsOnly,
+      instance.id_digits,
+      instance.name_digits,
+    ]
+      .filter(Boolean)
+      .map((value: string) => value.replace(/\D/g, ""))
+      .filter(Boolean);
+
+    const normalizedNumber =
+      candidateNumbers.find((value) => /^55\d{10,11}$/.test(value)) ?? null;
+
+    const ownerNumber = (instance.owner_number ? String(instance.owner_number) : null)?.replace(/\D/g, "");
+    const normalizedOwner = ownerNumber && /^55\d{10,11}$/.test(ownerNumber) ? ownerNumber : normalizedNumber;
+
+    return { normalizedNumber, ownerNumber: normalizedOwner, instance };
+  }
+
   // Polling loop to check for new messages in Evolution DB - otimizado
   async function pollNewMessages() {
     // Skip se não há instâncias sendo monitoradas
@@ -766,7 +824,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT
           id,
           name,
-          number,
+          COALESCE(
+            NULLIF(number, ''),
+            NULLIF(regexp_replace("ownerJid", '@.*$', ''), ''),
+            NULLIF(regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g'), ''),
+            NULLIF(regexp_replace(name, '\\D', '', 'g'), '')
+          ) AS number,
           "profilePicUrl",
           "profileName",
           "connectionStatus"
@@ -1036,15 +1099,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, messageIds } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !messageIds || !Array.isArray(messageIds)) {
+      if (!normalizedInstanceNumber || !messageIds || !Array.isArray(messageIds)) {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber (string), messageIds (array)" 
         });
       }
 
       // Buscar token da instância no storage
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1089,15 +1154,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, number, text, id } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !number || !text || !id) {
+      if (!normalizedInstanceNumber || !number || !text || !id) {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, number, text (emoji), id (messageId)" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1142,15 +1209,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, id } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !id) {
+      if (!normalizedInstanceNumber || !id) {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, id (messageId)" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1196,44 +1265,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { instanceNumber, recipientNumber, text } = req.body;
 
       // Validação de campos obrigatórios
-      if (!instanceNumber || !recipientNumber || !text) {
+      if (!recipientNumber || !text) {
         return res.status(400).json({
           error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, text"
         });
       }
 
-      // Validar formato brasileiro do número da instância (55 + 10-11 dígitos)
+      const { normalizedNumber, ownerNumber, instance } = await resolveInstanceIdentifier(instanceNumber);
+
+      console.log("📨 send-message payload", {
+        rawInstanceNumber: instanceNumber,
+        normalizedInstanceNumber: normalizedNumber,
+        instanceId: instance?.id,
+        ownerJid: instance?.ownerJid,
+        connectionStatus: instance?.connectionStatus,
+        recipientNumber,
+      });
+
+      if (!instance) {
+        return res.status(404).json({
+          error: "Instância não encontrada no Evolution Database com o identificador fornecido"
+        });
+      }
+
+      if (!normalizedNumber) {
+        return res.status(400).json({
+          error: "Não foi possível determinar o número da instância. Execute a sincronização ou atualize os dados da instância."
+        });
+      }
+
+      // Validar formato do número da instância (55 + DDD + número)
       const brazilNumberPattern = /^55\d{10,11}$/;
-      if (!brazilNumberPattern.test(instanceNumber)) {
+      if (!brazilNumberPattern.test(normalizedNumber)) {
         return res.status(400).json({
           error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)"
         });
       }
 
       // Validar formato do número do destinatário (pode ser brasileiro ou internacional)
-      // Aceita números com 8-15 dígitos (flexível para formato internacional)
       const recipientNumberPattern = /^\d{8,15}$/;
       if (!recipientNumberPattern.test(recipientNumber)) {
         return res.status(400).json({
           error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)"
         });
       }
-
-      // Verificar se a instância existe no Evolution DB pelo número
-      const { evolutionPool } = await import("./evolution-db");
-      const instanceResult = await evolutionPool.query(`
-        SELECT id, name, number as instance_number, "connectionStatus"
-        FROM "Instance"
-        WHERE number = $1
-      `, [instanceNumber]);
-
-      if (instanceResult.rows.length === 0) {
-        return res.status(404).json({
-          error: "Instância não encontrada no Evolution Database com o número fornecido"
-        });
-      }
-
-      const instance = instanceResult.rows[0];
 
       // Verificar se a instância está ativa
       if (instance.connectionStatus !== "open") {
@@ -1244,7 +1319,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Usar UnifiedSender para enviar mensagem com fallback automático
       const result = await unifiedSender.sendMessage({
-        instanceNumber,
+        instanceNumber: normalizedNumber,
+        instanceRemoteJid: ownerNumber || normalizedNumber || undefined,
         recipientNumber,
         content: text,
       });
@@ -1269,13 +1345,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send audio message
+  app.post("/api/whatsapp/send-audio", authMiddleware, async (req, res) => {
+    try {
+      const { instanceNumber, recipientNumber, audio, waveformData, duration } = req.body;
+
+      // Validação de campos obrigatórios
+      if (!recipientNumber || !audio) {
+        return res.status(400).json({
+          error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, audio"
+        });
+      }
+
+      const { normalizedNumber, ownerNumber, instance } = await resolveInstanceIdentifier(instanceNumber);
+
+      console.log("🎵 send-audio payload", {
+        rawInstanceNumber: instanceNumber,
+        normalizedInstanceNumber: normalizedNumber,
+        instanceId: instance?.id,
+        recipientNumber,
+        audioSize: audio.length,
+        duration,
+      });
+
+      if (!instance) {
+        return res.status(404).json({
+          error: "Instância não encontrada no Evolution Database com o identificador fornecido"
+        });
+      }
+
+      if (!normalizedNumber) {
+        return res.status(400).json({
+          error: "Não foi possível determinar o número da instância. Execute a sincronização ou atualize os dados da instância."
+        });
+      }
+
+      // Validar formato do número da instância (55 + DDD + número)
+      const brazilNumberPattern = /^55\d{10,11}$/;
+      if (!brazilNumberPattern.test(normalizedNumber)) {
+        return res.status(400).json({
+          error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)"
+        });
+      }
+
+      // Validar formato do número do destinatário
+      const recipientNumberPattern = /^\d{8,15}$/;
+      if (!recipientNumberPattern.test(recipientNumber)) {
+        return res.status(400).json({
+          error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)"
+        });
+      }
+
+      // Verificar se a instância está ativa
+      if (instance.connectionStatus !== "open") {
+        return res.status(400).json({
+          error: "Instância não está conectada. Status: " + instance.connectionStatus
+        });
+      }
+
+      // Usar UnifiedSender para enviar áudio com fallback automático
+      const result = await unifiedSender.sendMedia({
+        instanceNumber: normalizedNumber,
+        recipientNumber,
+        file: audio,
+        type: "audio",
+      });
+
+      if (!result.success) {
+        console.error("Failed to send audio:", result.error);
+        return res.status(400).json({
+          error: result.error || "Erro ao enviar áudio"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Áudio enviado com sucesso",
+        api: result.api,
+        note: result.note,
+        data: result
+      });
+    } catch (error: any) {
+      console.error("Error sending audio:", error);
+      res.status(500).json({ error: "Erro ao enviar áudio" });
+    }
+  });
+
+
   // Send media (image, video, audio, document) via Uazapi
   app.post("/api/whatsapp/send-media", authMiddleware, async (req, res) => {
     try {
       const { instanceNumber, recipientNumber, type, file, text, docName } = req.body;
 
       // Validação de campos obrigatórios
-      if (!instanceNumber || !recipientNumber || !type || !file) {
+      if (!recipientNumber || !type || !file) {
         return res.status(400).json({ 
           error: "Campos obrigatórios faltando: instanceNumber, recipientNumber, type, file" 
         });
@@ -1285,13 +1448,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validTypes = ["image", "video", "document", "audio", "myaudio", "ptt", "sticker"];
       if (!validTypes.includes(type)) {
         return res.status(400).json({ 
-          error: `Tipo de mídia inválido. Use: ${validTypes.join(", ")}` 
+          error: "Tipo de mídia inválido. Use: " + validTypes.join(", ")
+        });
+      }
+
+      const { normalizedNumber, instance } = await resolveInstanceIdentifier(instanceNumber);
+
+      if (!instance) {
+        return res.status(404).json({ 
+          error: "Instância não encontrada no Evolution Database com o identificador fornecido" 
+        });
+      }
+
+      if (!normalizedNumber) {
+        return res.status(400).json({ 
+          error: "Não foi possível determinar o número da instância. Execute a sincronização ou atualize os dados da instância." 
         });
       }
 
       // Validar formato brasileiro do número da instância (55 + 10-11 dígitos)
       const brazilNumberPattern = /^55\d{10,11}$/;
-      if (!brazilNumberPattern.test(instanceNumber)) {
+      if (!brazilNumberPattern.test(normalizedNumber)) {
         return res.status(400).json({ 
           error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)" 
         });
@@ -1306,28 +1483,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Buscar token da instância no banco
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedNumber);
       if (!uazapiInstance) {
         return res.status(404).json({ 
           error: "Instância não cadastrada no Uazapi. Configure o token nas configurações." 
         });
       }
-
-      // Verificar se a instância existe no Evolution DB pelo número
-      const { evolutionPool } = await import("./evolution-db");
-      const instanceResult = await evolutionPool.query(`
-        SELECT id, name, number as instance_number, "connectionStatus"
-        FROM "Instance"
-        WHERE number = $1
-      `, [instanceNumber]);
-
-      if (instanceResult.rows.length === 0) {
-        return res.status(404).json({ 
-          error: "Instância não encontrada no Evolution Database com o número fornecido" 
-        });
-      }
-
-      const instance = instanceResult.rows[0];
 
       // Verificar se a instância está ativa
       if (instance.connectionStatus !== "open") {
@@ -1368,15 +1529,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Uazapi media error:", data);
+        console.error("Uazapi media send error:", data);
         return res.status(response.status).json({ 
-          error: "Erro ao enviar mídia via Uazapi",
+          error: "Erro ao enviar mídia",
           details: data
         });
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: "Mídia enviada com sucesso",
         data 
       });
@@ -1386,13 +1547,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Show typing or recording presence via Uazapi
   app.post("/api/whatsapp/presence", authMiddleware, async (req, res) => {
     try {
       const { instanceNumber, number, presence, delay } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !number || !presence) {
+      if (!normalizedInstanceNumber || !number || !presence) {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, number, presence (composing/recording/paused)" 
         });
@@ -1407,7 +1571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1455,15 +1619,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, number, archive } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !number || typeof archive !== "boolean") {
+      if (!normalizedInstanceNumber || !number || typeof archive !== "boolean") {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, number, archive (boolean)" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1508,15 +1674,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, number, pin } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !number || typeof pin !== "boolean") {
+      if (!normalizedInstanceNumber || !number || typeof pin !== "boolean") {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, number, pin (boolean)" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1561,15 +1729,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, number, read } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !number || typeof read !== "boolean") {
+      if (!normalizedInstanceNumber || !number || typeof read !== "boolean") {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, number, read (boolean)" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1614,15 +1784,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, numbers } = req.body;
 
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
       // Validação
-      if (!instanceNumber || !numbers || !Array.isArray(numbers)) {
+      if (!normalizedInstanceNumber || !numbers || !Array.isArray(numbers)) {
         return res.status(400).json({ 
           error: "Campos obrigatórios: instanceNumber, numbers (array)" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1666,16 +1838,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/instance/status/:instanceNumber", authMiddleware, async (req, res) => {
     try {
       const { instanceNumber } = req.params;
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
 
       // Validação
-      if (!instanceNumber) {
+      if (!normalizedInstanceNumber) {
         return res.status(400).json({ 
           error: "Número da instância obrigatório" 
         });
       }
 
       // Buscar token da instância
-      const uazapiInstance = await storage.getUazapiInstance(instanceNumber);
+      const uazapiInstance = await storage.getUazapiInstance(normalizedInstanceNumber);
       
       if (!uazapiInstance || !uazapiInstance.apiToken) {
         return res.status(404).json({ 
@@ -1718,7 +1891,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/uazapi/instances/:number", authMiddleware, async (req, res) => {
     try {
       const { number } = req.params;
-      const record = await getUazapiTokenByInstanceNumber(number);
+      const normalizedNumber = (number || "").replace(/\D/g, "");
+      if (!normalizedNumber) {
+        return res.status(400).json({ error: "Número da instância não pode ser vazio" });
+      }
+
+      const record = await getUazapiTokenByInstanceNumber(normalizedNumber);
       
       if (!record) {
         return res.status(404).json({ error: "Instância não encontrada no Evolution" });
@@ -1748,36 +1926,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = payloadSchema.parse(req.body);
 
       // Validação 1: Verificar se instanceNumber é válido (não vazio)
-      if (!data.instanceNumber || data.instanceNumber.trim() === "") {
+      const normalizedInstanceNumber = data.instanceNumber.replace(/\D/g, "");
+      if (!normalizedInstanceNumber) {
         return res.status(400).json({ error: "Número da instância não pode ser vazio" });
       }
 
       // Validação 2: Verificar se a instância existe no Evolution DB
       const { evolutionPool } = await import("./evolution-db");
       const evolutionInstance = await evolutionPool.query(`
-        SELECT id, number, name, "connectionStatus"
+        SELECT
+          id,
+          COALESCE(
+            NULLIF(number, ''),
+            NULLIF(regexp_replace("ownerJid", '@.*$', ''), ''),
+            NULLIF(regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g'), ''),
+            NULLIF(regexp_replace(name, '\\D', '', 'g'), '')
+          ) AS number,
+          name,
+          "connectionStatus"
         FROM "Instance"
         WHERE number = $1
-      `, [data.instanceNumber]);
+           OR regexp_replace("ownerJid", '@.*$', '') = $1
+           OR regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g') = $1
+           OR regexp_replace(name, '\\D', '', 'g') = $1
+        LIMIT 1
+      `, [normalizedInstanceNumber]);
 
       if (evolutionInstance.rows.length === 0) {
         return res.status(404).json({
-          error: `Instância ${data.instanceNumber} não encontrada no Evolution. Verifique o número e tente novamente.`
+          error: `Instância ${normalizedInstanceNumber} não encontrada no Evolution. Verifique o número e tente novamente.`
         });
       }
 
-      const existing = await storage.getUazapiInstance(data.instanceNumber);
+      const existing = await storage.getUazapiInstance(normalizedInstanceNumber);
 
       if (existing) {
-        await storage.updateUazapiInstance(data.instanceNumber, { apiToken: data.apiToken });
+        await storage.updateUazapiInstance(normalizedInstanceNumber, { apiToken: data.apiToken });
       } else {
-        await storage.createUazapiInstance(data);
+        await storage.createUazapiInstance({
+          instanceNumber: normalizedInstanceNumber,
+          apiToken: data.apiToken,
+        });
       }
 
-      const record = await getUazapiTokenByInstanceNumber(data.instanceNumber);
+      const record = await getUazapiTokenByInstanceNumber(normalizedInstanceNumber);
 
       res.json({
-        instanceNumber: data.instanceNumber,
+        instanceNumber: normalizedInstanceNumber,
         instanceId: record?.instanceId ?? null,
         hasToken: true,
         createdAt: record?.createdAt ?? new Date().toISOString(),
@@ -1793,7 +1988,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/uazapi/instances/:number", authMiddleware, requireRole(["admin", "operator"]), async (req, res) => {
     try {
       const { number } = req.params;
-      const deleted = await storage.deleteUazapiInstance(number);
+      const normalizedNumber = (number || "").replace(/\D/g, "");
+      
+      if (!normalizedNumber) {
+        return res.status(400).json({ error: "Número da instância não pode ser vazio" });
+      }
+
+      const deleted = await storage.deleteUazapiInstance(normalizedNumber);
       
       if (!deleted) {
         return res.status(404).json({ error: "Instância não encontrada" });
@@ -1812,10 +2013,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/send-config/:instanceNumber", authMiddleware, async (req, res) => {
     try {
       const { instanceNumber } = req.params;
-      const sendConfig = await unifiedSender.getSendConfig(instanceNumber);
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
+      if (!normalizedInstanceNumber) {
+        return res.status(400).json({ error: "Número da instância não pode ser vazio" });
+      }
+
+      const sendConfig = await unifiedSender.getSendConfig(normalizedInstanceNumber);
 
       res.json({
-        instanceNumber,
+        instanceNumber: normalizedInstanceNumber,
         sendAPI: sendConfig,
       });
     } catch (error: any) {
@@ -1828,6 +2035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/send-config/:instanceNumber", authMiddleware, async (req, res) => {
     try {
       const { instanceNumber } = req.params;
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
       const { sendAPI } = req.body;
 
       // Validar sendAPI
@@ -1835,10 +2043,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "sendAPI deve ser 'evolution' ou 'uazapi'" });
       }
 
-      await unifiedSender.setSendConfig(instanceNumber, sendAPI);
+      if (!normalizedInstanceNumber) {
+        return res.status(400).json({ error: "Número da instância não pode ser vazio" });
+      }
+
+      await unifiedSender.setSendConfig(normalizedInstanceNumber, sendAPI);
 
       res.json({
-        instanceNumber,
+        instanceNumber: normalizedInstanceNumber,
         sendAPI,
         message: "Configuração de envio atualizada com sucesso",
       });
@@ -1856,15 +2068,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { evolutionPool } = await import("./evolution-db");
 
-      // Get all instances from Evolution DB
+      // Get all instances from Evolution DB (apenas com número válido)
       const instancesResult = await evolutionPool.query(`
         SELECT id, number, name, "connectionStatus"
         FROM "Instance"
+        WHERE number IS NOT NULL AND number != ''
         ORDER BY number
       `);
 
       const instances = instancesResult.rows;
-      console.log(`📊 Encontradas ${instances.length} instâncias no Evolution DB`);
+      console.log(`📊 Encontradas ${instances.length} instâncias válidas no Evolution DB`);
 
       let synced = 0;
       let errors = 0;
@@ -1877,7 +2090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .upsert(
               {
                 instance_id: instance.id,
-                instance_number: instance.number,
+                instance_number: instance.number || null, // Handle null gracefully
                 send_api: "evolution", // Default
                 updated_at: new Date().toISOString(),
               },
@@ -1920,16 +2133,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceNumber, recipientNumber, message = "Teste de envio" } = req.body;
 
-      if (!instanceNumber || !recipientNumber) {
+      const normalizedInstanceNumber = (instanceNumber || "").replace(/\D/g, "");
+
+      if (!normalizedInstanceNumber || !recipientNumber) {
         return res.status(400).json({ error: "instanceNumber e recipientNumber são obrigatórios" });
       }
 
-      console.log(`🧪 Testando envio para ${recipientNumber} da instância ${instanceNumber}`);
+      console.log(`🧪 Testando envio para ${recipientNumber} da instância ${normalizedInstanceNumber}`);
 
-      const testResult = await unifiedSender.testSend(instanceNumber, recipientNumber, message);
+      const testResult = await unifiedSender.testSend(normalizedInstanceNumber, recipientNumber, message);
 
       res.json({
-        instanceNumber,
+        instanceNumber: normalizedInstanceNumber,
         recipientNumber,
         ...testResult,
       });

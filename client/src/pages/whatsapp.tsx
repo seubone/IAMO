@@ -39,6 +39,7 @@ import { StickerMessage } from "@/components/StickerMessage";
 import { ImageMessage } from "@/components/ImageMessage";
 import { VideoMessage } from "@/components/VideoMessage";
 import { AudioMessage } from "@/components/AudioMessage";
+import { AudioRecorderDialog } from "@/components/AudioRecorderDialog";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
@@ -178,6 +179,7 @@ export default function WhatsApp() {
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isAttachmentPopoverOpen, setIsAttachmentPopoverOpen] = useState(false);
+  const [isAudioRecorderOpen, setIsAudioRecorderOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
@@ -1559,8 +1561,8 @@ export default function WhatsApp() {
                             size="icon"
                             className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
                             data-testid="button-voice"
-                            title="Mensagem de voz (em breve)"
-                            onClick={() => toast({ title: "Gravação de áudio em desenvolvimento" })}
+                            title="Mensagem de voz"
+                            onClick={() => setIsAudioRecorderOpen(true)}
                           >
                             <Mic className="h-4 w-4" />
                           </Button>
@@ -1728,6 +1730,51 @@ export default function WhatsApp() {
         }}
         instanceNumber={selectedInstance?.number}
         instanceName={selectedInstance?.name}
+      />
+
+      <AudioRecorderDialog
+        open={isAudioRecorderOpen}
+        onOpenChange={setIsAudioRecorderOpen}
+        onSendAudio={async (audioBlob, waveformData, duration) => {
+          if (!selectedInstance?.number || !selectedChatJid) {
+            toast({ title: "Erro", description: "Selecione uma instância e chat" });
+            return;
+          }
+
+          // Converter Blob para base64
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64Audio = (reader.result as string).split(',')[1];
+
+            try {
+              await apiRequest("/api/whatsapp/send-audio", {
+                method: "POST",
+                body: JSON.stringify({
+                  instanceNumber: selectedInstance.number,
+                  recipientNumber: selectedChatJid,
+                  audio: base64Audio,
+                  waveformData,
+                  duration,
+                }),
+                headers: { "Content-Type": "application/json" },
+              });
+
+              toast({ title: "Áudio enviado com sucesso!" });
+              setIsAudioRecorderOpen(false);
+
+              // Invalidar cache para atualizar mensagens
+              queryClient.invalidateQueries({
+                queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+              });
+            } catch (error) {
+              toast({
+                title: "Erro ao enviar áudio",
+                description: error instanceof Error ? error.message : "Tente novamente",
+              });
+            }
+          };
+          reader.readAsDataURL(audioBlob);
+        }}
       />
     </div>
   );
