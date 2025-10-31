@@ -20,7 +20,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Check, CheckCheck, MoreHorizontal, Send, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
+import { Loader2, Check, CheckCheck, MoreHorizontal, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
+import { SendIcon } from "@/components/SendIcon";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -1549,7 +1550,7 @@ export default function WhatsApp() {
                             {sendMessageMutation.isPending ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Send className="h-4 w-4" />
+                              <SendIcon className="h-4 w-4" />
                             )}
                           </Button>
                         ) : (
@@ -1645,7 +1646,7 @@ export default function WhatsApp() {
                                 Cancelar
                               </Button>
                               <Button onClick={handleSendFile}>
-                                <Send className="h-4 w-4 mr-2" />
+                                <SendIcon className="h-4 w-4 mr-2" />
                                 Enviar
                               </Button>
                             </div>
