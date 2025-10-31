@@ -39,7 +39,7 @@ import { StickerMessage } from "@/components/StickerMessage";
 import { ImageMessage } from "@/components/ImageMessage";
 import { VideoMessage } from "@/components/VideoMessage";
 import { AudioMessage } from "@/components/AudioMessage";
-import { AudioRecorderDialog } from "@/components/AudioRecorderDialog";
+import { AudioRecorderInline } from "@/components/AudioRecorderInline";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
@@ -179,7 +179,8 @@ export default function WhatsApp() {
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isAttachmentPopoverOpen, setIsAttachmentPopoverOpen] = useState(false);
-  const [isAudioRecorderOpen, setIsAudioRecorderOpen] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isSendingAudio, setIsSendingAudio] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
@@ -1500,72 +1501,129 @@ export default function WhatsApp() {
 
                       {/* Caixa de Input sem borda */}
                       <div className="flex items-center gap-2 rounded-3xl px-4 py-1 bg-muted/30 transition-colors">
-                        {/* Botão Anexar */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
-                          data-testid="button-attach"
-                          title="Anexar arquivo (ou Ctrl+V)"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                        {isRecordingAudio ? (
+                          // Gravador inline quando estiver gravando
+                          <AudioRecorderInline
+                            isRecording={isRecordingAudio}
+                            onStartRecording={() => setIsRecordingAudio(true)}
+                            onStopRecording={() => setIsRecordingAudio(false)}
+                            onCancelRecording={() => setIsRecordingAudio(false)}
+                            onSendAudio={async (audioBlob, waveformData, duration) => {
+                              if (!selectedInstance?.number || !selectedChatJid) {
+                                toast({ title: "Erro", description: "Selecione uma instância e chat" });
+                                return;
+                              }
 
-                        {/* Input de Texto */}
-                        <Textarea
-                          value={messageText}
-                          onChange={(e) => setMessageText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                          placeholder="Digite uma mensagem"
-                          disabled={sendMessageMutation.isPending}
-                          rows={1}
-                          className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:outline-0 outline-none resize-none text-sm py-2"
-                          style={{
-                            height: '32px',
-                            minHeight: '32px',
-                            maxHeight: '96px',
-                            overflowY: messageText.split('\n').length > 3 ? 'auto' : 'hidden'
-                          }}
-                          onInput={(e) => {
-                            const target = e.target as HTMLTextAreaElement;
-                            target.style.height = '32px';
-                            target.style.height = `${Math.min(target.scrollHeight, 96)}px`;
-                          }}
-                          data-testid="input-message"
-                        />
+                              setIsSendingAudio(true);
 
-                        {/* Botão Microfone ou Enviar */}
-                        {messageText.trim() ? (
-                          <Button
-                            onClick={handleSendMessage}
-                            disabled={sendMessageMutation.isPending}
-                            size="icon"
-                            className="shrink-0 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                            data-testid="button-send-message"
-                          >
-                            {sendMessageMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <SendIcon className="h-4 w-4" />
-                            )}
-                          </Button>
+                              // Converter Blob para base64
+                              const reader = new FileReader();
+                              reader.onload = async () => {
+                                const base64Audio = (reader.result as string).split(',')[1];
+
+                                try {
+                                  await apiRequest("/api/whatsapp/send-audio", {
+                                    method: "POST",
+                                    body: JSON.stringify({
+                                      instanceNumber: selectedInstance.number,
+                                      recipientNumber: selectedChatJid,
+                                      audio: base64Audio,
+                                      waveformData,
+                                      duration,
+                                    }),
+                                    headers: { "Content-Type": "application/json" },
+                                  });
+
+                                  toast({ title: "Áudio enviado com sucesso!" });
+                                  setIsRecordingAudio(false);
+                                  setIsSendingAudio(false);
+
+                                  // Invalidar cache para atualizar mensagens
+                                  queryClient.invalidateQueries({
+                                    queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+                                  });
+                                } catch (error) {
+                                  setIsSendingAudio(false);
+                                  toast({
+                                    title: "Erro ao enviar áudio",
+                                    description: error instanceof Error ? error.message : "Tente novamente",
+                                  });
+                                }
+                              };
+                              reader.readAsDataURL(audioBlob);
+                            }}
+                            isSending={isSendingAudio}
+                          />
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
-                            data-testid="button-voice"
-                            title="Mensagem de voz"
-                            onClick={() => setIsAudioRecorderOpen(true)}
-                          >
-                            <Mic className="h-4 w-4" />
-                          </Button>
+                          <>
+                            {/* Botão Anexar */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
+                              data-testid="button-attach"
+                              title="Anexar arquivo (ou Ctrl+V)"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+
+                            {/* Input de Texto */}
+                            <Textarea
+                              value={messageText}
+                              onChange={(e) => setMessageText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendMessage();
+                                }
+                              }}
+                              placeholder="Digite uma mensagem"
+                              disabled={sendMessageMutation.isPending}
+                              rows={1}
+                              className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:outline-0 outline-none resize-none text-sm py-2"
+                              style={{
+                                height: '32px',
+                                minHeight: '32px',
+                                maxHeight: '96px',
+                                overflowY: messageText.split('\n').length > 3 ? 'auto' : 'hidden'
+                              }}
+                              onInput={(e) => {
+                                const target = e.target as HTMLTextAreaElement;
+                                target.style.height = '32px';
+                                target.style.height = `${Math.min(target.scrollHeight, 96)}px`;
+                              }}
+                              data-testid="input-message"
+                            />
+
+                            {/* Botão Microfone ou Enviar */}
+                            {messageText.trim() ? (
+                              <Button
+                                onClick={handleSendMessage}
+                                disabled={sendMessageMutation.isPending}
+                                size="icon"
+                                className="shrink-0 h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                                data-testid="button-send-message"
+                              >
+                                {sendMessageMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <SendIcon className="h-4 w-4" />
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 h-8 w-8 rounded-full hover:bg-accent"
+                                data-testid="button-voice"
+                                title="Mensagem de voz"
+                                onClick={() => setIsRecordingAudio(true)}
+                              >
+                                <Mic className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -1730,51 +1788,6 @@ export default function WhatsApp() {
         }}
         instanceNumber={selectedInstance?.number}
         instanceName={selectedInstance?.name}
-      />
-
-      <AudioRecorderDialog
-        open={isAudioRecorderOpen}
-        onOpenChange={setIsAudioRecorderOpen}
-        onSendAudio={async (audioBlob, waveformData, duration) => {
-          if (!selectedInstance?.number || !selectedChatJid) {
-            toast({ title: "Erro", description: "Selecione uma instância e chat" });
-            return;
-          }
-
-          // Converter Blob para base64
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const base64Audio = (reader.result as string).split(',')[1];
-
-            try {
-              await apiRequest("/api/whatsapp/send-audio", {
-                method: "POST",
-                body: JSON.stringify({
-                  instanceNumber: selectedInstance.number,
-                  recipientNumber: selectedChatJid,
-                  audio: base64Audio,
-                  waveformData,
-                  duration,
-                }),
-                headers: { "Content-Type": "application/json" },
-              });
-
-              toast({ title: "Áudio enviado com sucesso!" });
-              setIsAudioRecorderOpen(false);
-
-              // Invalidar cache para atualizar mensagens
-              queryClient.invalidateQueries({
-                queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-              });
-            } catch (error) {
-              toast({
-                title: "Erro ao enviar áudio",
-                description: error instanceof Error ? error.message : "Tente novamente",
-              });
-            }
-          };
-          reader.readAsDataURL(audioBlob);
-        }}
       />
     </div>
   );
