@@ -12,6 +12,7 @@ import rateLimit from "express-rate-limit";
 import { supabase } from "./supabase";
 import { getUazapiTokenByInstanceNumber } from "./uazapi-supabase";
 import { unifiedSender } from "./send-strategy";
+import { evolutionPool } from "./evolution-db";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -31,6 +32,31 @@ const webhookLimiter = rateLimit({
 const wsClients = new Set<WebSocket>();
 const activeInstances = new Map<string, Set<WebSocket>>(); // instanceId -> Set of WebSocket clients
 const lastMessageTimestamps = new Map<string, number>(); // instanceId -> last message timestamp
+
+// Helper function to get all instance IDs that share the same WhatsApp number (ownerJid)
+// This enables message synchronization across instances when a WhatsApp number is recreated
+async function getRelatedInstanceIds(instanceId: string): Promise<string[]> {
+  try {
+    const result = await evolutionPool.query(`
+      SELECT id FROM "Instance"
+      WHERE "ownerJid" = (
+        SELECT "ownerJid" FROM "Instance" WHERE id = $1
+      )
+      ORDER BY "createdAt" DESC
+    `, [instanceId]);
+
+    const ids = result.rows.map(row => row.id);
+
+    if (ids.length > 1) {
+      console.log(`🔗 Found ${ids.length} instances with same ownerJid for ${instanceId}`);
+    }
+
+    return ids;
+  } catch (error) {
+    console.error("Error getting related instances:", error);
+    return [instanceId]; // Fallback to single instance if query fails
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -859,9 +885,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/instances/:instanceId/chats", authMiddleware, async (req, res) => {
     try {
       const { instanceId } = req.params;
-      const { evolutionPool } = await import("./evolution-db");
-      
-      // Query with last message preview - CORRIGIDO: filtra mensagens por instância
+
+      // Get all instance IDs that share the same WhatsApp number (ownerJid)
+      // This enables cross-instance chat synchronization
+      const relatedInstanceIds = await getRelatedInstanceIds(instanceId);
+
+      // Query with last message preview
+      // NOVO: Busca chats de TODAS as instâncias relacionadas (mesmo ownerJid)
       // IMPORTANTE: DISTINCT ON requer que os campos estejam no início do ORDER BY
       const result = await evolutionPool.query(`
         WITH LastMessages AS (
@@ -883,7 +913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ) as last_message_text,
             "messageTimestamp" as last_msg_timestamp
           FROM "Message"
-          WHERE "instanceId" = $1
+          WHERE "instanceId" = ANY($1::text[])
           ORDER BY (key->>'remoteJid') ASC, "messageTimestamp" DESC
         )
         SELECT
@@ -900,11 +930,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM "Chat" c
         LEFT JOIN "Contact" ct ON ct."remoteJid" = c."remoteJid" AND ct."instanceId" = c."instanceId"
         LEFT JOIN LastMessages lm ON lm.remote_jid = c."remoteJid"
-        WHERE c."instanceId" = $1
+        WHERE c."instanceId" = ANY($1::text[])
         ORDER BY COALESCE(lm.last_msg_timestamp, EXTRACT(EPOCH FROM c."updatedAt")::integer) DESC
         LIMIT 100
-      `, [instanceId]);
-      
+      `, [relatedInstanceIds]);
+
       res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching chats:", error);
@@ -1074,10 +1104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { instanceId, remoteJid } = req.params;
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
       const offset = parseInt(req.query.offset as string) || 0;
-      const { evolutionPool } = await import("./evolution-db");
-      
+
+      // Get all instance IDs that share the same WhatsApp number (ownerJid)
+      // This enables cross-instance message synchronization
+      const relatedInstanceIds = await getRelatedInstanceIds(instanceId);
+
       // CORRIGIDO: Usa DESC para pegar mensagens mais recentes primeiro
       // O frontend inverte o array para exibir corretamente (mais antiga → mais recente)
+      // NOVO: Busca mensagens de TODAS as instâncias relacionadas (mesmo ownerJid)
       const result = await evolutionPool.query(`
         SELECT
           id,
@@ -1088,14 +1122,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message,
           "contextInfo",
           "messageTimestamp",
-          status
+          status,
+          "instanceId"
         FROM "Message"
         WHERE (key->>'remoteJid') = $1
-          AND "instanceId" = $2
+          AND "instanceId" = ANY($2::text[])
         ORDER BY "messageTimestamp" DESC
         LIMIT $3 OFFSET $4
-      `, [remoteJid, instanceId, limit, offset]);
-      
+      `, [remoteJid, relatedInstanceIds, limit, offset]);
+
       res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
