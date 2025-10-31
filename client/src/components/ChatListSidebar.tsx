@@ -118,6 +118,7 @@ export function ChatListSidebar({
   selectedInstance,
   onInstanceClick,
   onInstanceSettingsClick,
+  onUazapiConfigClick,
   isLoadingChats,
   chats,
   filteredChats,
