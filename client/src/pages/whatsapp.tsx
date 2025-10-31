@@ -1525,14 +1525,14 @@ export default function WhatsApp() {
                           rows={1}
                           className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:outline-0 outline-none resize-none text-sm py-2"
                           style={{
-                            height: '24px',
-                            minHeight: '24px',
+                            height: '32px',
+                            minHeight: '32px',
                             maxHeight: '96px',
                             overflowY: messageText.split('\n').length > 3 ? 'auto' : 'hidden'
                           }}
                           onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
-                            target.style.height = '24px';
+                            target.style.height = '32px';
                             target.style.height = `${Math.min(target.scrollHeight, 96)}px`;
                           }}
                           data-testid="input-message"
