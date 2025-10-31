@@ -1259,7 +1259,9 @@ export default function WhatsApp() {
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-start gap-3 flex-1">
-                                          <div className="text-3xl">📄</div>
+                                          <svg className="h-8 w-8 flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                                            <path d="m22.75 7.63a2.752 2.752 0 0 0 -2.75-2.75h-9.085a2.752 2.752 0 0 0 -2.4-1.427h-4.515a2.753 2.753 0 0 0 -2.752 2.747v11.6a2.753 2.753 0 0 0 2.752 2.747h16a2.753 2.753 0 0 0 2.75-2.75v-8.953-.01zm-2.75-1.25a1.251 1.251 0 0 1 1.25 1.25v.464h-8.044a1.253 1.253 0 0 1 -1.137-.73l-.451-.984zm1.252 11.42a1.252 1.252 0 0 1 -1.252 1.247h-16a1.252 1.252 0 0 1 -1.25-1.25v-11.597a1.252 1.252 0 0 1 1.25-1.247h4.513a1.252 1.252 0 0 1 1.136.73l1.057 2.305a2.755 2.755 0 0 0 2.5 1.606h8.046z" />
+                                          </svg>
                                           <div className="flex-1 min-w-0">
                                             <p className="font-semibold text-sm truncate">
                                               {message.message.documentMessage.fileName || 'Documento'}
