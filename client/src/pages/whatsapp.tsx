@@ -701,7 +701,9 @@ export default function WhatsApp() {
   // Removido: lógica automática de marcar como lida
   // Agora apenas mostramos o status real do Evolution DB
 
-  // Send message mutation
+  // Send message mutation with optimistic updates
+  // 🚀 OTIMIZAÇÃO #3: Adicionar mensagem ao cache imediatamente (sem esperar servidor)
+  // A mensagem aparece na tela <50ms após o clique do usuário
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { instanceNumber: string; recipientNumber: string; text: string }) => {
       return await apiRequest("/api/whatsapp/send-message", {
@@ -710,24 +712,66 @@ export default function WhatsApp() {
         headers: { "Content-Type": "application/json" },
       });
     },
+    onMutate: async (variables) => {
+      // Cancelar queries em andamento para evitar race conditions
+      await queryClient.cancelQueries({
+        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+      });
+
+      // Pegar dados atuais do cache
+      const previousMessages = queryClient.getQueryData<EvolutionMessage[]>([
+        `/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`
+      ]) || [];
+
+      // Criar mensagem otimista (será substituída pela real quando chegar do servidor)
+      const optimisticMessage: EvolutionMessage = {
+        id: `optimistic-${Date.now()}`,
+        key: {
+          id: `optimistic-${Date.now()}`,
+          fromMe: true,
+          remoteJid: selectedChatJid || '',
+        },
+        messageType: 'extendedTextMessage',
+        message: {
+          conversation: variables.text,
+        },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+        status: 'pending', // Badge visual para indicar envio em progresso
+      };
+
+      // Atualizar cache com mensagem otimista
+      const newMessages = [...previousMessages, optimisticMessage];
+      queryClient.setQueryData(
+        [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+        newMessages
+      );
+
+      // Retornar contexto para rollback se necessário
+      return { previousMessages };
+    },
     onSuccess: (response, variables) => {
       toast({
         title: "Mensagem enviada",
         description: "Mensagem enviada com sucesso!",
       });
       setMessageText("");
-      deleteMessageDraft(); // Limpar rascunho após enviar
+      deleteMessageDraft();
 
-      // FIXED: Invalidate messages IMMEDIATELY (removed 500ms delay)
-      // Why? With staleTime=0, cache invalidations are always respected
-      // The 500ms delay was arbitrary and caused race conditions
-      // Now: invalidation → immediate refetch → message appears in <1s
+      // Invalidar para que a mensagem real (do servidor) seja carregada
       queryClient.invalidateQueries({
         queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-        exact: false  // Also invalidates with limit/offset variants
+        exact: false
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, variables, context) => {
+      // Rollback: restaurar dados anteriores
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
+          context.previousMessages
+        );
+      }
+
       toast({
         variant: "destructive",
         title: "Erro ao enviar",

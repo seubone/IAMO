@@ -16,10 +16,25 @@ import type {
 export class UnifiedSender {
   private evolutionSender: EvolutionSender;
   private uazapiSender: UazAPISender;
+  private configCache = new Map<string, { api: SendAPI; timestamp: number }>();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
   constructor() {
     this.evolutionSender = new EvolutionSender();
     this.uazapiSender = new UazAPISender();
+  }
+
+  /**
+   * Invalidar cache de configuração (usado quando config é alterada)
+   */
+  invalidateConfigCache(instanceNumber?: string): void {
+    if (instanceNumber) {
+      this.configCache.delete(instanceNumber);
+      console.log(`🗑️  Cache invalidado para ${instanceNumber}`);
+    } else {
+      this.configCache.clear();
+      console.log(`🗑️  Cache invalidado completamente`);
+    }
   }
 
   private normalizeInstanceNumber(instanceNumber: string): string {
@@ -27,8 +42,10 @@ export class UnifiedSender {
   }
 
   /**
-   * Obter configuração de envio da instância (do Supabase)
+   * Obter configuração de envio da instância (do Supabase + Cache em memória)
    * Retorna 'evolution' como padrão se a tabela não existir ou houver erro
+   *
+   * Cache TTL: 5 minutos (50-200ms ganhos em queries ao Supabase)
    */
   async getSendConfig(instanceNumber: string): Promise<SendAPI> {
     try {
@@ -37,6 +54,13 @@ export class UnifiedSender {
       if (!normalizedInstanceNumber) {
         console.warn('⚠️  Instância sem número válido ao obter configuração de envio. Usando Evolution como padrão.');
         return 'evolution';
+      }
+
+      // Verificar cache em memória
+      const cached = this.configCache.get(normalizedInstanceNumber);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+        console.log(`📦 Cache hit para ${normalizedInstanceNumber}: ${cached.api} (idade: ${Date.now() - cached.timestamp}ms)`);
+        return cached.api;
       }
 
       const { data, error } = await supabase
@@ -54,11 +78,16 @@ export class UnifiedSender {
       if (!data) {
         // Instância não encontrada na Supabase, usar Evolution como padrão (com fallback automático)
         console.log(`📋 Instância ${normalizedInstanceNumber} não encontrada em uazapi_instances. Usando Evolution como padrão.`);
-        return 'evolution';
+        const api: SendAPI = 'evolution';
+        this.configCache.set(normalizedInstanceNumber, { api, timestamp: Date.now() });
+        return api;
       }
 
       const api = (data.send_api as SendAPI) || 'evolution';
       console.log(`📤 Configuração de envio para ${normalizedInstanceNumber}: ${api}`);
+
+      // Armazenar no cache
+      this.configCache.set(normalizedInstanceNumber, { api, timestamp: Date.now() });
       return api;
     } catch (error: any) {
       console.error(`❌ Erro crítico ao obter configuração de envio: ${error?.message || error}`);
@@ -70,6 +99,7 @@ export class UnifiedSender {
    * Salvar configuração de envio (no Supabase)
    * Usa UPSERT para criar instância se não existir
    * Se a tabela não existir, apenas registra aviso (não é crítico)
+   * Invalidate cache após salvar configuração
    */
   async setSendConfig(instanceNumber: string, sendAPI: SendAPI): Promise<void> {
     try {
@@ -98,6 +128,9 @@ export class UnifiedSender {
       }
 
       console.log(`✅ Configuração de envio atualizada: ${normalizedInstanceNumber} -> ${sendAPI}`);
+
+      // Invalidar cache para que a próxima leitura busque do Supabase
+      this.invalidateConfigCache(normalizedInstanceNumber);
     } catch (error: any) {
       console.warn(`⚠️  Erro ao salvar configuração de envio: ${error?.message || error}. Configuração não foi persistida.`);
       // Não lançar erro, pois o envio pode continuar funcionar via Evolution

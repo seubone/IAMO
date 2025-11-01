@@ -9,7 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Settings } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Settings, Search, X } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import type { EvolutionInstance } from "@/types/whatsapp";
@@ -30,6 +37,7 @@ export function InstanceSelectorModal({
   selectedInstanceId,
 }: InstanceSelectorModalProps) {
   const [showInactive, setShowInactive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch active instances by default
   const { data: instances = [], isLoading } = useQuery<EvolutionInstance[]>({
@@ -37,6 +45,19 @@ export function InstanceSelectorModal({
     queryFn: () =>
       apiRequest(`/api/whatsapp/instances${showInactive ? "?inactive=true" : ""}`),
     enabled: open,
+  });
+
+  // 🚀 Filtrar instâncias por nome ou número baseado na busca
+  const filteredInstances = instances.filter((instance) => {
+    const searchLower = searchQuery.toLowerCase().trim();
+    if (!searchLower) return true;
+
+    // Buscar em: nome, número, ownerJid
+    const matchesName = (instance.name || "").toLowerCase().includes(searchLower);
+    const matchesNumber = (instance.number || "").toLowerCase().includes(searchLower);
+    const matchesOwnerJid = (instance.ownerJid || "").toLowerCase().includes(searchLower);
+
+    return matchesName || matchesNumber || matchesOwnerJid;
   });
 
   const handleSelectInstance = (instance: EvolutionInstance) => {
@@ -54,6 +75,26 @@ export function InstanceSelectorModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Campo de Busca */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome ou número..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
+            autoFocus
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         {/* Filtro para mostrar inativas */}
         <div className="flex items-center gap-2 py-3 border-b">
           <Checkbox
@@ -69,23 +110,28 @@ export function InstanceSelectorModal({
           </label>
         </div>
 
-        {/* Grid de instâncias - 4 colunas */}
+        {/* Grid de instâncias - Responsivo */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : instances.length === 0 ? (
+        ) : filteredInstances.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-muted-foreground">
-              {showInactive
-                ? "Nenhuma instância encontrada"
-                : "Nenhuma instância ativa disponível"}
+              {searchQuery
+                ? `Nenhuma instância encontrada para "${searchQuery}"`
+                : showInactive
+                  ? "Nenhuma instância encontrada"
+                  : "Nenhuma instância ativa disponível"}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-4 py-4">
-            {instances.map((instance) => (
-              <div
+          <TooltipProvider>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 py-4">
+              {filteredInstances.map((instance) => (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
                 key={instance.id}
                 role="button"
                 tabIndex={0}
@@ -126,16 +172,30 @@ export function InstanceSelectorModal({
                   <p className="text-xs text-muted-foreground mt-1">
                     {instance.number}
                   </p>
+                  {/* 🚀 Status Badge Melhorado - 4 estados possíveis */}
                   <div className="mt-2 flex items-center justify-center">
-                    <span
-                      className={cn("text-xs px-2 py-1 rounded-full",
-                        instance.connectionStatus === "open"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
-                          : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100"
-                      )}
-                    >
-                      {instance.connectionStatus === "open" ? "Ativa" : "Inativa"}
-                    </span>
+                    {(() => {
+                      const status = instance.connectionStatus;
+                      let bgColor = "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100";
+                      let statusText = "Status desconhecido";
+
+                      if (status === "open") {
+                        bgColor = "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100";
+                        statusText = "🟢 Conectada";
+                      } else if (status === "close") {
+                        bgColor = "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100";
+                        statusText = "🔴 Desconectada";
+                      } else if (status === "connecting") {
+                        bgColor = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100";
+                        statusText = "🟡 Conectando...";
+                      }
+
+                      return (
+                        <span className={cn("text-xs px-2 py-1 rounded-full font-medium", bgColor)}>
+                          {statusText}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -166,9 +226,31 @@ export function InstanceSelectorModal({
                     </Button>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <div className="space-y-1 text-sm">
+                      <p className="font-semibold">{instance.name}</p>
+                      <p className="text-muted-foreground">
+                        {instance.number ? `+55 ${instance.number.substring(2)}` : "Sem número"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {instance.connectionStatus === "open" && "Conectada"}
+                        {instance.connectionStatus === "close" && "Desconectada"}
+                        {instance.connectionStatus === "connecting" && "Conectando..."}
+                        {!["open", "close", "connecting"].includes(instance.connectionStatus) && "Status desconhecido"}
+                      </p>
+                      {instance.ownerJid && (
+                        <p className="text-xs text-muted-foreground font-mono break-all">
+                          {instance.ownerJid}
+                        </p>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </TooltipProvider>
         )}
       </DialogContent>
     </Dialog>

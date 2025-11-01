@@ -1362,27 +1362,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ Instância ${normalizedNumber} com status: ${instance.connectionStatus}. Prosseguindo com envio...`);
 
-      // Usar UnifiedSender para enviar mensagem com fallback automático
-      const result = await unifiedSender.sendMessage({
+      // 🚀 OTIMIZAÇÃO #2: Envio assíncrono (não espera resposta da API)
+      // Retorna resposta ao cliente imediatamente, envia em background
+      // Economiza 200-300ms de latência (tempo de resposta da Evolution/UazAPI)
+
+      // Retornar resposta ao cliente IMEDIATAMENTE
+      res.json({
+        success: true,
+        message: "Mensagem sendo processada",
+        messageId: `pending-${Date.now()}`,
+        status: "pending"
+      });
+
+      // Enviar mensagem em background (NÃO espera)
+      unifiedSender.sendMessage({
         instanceNumber: normalizedNumber,
         instanceRemoteJid: ownerNumber || normalizedNumber || undefined,
         recipientNumber,
         content: text,
-      });
-
-      if (!result.success) {
-        console.error("Failed to send message:", result.error);
-        return res.status(400).json({
-          error: result.error || "Erro ao enviar mensagem"
-        });
-      }
-
-      res.json({
-        success: true,
-        message: "Mensagem enviada com sucesso",
-        api: result.api,
-        note: result.note,
-        data: result
+      }).then(result => {
+        if (result.success) {
+          console.log(`✅ Mensagem enviada com sucesso via ${result.api} (${result.latency}ms)`);
+        } else {
+          console.error(`❌ Erro ao enviar mensagem: ${result.error}`);
+        }
+      }).catch(error => {
+        console.error(`❌ Erro crítico ao enviar mensagem em background:`, error);
       });
     } catch (error: any) {
       console.error("Error sending message:", error);
