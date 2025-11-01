@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Loader2, Settings, Search, X } from "lucide-react";
+import { Loader2, Settings, Search, X, MessageCircle } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -158,8 +158,8 @@ export function InstanceSelectorModal({
                       className="h-16 w-16 rounded-full object-cover border-2 border-border"
                     />
                   ) : (
-                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center font-semibold text-lg">
-                      {instance.name?.charAt(0)?.toUpperCase()}
+                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-semibold text-lg border-2 border-border">
+                      <MessageCircle className="h-8 w-8 text-white" />
                     </div>
                   )}
                 </div>
