@@ -214,15 +214,16 @@ export function InstanceSelectorModal({
                   {onConfigureInstance && (
                     <Button
                       type="button"
-                      size="sm"
+                      size="icon"
                       variant="secondary"
+                      className="h-9 w-9"
                       onClick={(event) => {
                         event.stopPropagation();
                         onConfigureInstance(instance);
                       }}
+                      title="Configurar instância"
                     >
-                      <Settings className="h-4 w-4 mr-1" />
-                      Configurar
+                      <Settings className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
