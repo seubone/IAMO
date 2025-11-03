@@ -1430,13 +1430,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let finalText = text;
       try {
         const botConfig = await getBotConfig(normalizedNumber);
+        console.log(`🔍 getBotConfig resultado:`, botConfig);
+
         if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
           // Adicionar prefixo ao texto da mensagem
           // Template padrão: "*{name}:*\n"
           const template = botConfig.message_prefix_template || "*{name}:*\n";
           const prefix = template.replace("{name}", botConfig.consultant_name);
           finalText = prefix + text;
-          console.log(`✅ Prefixo adicionado: "${prefix.trim()}"`);
+          console.log(`✅ Prefixo adicionado ao final text: "${prefix.trim()}"`);
+          console.log(`📝 Mensagem final: "${finalText}"`);
+        } else {
+          console.log(`⚠️  Bot não configurado ou desabilitado - has_bot_enabled: ${botConfig?.has_bot_enabled}, use_prefix_for_consultant: ${botConfig?.use_prefix_for_consultant}, consultant_name: ${botConfig?.consultant_name}`);
         }
       } catch (error: any) {
         console.warn(`⚠️  Erro ao buscar configuração do bot para prefixo: ${error?.message || error}`);
