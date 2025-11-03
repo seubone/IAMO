@@ -1426,6 +1426,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ Instância ${normalizedNumber} com status: ${instance.connectionStatus}. Prosseguindo com envio...`);
 
+      // Buscar configuração do bot para adicionar prefixo se necessário
+      let finalText = text;
+      try {
+        const botConfig = await getBotConfig(normalizedNumber);
+        if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
+          // Adicionar prefixo ao texto da mensagem
+          // Template padrão: "*{name}:*\n"
+          const template = botConfig.message_prefix_template || "*{name}:*\n";
+          const prefix = template.replace("{name}", botConfig.consultant_name);
+          finalText = prefix + text;
+          console.log(`✅ Prefixo adicionado: "${prefix.trim()}"`);
+        }
+      } catch (error: any) {
+        console.warn(`⚠️  Erro ao buscar configuração do bot para prefixo: ${error?.message || error}`);
+        // Continuar sem prefixo se houver erro
+      }
+
       // 🚀 OTIMIZAÇÃO #2: Envio assíncrono (não espera resposta da API)
       // Retorna resposta ao cliente imediatamente, envia em background
       // Economiza 200-300ms de latência (tempo de resposta da Evolution/UazAPI)
@@ -1443,7 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instanceNumber: normalizedNumber,
         instanceRemoteJid: ownerNumber || normalizedNumber || undefined,
         recipientNumber,
-        content: text,
+        content: finalText,
       }).then(result => {
         if (result.success) {
           console.log(`✅ Mensagem enviada com sucesso via ${result.api} (${result.latency}ms)`);
