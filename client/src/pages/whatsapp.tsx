@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type JSX } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -44,7 +45,6 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
-import { UazapiConfigDialog } from "@/components/UazapiConfigDialog";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { useAuth } from "@/hooks/use-auth";
@@ -145,6 +145,7 @@ const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string
 };
 
 export default function WhatsApp() {
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [chatTypeFilter, setChatTypeFilter] = useState<"contacts" | "groups" | "all">("all");
   const [selectedChatJid, setSelectedChatJid] = useState<string | null>(null);
@@ -152,7 +153,6 @@ export default function WhatsApp() {
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const [isInstanceSettingsDialogOpen, setIsInstanceSettingsDialogOpen] = useState(false);
   const [instanceSettingsContext, setInstanceSettingsContext] = useState<{ number?: string; name?: string } | null>(null);
-  const [isUazapiConfigOpen, setIsUazapiConfigOpen] = useState(false);
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -173,6 +173,12 @@ export default function WhatsApp() {
 
     setIsInstanceSettingsDialogOpen(true);
   }, [selectedInstance]);
+
+  const handleConfigureIA = useCallback(() => {
+    if (selectedInstance?.id) {
+      setLocation(`/chat/instance-settings/${selectedInstance.id}`);
+    }
+  }, [selectedInstance?.id, setLocation]);
 
 
   // ID da instância selecionada (extraído do Zustand) - deve estar aqui antes de usar em hooks
@@ -1068,7 +1074,7 @@ export default function WhatsApp() {
                 selectedInstance={selectedInstance}
                 onInstanceClick={() => setIsInstanceSelectorOpen(true)}
                 onInstanceSettingsClick={() => openInstanceSettings()}
-                onUazapiConfigClick={() => setIsUazapiConfigOpen(true)}
+                onConfigureIAClick={handleConfigureIA}
                 isLoadingChats={isLoadingChats}
                 chats={chats || []}
                 filteredChats={filteredChats}
@@ -1210,9 +1216,14 @@ export default function WhatsApp() {
                                 ? `${selectedInstanceId}:${participantJid}`
                                 : null;
                               const senderProfile = participantKey ? participantProfiles[participantKey] : undefined;
-                              const senderDisplayName = senderProfile?.displayName
-                                || message.pushName
+                              const senderDisplayName = message.pushName
+                                || senderProfile?.displayName
                                 || formatJidDisplay(participantJid);
+
+                              // Debug logging for sender name resolution
+                              if (fromMe) {
+                                console.log(`[DEBUG] Message from me - pushName: "${message.pushName}", displayName: "${senderProfile?.displayName}", final: "${senderDisplayName}"`);
+                              }
                               const avatarInitials = getNameInitials(senderDisplayName);
                               const avatarIdentifier = resolveAvatarIdentifier(
                                 participantJid,
@@ -1863,14 +1874,6 @@ export default function WhatsApp() {
         instanceName={instanceSettingsContext?.name ?? undefined}
       />
 
-      <UazapiConfigDialog
-        open={isUazapiConfigOpen}
-        onOpenChange={(open) => {
-          setIsUazapiConfigOpen(open);
-        }}
-        instanceNumber={selectedInstance?.number}
-        instanceName={selectedInstance?.name}
-      />
     </div>
   );
 }

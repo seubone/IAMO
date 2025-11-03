@@ -13,6 +13,9 @@ import { supabase } from "./supabase";
 import { getUazapiTokenByInstanceNumber } from "./uazapi-supabase";
 import { unifiedSender } from "./send-strategy";
 import { evolutionPool } from "./evolution-db";
+import { registerBotConfigRoutes } from "./routes/bot-config.routes";
+import { registerIAConfigRoutes } from "./routes/ia-config.routes";
+import { registerAIDataRoutes } from "./routes/ai-data.routes";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -239,6 +242,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return { normalizedNumber, ownerNumber: normalizedOwner, instance };
   }
 
+  /**
+   * Buscar configuração do bot da instância
+   * Retorna a configuração para ser usada na substituição de pushName
+   */
+  async function getBotConfig(instanceId: string) {
+    try {
+      const { data: botConfig, error } = await supabase
+        .from('bot_instances')
+        .select('has_bot_enabled, consultant_name, use_prefix_for_consultant')
+        .eq('instance_id', instanceId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn(`⚠️  Erro ao buscar config de bot: ${error.message}`);
+        return null;
+      }
+
+      return botConfig;
+    } catch (error: any) {
+      console.error(`❌ Erro ao buscar configuração de bot: ${error?.message || error}`);
+      return null;
+    }
+  }
+
   // Polling loop to check for new messages in Evolution DB - otimizado
   async function pollNewMessages() {
     // Skip se não há instâncias sendo monitoradas
@@ -280,7 +307,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastMessageTimestamps.set(instanceId, latestTimestamp);
 
             // Broadcast mensagens
-            result.rows.forEach((row: any) => {
+            for (const row of result.rows) {
+              // Se a mensagem foi enviada pelo usuário (fromMe: true), aplicar prefixo do bot se habilitado
+              let finalPushName = row.pushName;
+              let finalMessage = row.message_text;
+
+              if (row.fromMe) {
+                // Buscar configuração do bot para aplicar prefixo
+                const botConfig = await getBotConfig(instanceId);
+
+                if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
+                  // Usar nome do consultor ao invés do pushName
+                  finalPushName = botConfig.consultant_name;
+                }
+              }
+
               broadcastToInstance(instanceId, {
                 type: "whatsapp_message_received",
                 data: {
@@ -288,13 +329,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   remoteJid: row.keyRemoteJid,
                   messageId: row.messageId,
                   fromMe: row.fromMe,
-                  pushName: row.pushName,
+                  pushName: finalPushName,
                   messageTimestamp: row.messageTimestamp,
                   messageType: row.messageType,
-                  message: row.message_text
+                  message: finalMessage
                 }
               });
-            });
+            }
           }
         } catch (instanceError) {
           // Log erro mas continua com outras instâncias
@@ -1120,7 +1161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "contextInfo",
           "messageTimestamp",
           status,
-          "instanceId"
+          "instanceId",
+          (key->>'fromMe')::boolean as "fromMe"
         FROM "Message"
         WHERE (key->>'remoteJid') = $1
           AND "instanceId" = ANY($2::text[])
@@ -1128,7 +1170,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT $3 OFFSET $4
       `, [remoteJid, relatedInstanceIds, limit, offset]);
 
-      res.json(result.rows);
+      // Aplicar prefixo de consultor para mensagens enviadas pelo usuário (fromMe: true)
+      const processedRows = await Promise.all(
+        result.rows.map(async (row: any) => {
+          const fromMe = row.fromMe === true;
+
+          if (fromMe) {
+            // Buscar configuração do bot para a instância
+            const botConfig = await getBotConfig(row.instanceId);
+
+            if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
+              // Substituir pushName pelo nome do consultor
+              return {
+                ...row,
+                pushName: botConfig.consultant_name
+              };
+            }
+          }
+
+          return row;
+        })
+      );
+
+      res.json(processedRows);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       res.status(500).json({ error: "Erro ao buscar mensagens" });
@@ -2280,7 +2344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/webhooks/evolution/message", webhookLimiter, async (req, res) => {
     try {
       const payload = req.body;
-      
+
       console.log("📨 Evolution webhook received:", JSON.stringify(payload, null, 2));
 
       // Estrutura esperada do webhook do Evolution:
@@ -2294,6 +2358,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //   }
       // }
 
+      // Extrair dados da mensagem
+      const messageData = payload.data;
+      const fromMe = messageData?.key?.fromMe || false;
+      const instanceId = payload.instanceNumber || payload.instance;
+
+      // Se for mensagem nossa (fromMe), aplicar configuração de bot
+      let finalMessage = messageData;
+      if (fromMe && instanceId) {
+        const botConfig = await getBotConfig(instanceId);
+        if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
+          finalMessage = {
+            ...messageData,
+            pushName: botConfig.consultant_name,
+          };
+        }
+      }
+
       // Broadcast para todos os clientes WebSocket conectados
       broadcast({
         type: "whatsapp_message_received",
@@ -2301,7 +2382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           instance: payload.instance,
           instanceNumber: payload.instanceNumber,
           remoteJid: payload.data?.key?.remoteJid,
-          message: payload.data,
+          message: finalMessage,
           timestamp: payload.data?.messageTimestamp || Date.now(),
         }
       });
@@ -2312,6 +2393,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Erro ao processar webhook" });
     }
   });
+
+  // Register bot configuration routes
+  registerBotConfigRoutes(app);
+
+  // Register IA configuration routes
+  registerIAConfigRoutes(app);
+
+  // Register AI Data routes (para tabela ai_data)
+  registerAIDataRoutes(app);
 
   return httpServer;
 }
