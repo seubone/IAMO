@@ -419,25 +419,25 @@ export function InstanceSettingsPage() {
                   <p className="text-xs text-muted-foreground">{description.length}/500</p>
                 </div>
 
-                {/* N8N Webhook URL */}
+                {/* N8N Workflow URL */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="n8n-webhook">N8N Webhook URL</Label>
+                    <Label htmlFor="n8n-workflow">N8N Workflow URL</Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-xs">URL do webhook N8N para integração automática de workflows</p>
+                        <p className="max-w-xs">URL do workflow N8N para integração automática</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
                   <Input
-                    id="n8n-webhook"
+                    id="n8n-workflow"
                     type="url"
                     value={n8nWebhookUrl}
                     onChange={(e) => setN8nWebhookUrl(e.target.value)}
-                    placeholder="https://n8n.exemplo.com/webhook/..."
+                    placeholder="https://n8n.exemplo.com/workflow/..."
                     disabled={saveMutation.isPending}
                     className="border-0 bg-muted/50 dark:bg-muted/30"
                   />
