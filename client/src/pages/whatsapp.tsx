@@ -21,7 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Loader2, Check, CheckCheck, MoreHorizontal, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile } from "lucide-react";
+import { Loader2, Check, CheckCheck, MoreHorizontal, Settings, Star, Pin, Search, X, Tag, Plus, SmilePlus, Mic, Image as ImageIcon, FileText, Video, Smile, AlertCircle } from "lucide-react";
 import { SendIcon } from "@/components/SendIcon";
 import { ChatListSkeleton, MessageListSkeleton } from "@/components/WhatsAppSkeletons";
 import { formatDistanceToNow, format, isToday, isYesterday, startOfDay } from "date-fns";
@@ -142,6 +142,30 @@ const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string
   }
 
   return nodes.length > 0 ? nodes : text;
+};
+
+type KnownSenderType = "consultant" | "bot";
+
+const SENDER_TYPE_META: Record<KnownSenderType, { label: string; badgeClass: string; surfaceClass: string }> = {
+  consultant: {
+    label: "Consultor",
+    badgeClass:
+      "bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/25",
+    surfaceClass: "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25",
+  },
+  bot: {
+    label: "IA",
+    badgeClass:
+      "bg-indigo-500/15 text-indigo-700 border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200 dark:border-indigo-500/25",
+    surfaceClass: "text-white bg-indigo-500 dark:bg-indigo-600 shadow-lg shadow-indigo-500/25",
+  },
+};
+
+const getSenderMeta = (senderType?: string | null) => {
+  if (senderType === "consultant" || senderType === "bot") {
+    return SENDER_TYPE_META[senderType];
+  }
+  return undefined;
 };
 
 export default function WhatsApp() {
@@ -743,6 +767,7 @@ export default function WhatsApp() {
         },
         messageTimestamp: Math.floor(Date.now() / 1000),
         status: 'pending', // Badge visual para indicar envio em progresso
+        senderType: 'consultant',
       };
 
       // Atualizar cache com mensagem otimista
@@ -1108,6 +1133,17 @@ export default function WhatsApp() {
             <div className={`${selectedChatJid ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 w-full overflow-x-hidden`}>
               {selectedChatJid ? (
                 <>
+                  {/* Alerta de Instância Offline */}
+                  {selectedInstance?.connectionStatus && selectedInstance.connectionStatus !== 'open' && (
+                    <div className="bg-destructive/10 border-b border-destructive/30 px-3 md:px-4 py-2 flex items-start gap-3">
+                      <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-destructive font-medium">
+                          A instância está desconectada. Status: <strong>{selectedInstance?.connectionStatus}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {/* Header do Chat */}
                   <div className="bg-card/30 backdrop-blur-md flex-shrink-0 border-b border-border/30">
                     <div className="h-14 md:h-16 px-3 md:px-4 flex items-center gap-2 md:gap-3">
@@ -1234,7 +1270,25 @@ export default function WhatsApp() {
                               const shouldReserveAvatarSpace = Boolean(isGroupChat && !fromMe);
                               const shouldShowAvatar = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
                               const showSenderLabel = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
-                              
+                              const senderMeta = getSenderMeta(message.senderType);
+                              const fromMeSurfaceClass = fromMe
+                                ? senderMeta?.surfaceClass ?? "text-white bg-message-sent"
+                                : "bg-card border";
+                              const attachmentWrapperClasses = fromMe
+                                ? "flex flex-col gap-2 items-end max-w-[65%]"
+                                : "flex flex-col gap-2 items-start";
+                              const renderSenderBadge = () => {
+                                if (!fromMe || !senderMeta) return null;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={`ml-auto mb-1 border-transparent shadow-none ${senderMeta.badgeClass}`}
+                                  >
+                                    {senderMeta.label}
+                                  </Badge>
+                                );
+                              };
+
                               return (
                                 <div
                                   key={message.id}
@@ -1283,19 +1337,23 @@ export default function WhatsApp() {
 
                                   {/* Audio Message sem caixa extra */}
                                   {message.message?.audioMessage && (
-                                    <AudioMessage
-                                      messageId={message.id}
-                                      senderName={senderDisplayName}
-                                      senderAvatar={senderProfile?.profilePicUrl ?? undefined}
-                                      senderIdentifier={avatarIdentifier}
-                                      timestamp={formatFullTimestamp(message.messageTimestamp)}
-                                      fromMe={fromMe}
-                                    />
+                                    <div className={attachmentWrapperClasses}>
+                                      {renderSenderBadge()}
+                                      <AudioMessage
+                                        messageId={message.id}
+                                        senderName={senderDisplayName}
+                                        senderAvatar={senderProfile?.profilePicUrl ?? undefined}
+                                        senderIdentifier={avatarIdentifier}
+                                        timestamp={formatFullTimestamp(message.messageTimestamp)}
+                                        fromMe={fromMe}
+                                      />
+                                    </div>
                                   )}
 
                                   {/* Sticker Message - Sem container */}
                                   {message.message?.stickerMessage && (
-                                    <div className="flex flex-col gap-1">
+                                    <div className={`${attachmentWrapperClasses} relative`}>
+                                      {renderSenderBadge()}
                                       <StickerMessage messageId={message.id} />
                                       {!isSameSenderAsNext && (
                                         <div className="flex items-center gap-1">
@@ -1310,7 +1368,8 @@ export default function WhatsApp() {
 
                                   {/* Image Message - Sem container */}
                                   {message.message?.imageMessage && (
-                                    <div className="flex flex-col gap-1 relative">
+                                    <div className={`${attachmentWrapperClasses} relative`}>
+                                      {renderSenderBadge()}
                                       <ImageMessage
                                         messageId={message.id}
                                         caption={message.message.imageMessage.caption}
@@ -1328,7 +1387,8 @@ export default function WhatsApp() {
 
                                   {/* Video Message - Sem container */}
                                   {message.message?.videoMessage && (
-                                    <div className="flex flex-col gap-1 relative">
+                                    <div className={`${attachmentWrapperClasses} relative`}>
+                                      {renderSenderBadge()}
                                       <VideoMessage
                                         messageId={message.id}
                                         caption={message.message.videoMessage.caption}
@@ -1346,7 +1406,8 @@ export default function WhatsApp() {
 
                                   {/* PTV Message (video redondo) - Sem container */}
                                   {message.message?.ptvMessage && (
-                                    <div className="flex flex-col gap-1 relative">
+                                    <div className={`${attachmentWrapperClasses} relative`}>
+                                      {renderSenderBadge()}
                                       <VideoMessage messageId={message.id} />
                                       {!isSameSenderAsNext && (
                                         <div className="flex items-center gap-1 absolute bottom-2 left-2">
@@ -1361,9 +1422,11 @@ export default function WhatsApp() {
 
                                   {/* Document/PDF Message - Sem container */}
                                   {message.message?.documentMessage && (
-                                    <div
-                                      className="w-80 rounded-xl p-4 text-white relative group bg-message-sent"
-                                    >
+                                    <div className={attachmentWrapperClasses}>
+                                      {renderSenderBadge()}
+                                      <div
+                                        className={`w-80 rounded-xl p-4 relative group ${fromMe ? `${fromMeSurfaceClass} text-white` : 'bg-card border text-card-foreground'}`}
+                                      >
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-start gap-3 flex-1">
@@ -1423,6 +1486,7 @@ export default function WhatsApp() {
                                           Salvar como...
                                         </button>
                                       </div>
+                                      </div>
                                     </div>
                                   )}
 
@@ -1434,16 +1498,15 @@ export default function WhatsApp() {
                                    !message.message?.ptvMessage &&
                                    !message.message?.documentMessage && (
                                   <div
-                                    className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden ${
-                                      fromMe
-                                        ? 'text-white bg-message-sent'
-                                        : 'bg-card border'
+                                    className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden flex flex-col gap-2 ${
+                                      fromMe ? fromMeSurfaceClass : 'bg-card border'
                                     }`}
                                     style={{
                                       wordBreak: 'break-word',
                                       overflowWrap: 'anywhere',
                                     }}
                                   >
+                                    {renderSenderBadge()}
                                     {showSenderLabel && (
                                       <p className="text-xs font-medium mb-1 text-primary">
                                         {senderDisplayName}
@@ -1810,7 +1873,19 @@ export default function WhatsApp() {
                   ) : null}
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                  {selectedInstance?.connectionStatus && selectedInstance.connectionStatus !== 'open' && (
+                    <div className="absolute top-4 left-4 right-4 bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-start gap-3">
+                      <div className="text-xl flex-shrink-0">⚠️</div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-destructive">Instância Desconectada</h4>
+                        <p className="text-sm text-destructive/80">
+                          A instância <strong>{selectedInstance?.name || selectedInstance?.number}</strong> está {selectedInstance?.connectionStatus === 'close' ? 'desconectada' : 'indisponível'}.
+                          Status: <strong>{selectedInstance?.connectionStatus}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="text-center space-y-2">
                     <div className="text-6xl">💬</div>
                     <h3 className="text-xl font-medium">Selecione uma conversa</h3>
