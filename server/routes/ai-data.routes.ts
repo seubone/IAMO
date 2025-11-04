@@ -74,6 +74,8 @@ export function registerAIDataRoutes(app: Express) {
         ai_name,
         consultant_name,
         description,
+        n8n_webhook_url,
+        api_token,
       } = req.body;
 
       const updateData: any = {};
@@ -82,6 +84,8 @@ export function registerAIDataRoutes(app: Express) {
       if (ai_name !== undefined) updateData.bot_name = ai_name;
       if (consultant_name !== undefined) updateData.consultant_name = consultant_name;
       if (description !== undefined) updateData.bot_activity = description;
+      if (n8n_webhook_url !== undefined) updateData.n8n_webhook_url = n8n_webhook_url;
+      if (api_token !== undefined) updateData.api_token = api_token;
 
       // Auto-enable bot se ai_name for fornecido e válido
       if (ai_name !== undefined) {
@@ -121,6 +125,8 @@ export function registerAIDataRoutes(app: Express) {
         ai_name,
         consultant_name,
         description,
+        n8n_webhook_url,
+        api_token,
       } = req.body;
 
       if (!instance_number && !instance_id) {
@@ -137,6 +143,8 @@ export function registerAIDataRoutes(app: Express) {
         bot_name: ai_name || null,
         consultant_name: consultant_name || null,
         bot_activity: description || null,
+        n8n_webhook_url: n8n_webhook_url || null,
+        api_token: api_token || null,
         message_prefix_template: "*{name}:*\n",
         use_prefix_for_bot: true,
         use_prefix_for_consultant: true,

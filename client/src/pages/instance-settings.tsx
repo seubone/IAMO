@@ -26,6 +26,8 @@ export function InstanceSettingsPage() {
   const [aiName, setAiName] = useState("");
   const [consultantName, setConsultantName] = useState("");
   const [description, setDescription] = useState("");
+  const [n8nWebhookUrl, setN8nWebhookUrl] = useState("");
+  const [uazapiToken, setUazapiToken] = useState("");
   const [instanceInfo, setInstanceInfo] = useState<EvolutionInstance | null>(null);
   const [recordExists, setRecordExists] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
@@ -57,6 +59,8 @@ export function InstanceSettingsPage() {
       setAiName(instanceData.bot_name || "");
       setConsultantName(instanceData.consultant_name || "");
       setDescription(instanceData.bot_activity || "");
+      setN8nWebhookUrl(instanceData.n8n_webhook_url || "");
+      setUazapiToken(instanceData.api_token || "");
       setHasUnsavedChanges(false);
     } else {
       setRecordExists(false);
@@ -106,6 +110,8 @@ export function InstanceSettingsPage() {
         ai_name: aiName,
         consultant_name: consultantName,
         description,
+        n8n_webhook_url: n8nWebhookUrl || null,
+        api_token: uazapiToken || null,
       };
 
       if (instanceData?.id) {
@@ -411,6 +417,56 @@ export function InstanceSettingsPage() {
                     <p className="text-xs text-muted-foreground">Opcional</p>
                   )}
                   <p className="text-xs text-muted-foreground">{description.length}/500</p>
+                </div>
+
+                {/* N8N Webhook URL */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="n8n-webhook">N8N Webhook URL</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">URL do webhook N8N para integração automática de workflows</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="n8n-webhook"
+                    type="url"
+                    value={n8nWebhookUrl}
+                    onChange={(e) => setN8nWebhookUrl(e.target.value)}
+                    placeholder="https://n8n.exemplo.com/webhook/..."
+                    disabled={saveMutation.isPending}
+                    className="border-0 bg-muted/50 dark:bg-muted/30"
+                  />
+                  <p className="text-xs text-muted-foreground">Opcional - Pode ser adicionado/atualizado depois</p>
+                </div>
+
+                {/* Uazapi Token */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="uazapi-token">Token Uazapi</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Chave de autenticação para API Uazapi (mantida criptografada)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="uazapi-token"
+                    type="password"
+                    value={uazapiToken}
+                    onChange={(e) => setUazapiToken(e.target.value)}
+                    placeholder="Sua chave de autenticação Uazapi"
+                    disabled={saveMutation.isPending}
+                    className="border-0 bg-muted/50 dark:bg-muted/30"
+                  />
+                  <p className="text-xs text-muted-foreground">Opcional - Mantido de forma segura no banco de dados</p>
                 </div>
 
               </div>
