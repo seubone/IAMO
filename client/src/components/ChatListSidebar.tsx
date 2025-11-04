@@ -10,7 +10,9 @@ import {
   BellOff,
   Check,
   MoreVertical,
-  Settings,
+  Cpu,
+  WifiOff,
+  Wifi,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +71,7 @@ interface ChatListSidebarProps {
   selectedInstance: EvolutionInstance | null;
   onInstanceClick: () => void;
   onInstanceSettingsClick?: () => void;
-  onUazapiConfigClick?: () => void;
+  onConfigureIAClick?: () => void;
   isLoadingChats: boolean;
   chats: EvolutionChat[];
   filteredChats: EvolutionChat[];
@@ -118,7 +120,7 @@ export function ChatListSidebar({
   selectedInstance,
   onInstanceClick,
   onInstanceSettingsClick,
-  onUazapiConfigClick,
+  onConfigureIAClick,
   isLoadingChats,
   chats,
   filteredChats,
@@ -311,9 +313,16 @@ export function ChatListSidebar({
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 text-left min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {selectedInstance.name || selectedInstance.number}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold truncate">
+                      {selectedInstance.name || selectedInstance.number}
+                    </p>
+                    {selectedInstance.connectionStatus && selectedInstance.connectionStatus !== 'open' ? (
+                      <WifiOff className="h-3.5 w-3.5 text-destructive flex-shrink-0" title={`Desconectado: ${selectedInstance.connectionStatus}`} />
+                    ) : (
+                      <Wifi className="h-3.5 w-3.5 text-green-500 flex-shrink-0" title="Conectado" />
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {selectedInstance.number}
                   </p>
@@ -322,15 +331,15 @@ export function ChatListSidebar({
               </>
             )}
           </button>
-          {selectedInstance && onUazapiConfigClick && (
+          {selectedInstance && onConfigureIAClick && (
             <Button
               variant="ghost"
               size="icon"
               className="h-10 w-10"
-              onClick={onUazapiConfigClick}
-              title="Configurar API Uazapi"
+              onClick={onConfigureIAClick}
+              title="Configurar IA"
             >
-              <Settings className="h-4 w-4" />
+              <Cpu className="h-4 w-4" />
             </Button>
           )}
         </div>
