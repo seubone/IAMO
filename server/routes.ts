@@ -246,12 +246,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * Buscar configuração do bot da instância
    * Retorna a configuração para ser usada na substituição de pushName
    */
-  async function getBotConfig(instanceId: string) {
+  async function getBotConfig(instanceIdOrNumber: string) {
     try {
+      // Tentar buscar primeiro pelo instance_id (UUID), depois por instance_number (número WhatsApp)
       const { data: botConfig, error } = await supabase
         .from('bot_instances')
-        .select('has_bot_enabled, consultant_name, use_prefix_for_consultant')
-        .eq('instance_id', instanceId)
+        .select('has_bot_enabled, consultant_name, bot_name, use_prefix_for_consultant, use_prefix_for_bot, message_prefix_template')
+        .or(`instance_id.eq.${instanceIdOrNumber},instance_number.eq.${instanceIdOrNumber}`)
         .maybeSingle();
 
       if (error) {
@@ -264,6 +265,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error(`❌ Erro ao buscar configuração de bot: ${error?.message || error}`);
       return null;
     }
+  }
+
+  type SenderType = 'consultant' | 'bot';
+
+  function extractPrimaryMessageText(message: any): string {
+    if (!message) return '';
+    if (typeof message === 'string') {
+      return message;
+    }
+
+    const candidates = [
+      message?.conversation,
+      message?.extendedTextMessage?.text,
+      message?.editedMessage?.message?.conversation,
+      message?.editedMessage?.message?.extendedTextMessage?.text,
+      message?.imageMessage?.caption,
+      message?.videoMessage?.caption,
+      message?.documentMessage?.caption,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate;
+      }
+    }
+
+    return '';
+  }
+
+  function resolveSenderIdentity(options: {
+    messageText?: string | null;
+    pushName?: string | null;
+    botConfig: any;
+  }): { pushName?: string | null; senderType?: SenderType } {
+    const { messageText, pushName, botConfig } = options;
+
+    if (!botConfig || !botConfig.has_bot_enabled) {
+      return { pushName };
+    }
+
+    const template: string = botConfig.message_prefix_template || '*{name}:*\n';
+    const consultantName: string | null =
+      typeof botConfig.consultant_name === 'string' ? botConfig.consultant_name.trim() : null;
+    const botName: string | null =
+      typeof botConfig.bot_name === 'string' ? botConfig.bot_name.trim() : null;
+
+    const messageBody = (messageText ?? '').trimStart();
+
+    const matchesTemplate = (name: string | null | undefined): boolean => {
+      if (!name) return false;
+      const prefix = template.replace('{name}', name);
+      return messageBody.startsWith(prefix);
+    };
+
+    if (matchesTemplate(consultantName)) {
+      return { pushName: consultantName, senderType: 'consultant' };
+    }
+
+    if (matchesTemplate(botName)) {
+      return { pushName: botName, senderType: 'bot' };
+    }
+
+    const normalizedPush = (pushName ?? '').trim();
+
+    if (consultantName && normalizedPush === consultantName) {
+      return { pushName: consultantName, senderType: 'consultant' };
+    }
+
+    if (botName && normalizedPush === botName) {
+      return { pushName: botName, senderType: 'bot' };
+    }
+
+    return { pushName };
   }
 
   // Polling loop to check for new messages in Evolution DB - otimizado
@@ -290,6 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               "pushName",
               "messageTimestamp",
               "messageType",
+              message,
               COALESCE(message->>'conversation',
                        message->'extendedTextMessage'->>'text',
                        '[Mídia]') as message_text
@@ -308,17 +383,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Broadcast mensagens
             for (const row of result.rows) {
-              // Se a mensagem foi enviada pelo usuário (fromMe: true), aplicar prefixo do bot se habilitado
               let finalPushName = row.pushName;
-              let finalMessage = row.message_text;
+              const finalMessage = row.message_text;
+              let senderType: SenderType | undefined;
 
               if (row.fromMe) {
-                // Buscar configuração do bot para aplicar prefixo
                 const botConfig = await getBotConfig(instanceId);
+                if (botConfig) {
+                  const identity = resolveSenderIdentity({
+                    messageText: extractPrimaryMessageText(row.message),
+                    pushName: row.pushName,
+                    botConfig,
+                  });
 
-                if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
-                  // Usar nome do consultor ao invés do pushName
-                  finalPushName = botConfig.consultant_name;
+                  if (identity.pushName) {
+                    finalPushName = identity.pushName;
+                  }
+                  senderType = identity.senderType;
                 }
               }
 
@@ -332,10 +413,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   pushName: finalPushName,
                   messageTimestamp: row.messageTimestamp,
                   messageType: row.messageType,
-                  message: finalMessage
+                  message: finalMessage,
+                  senderType,
                 }
               });
             }
+
           }
         } catch (instanceError) {
           // Log erro mas continua com outras instâncias
@@ -1176,14 +1259,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const fromMe = row.fromMe === true;
 
           if (fromMe) {
-            // Buscar configuração do bot para a instância
             const botConfig = await getBotConfig(row.instanceId);
 
-            if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
-              // Substituir pushName pelo nome do consultor
+            if (botConfig) {
+              const identity = resolveSenderIdentity({
+                messageText: extractPrimaryMessageText(row.message),
+                pushName: row.pushName,
+                botConfig,
+              });
+
               return {
                 ...row,
-                pushName: botConfig.consultant_name
+                pushName: identity.pushName ?? row.pushName,
+                senderType: identity.senderType,
               };
             }
           }
@@ -2387,15 +2475,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Se for mensagem nossa (fromMe), aplicar configuração de bot
       let finalMessage = messageData;
-      if (fromMe && instanceId) {
+      let senderType: SenderType | undefined;
+      if (fromMe && instanceId && messageData) {
         const botConfig = await getBotConfig(instanceId);
-        if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
+        if (botConfig) {
+          const identity = resolveSenderIdentity({
+            messageText: extractPrimaryMessageText(messageData?.message),
+            pushName: messageData?.pushName,
+            botConfig,
+          });
+
           finalMessage = {
             ...messageData,
-            pushName: botConfig.consultant_name,
+            pushName: identity.pushName ?? messageData?.pushName,
+            senderType: identity.senderType,
           };
+          senderType = identity.senderType;
         }
       }
+
 
       // Broadcast para todos os clientes WebSocket conectados
       broadcast({
@@ -2405,6 +2503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           instanceNumber: payload.instanceNumber,
           remoteJid: payload.data?.key?.remoteJid,
           message: finalMessage,
+          senderType,
           timestamp: payload.data?.messageTimestamp || Date.now(),
         }
       });

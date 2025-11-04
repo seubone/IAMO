@@ -12,11 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Trash2, Send, CheckCircle, AlertCircle } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2, Trash2 } from "lucide-react";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { generateAvatarDataUri } from "@/lib/avatar-generator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BotConfigDialog } from "./BotConfigDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,8 +45,6 @@ export function InstanceSettingsDialog({
 }: InstanceSettingsDialogProps) {
   const [apiToken, setApiToken] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [sendAPI, setSendAPI] = useState<"evolution" | "uazapi">("evolution");
-  const [testRecipient, setTestRecipient] = useState("");
   const { toast } = useToast();
   const selectedInstance = useSelectedInstance((state) => state.selectedInstance);
   const setSelectedInstance = useSelectedInstance((state) => state.setSelectedInstance);
@@ -96,21 +95,41 @@ export function InstanceSettingsDialog({
   const effectiveInstanceName = manualInstanceName || baseInstanceName || resolvedInstanceNumber;
   const isInstanceAvailable = Boolean(resolvedInstanceNumber);
 
+  // Get profile picture from selected instance
+  const profilePicUrl = useMemo(() => {
+    return selectedInstance?.profilePicUrl || null;
+  }, [selectedInstance?.profilePicUrl]);
+
+  // Generate avatar fallback
+  const avatarFallback = useMemo(() => {
+    if (!effectiveInstanceName) return "?";
+    const trimmed = effectiveInstanceName.trim();
+    if (trimmed.length === 0) return "?";
+    const digitsOnly = trimmed.replace(/\D/g, "");
+    const hasLetters = /[A-Za-z]/.test(trimmed);
+    if (digitsOnly && !hasLetters) {
+      return digitsOnly.length >= 2 ? digitsOnly.slice(-2) : digitsOnly;
+    }
+    const tokens = trimmed.split(/\s+/).map((token) => token.replace(/[^A-Za-z0-9]/g, "")).filter(Boolean);
+    if (tokens.length === 0) {
+      const letters = trimmed.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      return letters.slice(0, 2) || "?";
+    }
+    const initials = tokens.slice(0, 2).map((token) => token[0]?.toUpperCase() || "").join("");
+    return initials || "?";
+  }, [effectiveInstanceName]);
+
+  // Generate fallback avatar URI if no profile picture
+  const fallbackAvatarUri = useMemo(() => {
+    if (profilePicUrl) return null;
+    return generateAvatarDataUri(avatarFallback);
+  }, [profilePicUrl, avatarFallback]);
+
   const { data: availableInstances = [] } = useQuery<EvolutionInstance[]>({
     queryKey: ["/api/whatsapp/instances", { modal: "settings" }],
     enabled: open,
   });
 
-  const handleInstanceChange = (value: string) => {
-    setManualInstanceNumber(value);
-    const instance = availableInstances.find((item) => item.number === value);
-    if (instance) {
-      setManualInstanceName(instance.name || instance.number);
-      setSelectedInstance(instance);
-    } else {
-      setManualInstanceName("");
-    }
-  };
 
   useEffect(() => {
     if (!isInstanceAvailable && showDeleteDialog) {
@@ -128,18 +147,6 @@ export function InstanceSettingsDialog({
     enabled: open && isInstanceAvailable,
   });
 
-  // Get send API config
-  const { data: sendConfigData } = useQuery({
-    queryKey: ["/api/send-config", resolvedInstanceNumber],
-    queryFn: async () => {
-      const response = await apiRequest(`/api/send-config/${resolvedInstanceNumber}`);
-      return response as { sendAPI: "evolution" | "uazapi" };
-    },
-    enabled: open && isInstanceAvailable,
-    onSuccess: (data) => {
-      setSendAPI(data.sendAPI);
-    },
-  });
 
   const saveTokenMutation = useMutation({
     mutationFn: async (data: { instanceNumber: string; apiToken: string }) => {
@@ -199,56 +206,6 @@ export function InstanceSettingsDialog({
     },
   });
 
-  const saveSendConfigMutation = useMutation({
-    mutationFn: async (api: "evolution" | "uazapi") => {
-      return await apiRequest(`/api/send-config/${resolvedInstanceNumber}`, {
-        method: "PUT",
-        body: JSON.stringify({ sendAPI: api }),
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Configuração salva",
-        description: "API de envio configurada com sucesso!",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/send-config", resolvedInstanceNumber] });
-    },
-    onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Erro ao salvar",
-        description: error.message || "Não foi possível salvar a configuração",
-      });
-    },
-  });
-
-  const testSendMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("/api/whatsapp/test-send", {
-        method: "POST",
-        body: JSON.stringify({
-          instanceNumber: resolvedInstanceNumber,
-          recipientNumber: testRecipient,
-          message: "Teste de envio",
-        }),
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-    onSuccess: (data: any) => {
-      toast({
-        title: "Teste completado",
-        description: `Evolution: ${data.evolution?.success ? "✅" : "❌"} | UazAPI: ${data.uazapi?.success ? "✅" : "❌"}`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Erro no teste",
-        description: error.message || "Não foi possível testar o envio",
-      });
-    },
-  });
 
   const handleSave = () => {
     if (!apiToken.trim()) {
@@ -277,22 +234,27 @@ export function InstanceSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Configurar Instância Uazapi</DialogTitle>
+          <DialogTitle>Configurações da Instância</DialogTitle>
           <DialogDescription>
-            Configure o token da API Uazapi para {effectiveInstanceName}
+            Configure o token da API e o bot para {effectiveInstanceName}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-
           <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/10 p-3">
             {isInstanceAvailable ? (
-              <div>
-                <p className="text-xs uppercase text-muted-foreground tracking-wide">Instância selecionada</p>
-                <p className="text-sm font-medium text-foreground">{effectiveInstanceName}</p>
-                <p className="text-xs text-muted-foreground">Número: {resolvedInstanceNumber}</p>
+              <div className="flex items-start gap-3">
+                <Avatar className="h-12 w-12 flex-shrink-0">
+                  <AvatarImage src={profilePicUrl || fallbackAvatarUri || undefined} alt={effectiveInstanceName} />
+                  <AvatarFallback>{avatarFallback}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs uppercase text-muted-foreground tracking-wide">Instância selecionada</p>
+                  <p className="text-sm font-medium text-foreground truncate">{effectiveInstanceName}</p>
+                  <p className="text-xs text-muted-foreground">Número: {resolvedInstanceNumber}</p>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -303,11 +265,11 @@ export function InstanceSettingsDialog({
 
           <Tabs defaultValue="token" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="token">Token UazAPI</TabsTrigger>
-              <TabsTrigger value="api">API de Envio</TabsTrigger>
+              <TabsTrigger value="token">Token Uazapi</TabsTrigger>
+              <TabsTrigger value="bot">Bot/IA</TabsTrigger>
             </TabsList>
 
-            {/* Aba: Token UazAPI */}
+            {/* Token Tab */}
             <TabsContent value="token" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="api-token">Token da API Uazapi</Label>
@@ -367,112 +329,19 @@ export function InstanceSettingsDialog({
               </div>
             </TabsContent>
 
-            {/* Aba: API de Envio */}
-            <TabsContent value="api" className="space-y-4">
-              <div className="space-y-3">
-                <div>
-                  <Label>Escolha a API para envio de mensagens</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Se a API selecionada falhar, o sistema tentará automaticamente a outra como fallback
-                  </p>
-                </div>
-                <RadioGroup value={sendAPI} onValueChange={(value: any) => setSendAPI(value)}>
-                  <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
-                    <RadioGroupItem value="evolution" id="evolution" />
-                    <Label htmlFor="evolution" className="flex-1 cursor-pointer">
-                      <span className="font-medium">🔵 Evolution</span>
-                      <p className="text-xs text-muted-foreground">API padrão do WhatsApp Web</p>
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2 p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors">
-                    <RadioGroupItem value="uazapi" id="uazapi" />
-                    <Label htmlFor="uazapi" className="flex-1 cursor-pointer">
-                      <span className="font-medium">🟢 UazAPI</span>
-                      <p className="text-xs text-muted-foreground">Envio direto (requer token configurado)</p>
-                    </Label>
-                  </div>
-                </RadioGroup>
-
-                {/* Seção de Teste */}
-                <div className="mt-6 pt-4 border-t space-y-3">
-                  <Label>Testar Envio</Label>
-                  <Input
-                    placeholder="Número para teste (ex: 558399999999)"
-                    value={testRecipient}
-                    onChange={(e) => setTestRecipient(e.target.value)}
-                    disabled={testSendMutation.isPending}
-                  />
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      if (!isInstanceAvailable) {
-                        toast({
-                          variant: "destructive",
-                          title: "Instância não selecionada",
-                          description: "Escolha uma instância antes de testar o envio.",
-                        });
-                        return;
-                      }
-                      if (!testRecipient.trim()) {
-                        toast({
-                          variant: "destructive",
-                          title: "Campo obrigatório",
-                          description: "Digite um número para teste",
-                        });
-                        return;
-                      }
-                      testSendMutation.mutate();
-                    }}
-                    disabled={testSendMutation.isPending}
-                  >
-                    {testSendMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Testando...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Enviar Mensagem Teste
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={saveSendConfigMutation.isPending}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (!isInstanceAvailable) {
-                      toast({
-                        variant: "destructive",
-                        title: "Instância não selecionada",
-                        description: "Selecione uma instância antes de salvar a API de envio.",
-                      });
-                      return;
-                    }
-                    saveSendConfigMutation.mutate(sendAPI);
-                  }}
-                  disabled={saveSendConfigMutation.isPending}
-                >
-                  {saveSendConfigMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Salvando...
-                    </>
-                  ) : (
-                    "Salvar Configuração"
-                  )}
-                </Button>
-              </div>
+            {/* Bot Tab */}
+            <TabsContent value="bot">
+              {isInstanceAvailable ? (
+                <BotConfigDialog
+                  instanceNumber={resolvedInstanceNumber}
+                  instanceId={selectedInstance?.id || ""}
+                  instanceName={effectiveInstanceName}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground py-4">
+                  Selecione uma instância para configurar o bot
+                </p>
+              )}
             </TabsContent>
           </Tabs>
         </div>

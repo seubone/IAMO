@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -25,7 +26,6 @@ interface InstanceSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectInstance: (instance: EvolutionInstance) => void;
-  onConfigureInstance?: (instance: EvolutionInstance) => void;
   selectedInstanceId?: string | null;
 }
 
@@ -33,9 +33,9 @@ export function InstanceSelectorModal({
   open,
   onOpenChange,
   onSelectInstance,
-  onConfigureInstance,
   selectedInstanceId,
 }: InstanceSelectorModalProps) {
+  const [, setLocation] = useLocation();
   const [showInactive, setShowInactive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -47,8 +47,13 @@ export function InstanceSelectorModal({
     enabled: open,
   });
 
-  // 🚀 Filtrar instâncias por nome ou número baseado na busca
+  // 🚀 Filtrar instâncias por nome ou número baseado na busca e status de conexão
   const filteredInstances = instances.filter((instance) => {
+    // Se não está mostrando inativas, mostrar apenas instâncias conectadas
+    if (!showInactive && instance.connectionStatus !== "open") {
+      return false;
+    }
+
     const searchLower = searchQuery.toLowerCase().trim();
     if (!searchLower) return true;
 
@@ -211,21 +216,20 @@ export function InstanceSelectorModal({
                   >
                     {selectedInstanceId === instance.id ? "Selecionada" : "Selecionar"}
                   </Button>
-                  {onConfigureInstance && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="secondary"
-                      className="h-9 w-9"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onConfigureInstance(instance);
-                      }}
-                      title="Configurar instância"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    className="h-9 w-9"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setLocation(`/chat/instance-settings/${instance.id}`);
+                      onOpenChange(false);
+                    }}
+                    title="Configurar instância"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
                 </div>
                     </div>
                   </TooltipTrigger>

@@ -26,6 +26,7 @@ import Login from "@/pages/login";
 import Logout from "@/pages/logout";
 import AuthCallback from "@/pages/auth-callback";
 import NotFound from "@/pages/not-found";
+import { InstanceSettingsPage } from "@/pages/instance-settings";
 
 function ProtectedRoutes() {
   const { isAuthenticated, hasHydrated } = useAuth();
@@ -62,6 +63,7 @@ function ProtectedRoutes() {
             <Switch>
               <Route path="/" component={Monitoring} />
               <Route path="/chat" component={WhatsApp} />
+              <Route path="/chat/instance-settings/:instanceId" component={InstanceSettingsPage} />
               <Route path="/tickets" component={Tickets} />
               <Route path="/dashboard" component={Dashboard} />
               <Route path="/audit" component={Audit} />

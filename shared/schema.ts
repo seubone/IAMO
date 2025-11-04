@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, decimal, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -25,6 +25,39 @@ export const ias = pgTable("ias", {
   tags: text("tags").array(),
   parameters: jsonb("parameters"), // AI parameters, prompts, configs
   statusHistory: jsonb("status_history"), // Audit trail of status transitions
+
+  // AI Name and Consultant Name (with prefixes)
+  aiName: varchar("ai_name", { length: 100 }), // e.g., "Maria Luzia" (uppercase surname)
+  consultantName: varchar("consultant_name", { length: 100 }), // e.g., "Maria luzia" (lowercase surname initial)
+
+  // N8N Workflow Configuration
+  n8nWorkflowId: varchar("n8n_workflow_id", { length: 255 }), // N8N workflow ID
+  n8nWorkflowName: varchar("n8n_workflow_name", { length: 255 }), // N8N workflow name
+  n8nWebhookUrl: text("n8n_webhook_url"), // Webhook URL for triggers
+  n8nTriggerType: varchar("n8n_trigger_type", { length: 50 }), // webhook, schedule, manual, etc
+  n8nLastExecutionTimestamp: timestamp("n8n_last_execution_timestamp"), // Last execution time
+  n8nConfig: jsonb("n8n_config"), // Additional N8N configuration
+
+  // Pause Schedule
+  pauseUntil: timestamp("pause_until"), // When to resume if paused
+  pauseReason: varchar("pause_reason", { length: 255 }), // Why it was paused
+
+  // Message Formatting
+  messagePrefixTemplate: text("message_prefix_template").default("*{name}:*\n"), // Message prefix template
+  useAiPrefix: boolean("use_ai_prefix").default(true), // Whether to use prefix for AI
+  useConsultantPrefix: boolean("use_consultant_prefix").default(true), // Whether to use prefix for consultant
+
+  // Additional Configuration
+  description: text("description"), // Detailed description
+  avatarUrl: text("avatar_url"), // Avatar/profile picture
+  category: varchar("category", { length: 50 }), // sales, support, marketing, billing, etc
+  modelVersion: varchar("model_version", { length: 50 }), // AI model version
+  performanceScore: decimal("performance_score", { precision: 5, scale: 2 }), // 0-100 score
+
+  // Metadata
+  lastModifiedBy: varchar("last_modified_by", { length: 255 }), // User ID who modified
+  lastModifiedAt: timestamp("last_modified_at"), // When it was last modified
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

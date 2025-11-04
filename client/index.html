@@ -13,6 +13,22 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Script de inicialização do tema ANTES do React carregar
+      // Isso evita o "flash" de tema incorreto ao recarregar
+      (function() {
+        try {
+          const saved = localStorage.getItem("theme");
+          const theme = (saved === "light" || saved === "dark") ? saved : "light";
+          document.documentElement.classList.add(theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {
+          // Se localStorage não funcionar, deixar padrão
+          document.documentElement.classList.add("light");
+          document.documentElement.style.colorScheme = "light";
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

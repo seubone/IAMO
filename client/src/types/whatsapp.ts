@@ -32,6 +32,7 @@ export interface EvolutionMessage {
     participant?: string;
   };
   pushName?: string;
+  senderType?: 'consultant' | 'bot' | 'user';
   participant?: string;
   messageType: string;
   message: {
