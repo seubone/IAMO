@@ -16,10 +16,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { queryClient } from "@/lib/queryClient";
-import { iaAPI, actionsAPI } from "@/lib/api";
+import { aiDataAPI, ticketAPI, actionsAPI } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useClearCache } from "@/hooks/use-clear-cache";
-import type { IA, Ticket, Action } from "@shared/schema";
+import type { BotInstanceConfig } from "@shared/bot-instance.types";
+import type { Ticket, Action } from "@shared/schema";
+
+// Mapeia o status da API para o status do componente
+const mapStatus = (ia: BotInstanceConfig): "active" | "paused" | "inactive" => {
+  if (!ia.has_bot_enabled) {
+    return "inactive";
+  }
+  if (ia.bot_paused) {
+    return "paused";
+  }
+  return "active";
+};
 
 export default function Monitoring() {
   const [selectedTicket, setSelectedTicket] = useState<TicketCardType | null>(null);
@@ -27,41 +39,30 @@ export default function Monitoring() {
   const [pendingAction, setPendingAction] = useState<"activate" | "pause" | "deactivate" | null>(null);
   const { toast } = useToast();
 
-  // Clear cache when component mounts to refresh data
-  useClearCache([["/api/ias"], ["/api/tickets"], ["/api/actions"]]);
+  useClearCache([["/api/ai-data"], ["/api/tickets"], ["/api/actions"]]);
 
-  const { data: ias = [], isLoading: iasLoading } = useQuery<IA[]>({
-    queryKey: ["/api/ias"],
+  const { data: ias = [], isLoading: iasLoading } = useQuery<BotInstanceConfig[]>({
+    queryKey: ["/api/ai-data"],
+    queryFn: () => aiDataAPI.getAll(),
   });
 
   const { data: tickets = [], isLoading: ticketsLoading } = useQuery<Ticket[]>({
     queryKey: ["/api/tickets"],
+    queryFn: () => ticketAPI.getAll(),
   });
 
   const { data: actions = [], isLoading: actionsLoading } = useQuery<Action[]>({
     queryKey: ["/api/actions"],
+    queryFn: () => actionsAPI.getAll(),
   });
 
   const updateIAStatusMutation = useMutation({
-    mutationFn: ({ iaId, status, reason }: { iaId: string; status: string; reason: string }) =>
-      iaAPI.updateStatus(iaId, status, reason),
-    onSuccess: (_, variables) => {
-      // Invalidação granular: apenas queries relacionadas a esta IA específica
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/ias"],
-        exact: true 
-      });
-      
-      // Invalidar apenas ações relacionadas a esta IA
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey;
-          return Array.isArray(key) && 
-                 key[0] === "/api/actions" && 
-                 (key.length === 1 || key[1] === variables.iaId);
-        }
-      });
-      
+    mutationFn: (data: { iaId: number; payload: Partial<BotInstanceConfig> }) =>
+      aiDataAPI.update(data.iaId, data.payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-data"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/actions"] });
+
       toast({
         title: "Status atualizado",
         description: "O status da IA foi alterado com sucesso.",
@@ -78,50 +79,44 @@ export default function Monitoring() {
     },
   });
 
-  const iaTickerItems: IATickerItem[] = useMemo(() => {
-    return ias.map((ia) => ({
-      id: ia.id,
-      name: ia.name,
-      status: ia.status as "active" | "paused" | "inactive",
-    }));
-  }, [ias]);
+  const iaTickerItems: IATickerItem[] = ias.map((ia) => ({
+    id: String(ia.id),
+    name: ia.bot_name || `Instância ${ia.instance_number}`,
+    status: mapStatus(ia),
+  }));
 
-  const ticketCards: TicketCardType[] = useMemo(() => {
-    return tickets.map((ticket) => {
-      const ia = ias.find((ia) => ia.id === ticket.iaId);
-      return {
-        id: ticket.id,
-        iaName: ia?.name || "IA Desconhecida",
-        iaId: ticket.iaId,
-        attendanceId: ticket.attendanceId,
-        errorType: ticket.errorType as "automation" | "prompt" | "negotiation",
-        severity: ticket.severity as "low" | "medium" | "high" | "critical",
-        message: ticket.message,
-        suggestion: ticket.suggestion || undefined,
-        origin: ticket.origin,
-        createdAt: typeof ticket.createdAt === "string" ? ticket.createdAt : new Date(ticket.createdAt).toISOString(),
-        status: ticket.status as "new" | "in_progress" | "resolved",
-      };
-    });
-  }, [tickets, ias]);
+  const ticketCards: TicketCardType[] = tickets.map((ticket) => {
+    const ia = ias.find((ia) => String(ia.id) === ticket.iaId || ia.instance_number === ticket.iaId);
+    return {
+      id: ticket.id,
+      iaName: ia?.bot_name || "IA Desconhecida",
+      iaId: ticket.iaId,
+      attendanceId: ticket.attendanceId,
+      errorType: ticket.errorType as "automation" | "prompt" | "negotiation",
+      severity: ticket.severity as "low" | "medium" | "high" | "critical",
+      message: ticket.message,
+      suggestion: ticket.suggestion || undefined,
+      origin: ticket.origin,
+      createdAt: typeof ticket.createdAt === "string" ? ticket.createdAt : new Date(ticket.createdAt).toISOString(),
+      status: ticket.status as "new" | "in_progress" | "resolved",
+    };
+  });
 
-  const selectedIA = useMemo(() => {
-    if (!selectedTicket) return null;
-    return ias.find((ia) => ia.id === selectedTicket.iaId);
-  }, [selectedTicket, ias]);
+  const selectedIA = selectedTicket
+    ? ias.find((ia) => String(ia.id) === selectedTicket.iaId || ia.instance_number === selectedTicket.iaId)
+    : null;
 
-  const selectedIAActions: IAAction[] = useMemo(() => {
-    if (!selectedIA) return [];
-    return actions
-      .filter((action) => action.iaId === selectedIA.id)
-      .map((action) => ({
-        id: action.id,
-        action: action.action,
-        user: action.userId,
-        reason: action.reason,
-        timestamp: typeof action.createdAt === "string" ? action.createdAt : new Date(action.createdAt).toISOString(),
-      }));
-  }, [selectedIA, actions]);
+  const selectedIAActions: IAAction[] = selectedIA
+    ? actions
+        .filter((action) => action.iaId === String(selectedIA.id) || action.iaId === selectedIA.instance_number)
+        .map((action) => ({
+          id: action.id,
+          action: action.action,
+          user: action.userId,
+          reason: action.reason,
+          timestamp: typeof action.createdAt === "string" ? action.createdAt : new Date(action.createdAt).toISOString(),
+        }))
+    : [];
 
   const handleStatusAction = (action: "activate" | "pause" | "deactivate") => {
     setPendingAction(action);
@@ -131,17 +126,21 @@ export default function Monitoring() {
   const handleConfirmStatusChange = (reason: string) => {
     if (!selectedIA || !pendingAction) return;
 
-    const statusMap = {
-      activate: "active",
-      pause: "paused",
-      deactivate: "inactive",
-    };
+    let payload: Partial<BotInstanceConfig> = {};
 
-    updateIAStatusMutation.mutate({
-      iaId: selectedIA.id,
-      status: statusMap[pendingAction],
-      reason,
-    });
+    switch (pendingAction) {
+      case "activate":
+        payload = { has_bot_enabled: true, bot_paused: false };
+        break;
+      case "pause":
+        payload = { has_bot_enabled: true, bot_paused: true };
+        break;
+      case "deactivate":
+        payload = { has_bot_enabled: false, bot_paused: false };
+        break;
+    }
+
+    updateIAStatusMutation.mutate({ iaId: selectedIA.id!, payload });
   };
 
   return (
@@ -205,8 +204,8 @@ export default function Monitoring() {
               <IADetailSkeleton />
             ) : (
               <IADetailPanel
-                iaName={selectedIA.name}
-                status={selectedIA.status as "active" | "paused" | "inactive"}
+                iaName={selectedIA.bot_name || "IA Desconhecida"}
+                status={mapStatus(selectedIA)}
                 onActivate={() => handleStatusAction("activate")}
                 onPause={() => handleStatusAction("pause")}
                 onDeactivate={() => handleStatusAction("deactivate")}
@@ -217,7 +216,7 @@ export default function Monitoring() {
         ) : null}
       </div>
 
-      {selectedIA && (
+      {dialogOpen && selectedIA && (
         <IAStatusDialog
           isOpen={dialogOpen}
           onClose={() => {
@@ -225,7 +224,7 @@ export default function Monitoring() {
             setPendingAction(null);
           }}
           onConfirm={handleConfirmStatusChange}
-          iaName={selectedIA.name}
+          iaName={selectedIA.bot_name || "IA Desconhecida"}
           action={pendingAction || "activate"}
           isLoading={updateIAStatusMutation.isPending}
         />
@@ -233,3 +232,4 @@ export default function Monitoring() {
     </div>
   );
 }
+

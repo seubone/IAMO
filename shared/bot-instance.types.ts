@@ -12,6 +12,7 @@ export interface BotInstanceConfig {
   instance_number: string;
   instance_remote_jid?: string | null;
   has_bot_enabled: boolean;
+  bot_paused: boolean; // Novo campo para estado de pausa
   bot_name?: string | null;
   consultant_name?: string | null;
   bot_activity?: string | null;

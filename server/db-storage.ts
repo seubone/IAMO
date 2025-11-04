@@ -10,14 +10,12 @@ import {
   messages,
   metrics,
   type User,
-  type IA,
   type Ticket,
   type Action,
   type Conversation,
   type Message,
   type Metric,
   type InsertUser,
-  type InsertIA,
   type InsertTicket,
   type InsertAction,
   type InsertConversation,
@@ -56,37 +54,6 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  // IAs
-  async getAllIAs(): Promise<IA[]> {
-    return await db.select().from(ias).orderBy(desc(ias.createdAt));
-  }
-
-  async getIA(id: string): Promise<IA | undefined> {
-    const result = await db.select().from(ias).where(eq(ias.id, id));
-    return result[0];
-  }
-
-  async createIA(data: InsertIA): Promise<IA> {
-    const result = await db.insert(ias).values(data).returning();
-    return result[0];
-  }
-
-  async updateIA(id: string, data: Partial<InsertIA>): Promise<IA | undefined> {
-    const result = await db
-      .update(ias)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(ias.id, id))
-      .returning();
-    return result[0];
-  }
-
-  async deleteIA(id: string): Promise<boolean> {
-    const result = await db
-      .delete(ias)
-      .where(eq(ias.id, id))
-      .returning();
-    return result.length > 0;
-  }
 
   // Tickets
   async getAllTickets(): Promise<Ticket[]> {

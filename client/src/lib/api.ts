@@ -67,23 +67,41 @@ export function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
-// IA API
-export const iaAPI = {
+// AI Data API (bot_instances)
+export const aiDataAPI = {
   getAll: () =>
-    apiRequest("/api/ias", {
+    apiRequest("/api/ai-data", {
       headers: getAuthHeaders(),
     }),
 
-  getById: (id: string) =>
-    apiRequest(`/api/ias/${id}`, {
+  getById: (id: number) =>
+    apiRequest(`/api/ai-data/${id}`, {
       headers: getAuthHeaders(),
     }),
 
-  updateStatus: (id: string, status: string, reason: string) =>
-    apiRequest(`/api/ias/${id}`, {
+  getByInstance: (instanceNumber: string) =>
+    apiRequest(`/api/ai-data/instance/${instanceNumber}`, {
+      headers: getAuthHeaders(),
+    }),
+
+  create: (data: Partial<BotInstanceConfig>) =>
+    apiRequest("/api/ai-data", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: Partial<BotInstanceConfig>) =>
+    apiRequest(`/api/ai-data/${id}`, {
       method: "PATCH",
       headers: getAuthHeaders(),
-      body: JSON.stringify({ status, reason }),
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    apiRequest(`/api/ai-data/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
     }),
 };
 

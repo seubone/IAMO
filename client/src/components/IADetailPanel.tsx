@@ -1,5 +1,5 @@
+import { IAConversationStatusBadge } from "@/components/IAConversationStatusBadge";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Play, Pause, XCircle, Clock, User } from "lucide-react";
@@ -40,9 +40,7 @@ export function IADetailPanel({
           <h2 className="text-lg font-semibold font-heading" data-testid="ia-detail-name">
             {iaName}
           </h2>
-          <Badge className={statusConfig.badgeColor} data-testid="ia-detail-status">
-            {statusConfig.label}
-          </Badge>
+          <IAConversationStatusBadge status={status} />
         </div>
 
         <div className="flex flex-col gap-2">

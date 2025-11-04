@@ -7,7 +7,7 @@ import { requirePermission, requireRole } from "./middleware/rbac";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { insertUserSchema, insertIASchema, insertTicketSchema, insertActionSchema, insertConversationSchema, insertMessageSchema } from "@shared/schema";
+import { insertUserSchema, insertTicketSchema, insertActionSchema, insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
 import { supabase } from "./supabase";
 import { getUazapiTokenByInstanceNumber } from "./uazapi-supabase";
@@ -723,82 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============ IA ROUTES ============
   
-  // Get all IAs
-  app.get("/api/ias", authMiddleware, requirePermission("ias:read"), async (req, res) => {
-    const ias = await storage.getAllIAs();
-    res.json(ias);
-  });
-
-  // Get single IA
-  app.get("/api/ias/:id", authMiddleware, requirePermission("ias:read"), async (req, res) => {
-    const ia = await storage.getIA(req.params.id);
-    if (!ia) {
-      return res.status(404).json({ error: "IA não encontrada" });
-    }
-    res.json(ia);
-  });
-
-  // Create IA
-  app.post("/api/ias", authMiddleware, requireRole("admin"), async (req, res) => {
-    try {
-      const data = insertIASchema.parse(req.body);
-      const ia = await storage.createIA(data);
-      
-      broadcast({ type: "ia_created", data: ia });
-      res.status(201).json(ia);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Update IA status
-  app.patch("/api/ias/:id", authMiddleware, requirePermission("ias:update"), async (req: AuthRequest, res) => {
-    try {
-      const { status, reason } = req.body;
-      
-      const ia = await storage.updateIA(req.params.id, { status });
-      if (!ia) {
-        return res.status(404).json({ error: "IA não encontrada" });
-      }
-
-      // Create audit action
-      let actionName = "";
-      if (status === "active") actionName = "IA Ativada";
-      else if (status === "paused") actionName = "IA Pausada";
-      else if (status === "inactive") actionName = "IA Inativada";
-
-      if (actionName && reason) {
-        await storage.createAction({
-          iaId: ia.id,
-          userId: req.user!.id,
-          action: actionName,
-          reason,
-        });
-      }
-
-      broadcast({ type: "ia_updated", data: ia });
-      res.json(ia);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Delete IA
-  app.delete("/api/ias/:id", authMiddleware, requireRole("admin"), async (req, res) => {
-    try {
-      const deleted = await storage.deleteIA(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ error: "IA não encontrada" });
-      }
-      
-      broadcast({ type: "ia_deleted", data: { id: req.params.id } });
-      res.status(204).send();
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
 
   // ============ TICKET ROUTES ============
   
@@ -1168,16 +1093,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Importar MediaExpiredError para verificação
       const { MediaExpiredError } = await import("./whatsapp-media-decrypt");
 
-      // Tratar erro de mídia expirada com HTTP 410 (Gone)
-      if (error instanceof MediaExpiredError || error.name === 'MediaExpiredError') {
-        console.warn(`⏰ Mídia expirada ou deletada para messageId ${req.params.messageId}`);
+      // Tratar erro de mídia expirada (410 Gone ou 403 Forbidden)
+      if (error instanceof MediaExpiredError || error.name === 'MediaExpiredError' || (error.message && error.message.includes('403')) ) {
+        console.warn(`⏰ Mídia expirada ou inacessível para messageId ${req.params.messageId}`);
         console.warn(`   Razão: ${error.message}`);
-        console.warn(`   As URLs de mídia do WhatsApp expiram após ~24 horas`);
         return res.status(410).json({
-          error: "Mídia expirada ou deletada",
-          message: "Esta mídia não está mais disponível. As URLs do WhatsApp expiram após aproximadamente 24 horas.",
+          error: "Mídia expirada ou inacessível",
+          message: "Esta mídia não está mais disponível. As URLs do WhatsApp expiram ou o acesso foi negado.",
           expired: true,
-          type: "MEDIA_EXPIRED"
+          type: "MEDIA_EXPIRED_OR_FORBIDDEN"
         });
       }
 

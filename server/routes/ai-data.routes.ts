@@ -76,21 +76,22 @@ export function registerAIDataRoutes(app: Express) {
         description,
         n8n_webhook_url,
         api_token,
+        bot_paused,
       } = req.body;
 
       const updateData: any = {};
 
-      // Map from API request to bot_instances table columns
+      // Mapeia a requisição da API para as colunas da tabela bot_instances
       if (ai_name !== undefined) updateData.bot_name = ai_name;
       if (consultant_name !== undefined) updateData.consultant_name = consultant_name;
       if (description !== undefined) updateData.bot_activity = description;
       if (n8n_webhook_url !== undefined) updateData.n8n_webhook_url = n8n_webhook_url;
       if (api_token !== undefined) updateData.api_token = api_token;
+      if (bot_paused !== undefined) updateData.bot_paused = bot_paused;
 
-      // Auto-enable bot se ai_name for fornecido e válido
-      if (ai_name !== undefined) {
-        const shouldEnableBot = !!(ai_name && ai_name.trim().length > 0);
-        updateData.has_bot_enabled = shouldEnableBot;
+      // Lógica para habilitar/desabilitar o bot
+      if (req.body.hasOwnProperty('has_bot_enabled')) {
+        updateData.has_bot_enabled = req.body.has_bot_enabled;
       }
 
       updateData.updated_at = new Date().toISOString();

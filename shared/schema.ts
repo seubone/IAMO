@@ -17,55 +17,12 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// IAs
-export const ias = pgTable("ias", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  status: text("status").notNull().default("active"), // active, paused, inactive
-  tags: text("tags").array(),
-  parameters: jsonb("parameters"), // AI parameters, prompts, configs
-  statusHistory: jsonb("status_history"), // Audit trail of status transitions
 
-  // AI Name and Consultant Name (with prefixes)
-  aiName: varchar("ai_name", { length: 100 }), // e.g., "Maria Luzia" (uppercase surname)
-  consultantName: varchar("consultant_name", { length: 100 }), // e.g., "Maria luzia" (lowercase surname initial)
-
-  // N8N Workflow Configuration
-  n8nWorkflowId: varchar("n8n_workflow_id", { length: 255 }), // N8N workflow ID
-  n8nWorkflowName: varchar("n8n_workflow_name", { length: 255 }), // N8N workflow name
-  n8nWebhookUrl: text("n8n_webhook_url"), // Webhook URL for triggers
-  n8nTriggerType: varchar("n8n_trigger_type", { length: 50 }), // webhook, schedule, manual, etc
-  n8nLastExecutionTimestamp: timestamp("n8n_last_execution_timestamp"), // Last execution time
-  n8nConfig: jsonb("n8n_config"), // Additional N8N configuration
-
-  // Pause Schedule
-  pauseUntil: timestamp("pause_until"), // When to resume if paused
-  pauseReason: varchar("pause_reason", { length: 255 }), // Why it was paused
-
-  // Message Formatting
-  messagePrefixTemplate: text("message_prefix_template").default("*{name}:*\n"), // Message prefix template
-  useAiPrefix: boolean("use_ai_prefix").default(true), // Whether to use prefix for AI
-  useConsultantPrefix: boolean("use_consultant_prefix").default(true), // Whether to use prefix for consultant
-
-  // Additional Configuration
-  description: text("description"), // Detailed description
-  avatarUrl: text("avatar_url"), // Avatar/profile picture
-  category: varchar("category", { length: 50 }), // sales, support, marketing, billing, etc
-  modelVersion: varchar("model_version", { length: 50 }), // AI model version
-  performanceScore: decimal("performance_score", { precision: 5, scale: 2 }), // 0-100 score
-
-  // Metadata
-  lastModifiedBy: varchar("last_modified_by", { length: 255 }), // User ID who modified
-  lastModifiedAt: timestamp("last_modified_at"), // When it was last modified
-
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 // Tickets
 export const tickets = pgTable("tickets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  iaId: varchar("ia_id").notNull().references(() => ias.id),
+  iaId: varchar("ia_id").notNull(),
   attendanceId: text("attendance_id").notNull(),
   errorType: text("error_type").notNull(), // automation, prompt, negotiation
   severity: text("severity").notNull(), // low, medium, high, critical
@@ -79,7 +36,7 @@ export const tickets = pgTable("tickets", {
 // Actions (Audit Log)
 export const actions = pgTable("actions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  iaId: varchar("ia_id").notNull().references(() => ias.id),
+  iaId: varchar("ia_id").notNull(),
   userId: varchar("user_id").notNull().references(() => users.id),
   action: text("action").notNull(), // IA Ativada, IA Pausada, IA Inativada
   reason: text("reason").notNull(),
@@ -163,7 +120,7 @@ export const contactMetadata = pgTable("contact_metadata", {
 
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertIASchema = createInsertSchema(ias).omit({ id: true, createdAt: true, updatedAt: true });
+
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true });
 export const insertActionSchema = createInsertSchema(actions).omit({ id: true, createdAt: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
@@ -178,9 +135,6 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertContactMetadata = z.infer<typeof insertContactMetadataSchema>;
 export type ContactMetadata = typeof contactMetadata.$inferSelect;
-
-export type InsertIA = z.infer<typeof insertIASchema>;
-export type IA = typeof ias.$inferSelect;
 
 export type InsertTicket = z.infer<typeof insertTicketSchema>;
 export type Ticket = typeof tickets.$inferSelect;

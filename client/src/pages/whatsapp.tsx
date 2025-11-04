@@ -58,6 +58,9 @@ import {
   deleteMessageDraft,
 } from "@/lib/storage";
 
+import { IAConversationStatusBadge } from "@/components/IAConversationStatusBadge";
+import { IAConversationActions } from "@/components/IAConversationActions";
+
 interface ParticipantProfile {
   displayName: string;
   profilePicUrl?: string | null;
@@ -177,6 +180,7 @@ export default function WhatsApp() {
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const [isInstanceSettingsDialogOpen, setIsInstanceSettingsDialogOpen] = useState(false);
   const [instanceSettingsContext, setInstanceSettingsContext] = useState<{ number?: string; name?: string } | null>(null);
+  const [iaStatusForChat, setIaStatusForChat] = useState<'active' | 'paused' | 'inactive'>('active'); // Placeholder para o status da IA na conversa
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -1168,28 +1172,46 @@ export default function WhatsApp() {
                           {selectedChat?.remoteJid}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (messageSearchQuery) {
-                            setMessageSearchQuery("");
-                          } else {
-                            document.getElementById('message-search-input')?.focus();
-                          }
-                        }}
-                        data-testid="button-search-messages"
-                      >
-                        {messageSearchQuery ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setIsContactMetadataDialogOpen(true)}
-                        data-testid="button-contact-metadata"
-                      >
-                        <Tag className="h-5 w-5" />
-                      </Button>
+                      <div className="ml-auto flex items-center gap-2">
+                        <IAConversationStatusBadge status={iaStatusForChat} />
+                        <IAConversationActions 
+                          status={iaStatusForChat}
+                          onActivate={() => {
+                            setIaStatusForChat('active');
+                            toast({ title: "IA Ativada para esta conversa." });
+                          }}
+                          onPause={() => {
+                            setIaStatusForChat('paused');
+                            toast({ title: "IA Pausada para esta conversa." });
+                          }}
+                          onDeactivate={() => {
+                            setIaStatusForChat('inactive');
+                            toast({ title: "IA Desativada para esta conversa.", variant: "destructive" });
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (messageSearchQuery) {
+                              setMessageSearchQuery("");
+                            } else {
+                              document.getElementById('message-search-input')?.focus();
+                            }
+                          }}
+                          data-testid="button-search-messages"
+                        >
+                          {messageSearchQuery ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setIsContactMetadataDialogOpen(true)}
+                          data-testid="button-contact-metadata"
+                        >
+                          <Tag className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </div>
                     {messageSearchQuery !== null && (
                       <div className="px-4 pb-3">
