@@ -1094,7 +1094,7 @@ export default function WhatsApp() {
           <>
             {/* Chat List Sidebar with Resizable Handle */}
             <div
-              className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative bg-sidebar`}
+              className={`${selectedChatJid ? 'hidden md:flex' : 'flex'} relative`}
               style={{
                 width: `${sidebarWidth}px`,
               }}
