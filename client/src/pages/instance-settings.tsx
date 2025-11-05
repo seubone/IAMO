@@ -346,7 +346,7 @@ export function InstanceSettingsPage() {
             <TabsList className="grid w-full grid-cols-3 mb-6 border-b-0">
               <TabsTrigger value="general">Ajustes da IA</TabsTrigger>
               <TabsTrigger value="integrations">Integrações</TabsTrigger>
-              <TabsTrigger value="credentials">Credenciais</TabsTrigger>
+              <TabsTrigger value="credentials">Credenciais IA</TabsTrigger>
             </TabsList>
 
             {/* Aba: Ajustes da IA */}
