@@ -30,7 +30,7 @@
 
   --card-border: 0 0% 92%;
 
-  --sidebar: 0 0% 98%;
+  --sidebar: 0 0% 100%;
 
   --sidebar-foreground: 0 0% 4%;
 
@@ -141,7 +141,7 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 240 5% 4%;
+  --background: 237 17% 4.5%;
 
   --foreground: 0 0% 96%;
 
@@ -153,7 +153,7 @@
 
   --card-border: 240 4% 12%;
 
-  --sidebar: 240 4% 6%;
+  --sidebar: 237 17% 4.5%;
 
   --sidebar-foreground: 0 0% 96%;
 
