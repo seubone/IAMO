@@ -534,63 +534,50 @@ export function InstanceSettingsPage() {
 
             {/* Aba: Credenciais (Token Uazapi) */}
             <TabsContent value="credentials" className="space-y-4">
-              {!recordExists ? (
-                <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
-                  <div className="text-center space-y-2">
-                    <h3 className="text-lg font-semibold">IA Não Criada</h3>
-                    <p className="text-sm text-muted-foreground max-w-xs">
-                      Crie uma IA na aba "Ajustes da IA" para gerenciar credenciais
-                    </p>
+              <div>
+                <h2 className="text-xl font-semibold">Credenciais e Tokens</h2>
+                <p className="text-sm text-muted-foreground">Gerencie chaves de autenticação de APIs</p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Uazapi Token */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="uazapi-token">Token Uazapi</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Chave de autenticação para API Uazapi (mantida criptografada)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="uazapi-token"
+                    type="password"
+                    value={uazapiToken}
+                    onChange={(e) => setUazapiToken(e.target.value)}
+                    placeholder="Sua chave de autenticação Uazapi"
+                    disabled={saveMutation.isPending}
+                    className="border-0 bg-muted/50 dark:bg-muted/30"
+                  />
+                  <p className="text-xs text-muted-foreground">Opcional - Mantido de forma segura no banco de dados</p>
+                </div>
+
+                {/* Avisos de Segurança */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    🔒 Informações de Segurança
+                  </h3>
+                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 space-y-2 text-xs">
+                    <p>• Seus tokens e chaves são criptografados no banco de dados</p>
+                    <p>• Nunca compartilhe suas credenciais com outras pessoas</p>
+                    <p>• Se suspeitar de comprometimento, regenere o token imediatamente</p>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <h2 className="text-xl font-semibold">Credenciais e Tokens</h2>
-                    <p className="text-sm text-muted-foreground">Gerencie chaves de autenticação de APIs</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Uazapi Token */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Key className="h-4 w-4 text-muted-foreground" />
-                        <Label htmlFor="uazapi-token">Token Uazapi</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="max-w-xs">Chave de autenticação para API Uazapi (mantida criptografada)</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <Input
-                        id="uazapi-token"
-                        type="password"
-                        value={uazapiToken}
-                        onChange={(e) => setUazapiToken(e.target.value)}
-                        placeholder="Sua chave de autenticação Uazapi"
-                        disabled={saveMutation.isPending}
-                        className="border-0 bg-muted/50 dark:bg-muted/30"
-                      />
-                      <p className="text-xs text-muted-foreground">Opcional - Mantido de forma segura no banco de dados</p>
-                    </div>
-
-                    {/* Avisos de Segurança */}
-                    <div className="mt-6 pt-6 border-t">
-                      <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                        🔒 Informações de Segurança
-                      </h3>
-                      <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 space-y-2 text-xs">
-                        <p>• Seus tokens e chaves são criptografados no banco de dados</p>
-                        <p>• Nunca compartilhe suas credenciais com outras pessoas</p>
-                        <p>• Se suspeitar de comprometimento, regenere o token imediatamente</p>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+              </div>
             </TabsContent>
           </Tabs>
         </div>
