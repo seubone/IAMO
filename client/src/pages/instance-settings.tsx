@@ -343,7 +343,7 @@ export function InstanceSettingsPage() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           {/* Abas */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6 border-b-0">
               <TabsTrigger value="general">Ajustes da IA</TabsTrigger>
               <TabsTrigger value="integrations">Integrações</TabsTrigger>
               <TabsTrigger value="credentials">Credenciais</TabsTrigger>
