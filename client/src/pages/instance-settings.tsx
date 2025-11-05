@@ -305,7 +305,7 @@ export function InstanceSettingsPage() {
             </div>
           </div>
 
-          {/* Botão Verificar Registro */}
+          {/* Botão Criar IA */}
           {!recordExists ? (
             <Button
               variant="secondary"
@@ -316,12 +316,12 @@ export function InstanceSettingsPage() {
               {createRecordMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Verificando...
+                  Criando...
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4 mr-2" />
-                  Verificar Registro
+                  Criar IA
                 </>
               )}
             </Button>
@@ -332,7 +332,7 @@ export function InstanceSettingsPage() {
               size="sm"
             >
               <Check className="h-4 w-4 mr-2 text-green-600" />
-              Registro Existe
+              IA Criada
             </Button>
           )}
         </div>
@@ -344,20 +344,20 @@ export function InstanceSettingsPage() {
           {/* Abas */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="general">Geral</TabsTrigger>
+              <TabsTrigger value="general">Ajustes da IA</TabsTrigger>
               <TabsTrigger value="integrations">Integrações</TabsTrigger>
               <TabsTrigger value="credentials">Credenciais</TabsTrigger>
             </TabsList>
 
-            {/* Aba: Geral */}
+            {/* Aba: Ajustes da IA */}
             <TabsContent value="general" className="space-y-4">
               {!recordExists ? (
-                // Estado vazio: Sem bot registrado
+                // Estado vazio: Sem IA criada
                 <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
                   <div className="text-center space-y-2">
-                    <h3 className="text-lg font-semibold">Nenhum Bot Registrado</h3>
+                    <h3 className="text-lg font-semibold">Nenhuma IA Criada</h3>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                      Atribua um bot a esta instância para começar a usar as configurações de IA
+                      Crie uma IA para esta instância para começar a usar as configurações
                     </p>
                   </div>
                   <Button
@@ -373,7 +373,7 @@ export function InstanceSettingsPage() {
                     ) : (
                       <>
                         <Plus className="h-4 w-4 mr-2" />
-                        Atribuir Bot
+                        Criar IA
                       </>
                     )}
                   </Button>
@@ -489,9 +489,9 @@ export function InstanceSettingsPage() {
               {!recordExists ? (
                 <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
                   <div className="text-center space-y-2">
-                    <h3 className="text-lg font-semibold">Bot Não Atribuído</h3>
+                    <h3 className="text-lg font-semibold">IA Não Criada</h3>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                      Atribua um bot na aba "Geral" para configurar integrações
+                      Crie uma IA na aba "Ajustes da IA" para configurar integrações
                     </p>
                   </div>
                 </div>
@@ -537,9 +537,9 @@ export function InstanceSettingsPage() {
               {!recordExists ? (
                 <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
                   <div className="text-center space-y-2">
-                    <h3 className="text-lg font-semibold">Bot Não Atribuído</h3>
+                    <h3 className="text-lg font-semibold">IA Não Criada</h3>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                      Atribua um bot na aba "Geral" para gerenciar credenciais
+                      Crie uma IA na aba "Ajustes da IA" para gerenciar credenciais
                     </p>
                   </div>
                 </div>
