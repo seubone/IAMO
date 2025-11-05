@@ -351,188 +351,246 @@ export function InstanceSettingsPage() {
 
             {/* Aba: Geral */}
             <TabsContent value="general" className="space-y-4">
-              <div>
-                <h2 className="text-xl font-semibold">Informações Básicas</h2>
-                <p className="text-sm text-muted-foreground">Configure os dados principais da IA</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="ai-name">Nome da IA *</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">Insira o nome completo da IA com maiúsculas (ex: Maria Luzia)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Input
-                    id="ai-name"
-                    value={aiName}
-                    onChange={(e) => {
-                      setAiName(e.target.value);
-                      if (validationErrors.aiName) {
-                        setValidationErrors({ ...validationErrors, aiName: "" });
-                      }
-                    }}
-                    placeholder="Ex: Maria Luzia"
-                    disabled={saveMutation.isPending}
-                    className={`text-base border-0 bg-muted/50 dark:bg-muted/30 ${
-                      validationErrors.aiName ? "border-red-500 border" : ""
-                    }`}
-                  />
-                  {validationErrors.aiName ? (
-                    <p className="text-xs text-red-600 dark:text-red-400">{validationErrors.aiName}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Formato: Nome Sobrenome (com iniciais maiúsculas)
+              {!recordExists ? (
+                // Estado vazio: Sem bot registrado
+                <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold">Nenhum Bot Registrado</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Atribua um bot a esta instância para começar a usar as configurações de IA
                     </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{aiName.length}/100</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="consultant-name">Nome do Consultor</Label>
-                  <Input
-                    id="consultant-name"
-                    value={consultantName}
-                    onChange={(e) => setConsultantName(e.target.value)}
-                    placeholder="Gerado automaticamente"
-                    disabled={true}
-                    className="border-0 bg-muted/50 dark:bg-muted/30"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Gerado automaticamente: {aiName ? consultantName : "-"}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => {
-                      setDescription(e.target.value);
-                      if (validationErrors.description) {
-                        setValidationErrors({ ...validationErrors, description: "" });
-                      }
-                    }}
-                    placeholder="Descreva a função desta IA..."
-                    disabled={saveMutation.isPending}
-                    className={`min-h-20 resize-none border-0 bg-muted/50 dark:bg-muted/30 ${
-                      validationErrors.description ? "border-red-500 border" : ""
-                    }`}
-                  />
-                  {validationErrors.description ? (
-                    <p className="text-xs text-red-600 dark:text-red-400">{validationErrors.description}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Opcional</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{description.length}/500</p>
-                </div>
-
-                {/* Preview de Mensagem */}
-                {aiName && (
-                  <div className="mt-6 pt-6 border-t">
-                    <h3 className="text-sm font-semibold mb-3">Preview de Mensagem</h3>
-                    <div className="bg-muted/30 rounded-lg p-4 space-y-2">
-                      <div className="text-xs text-muted-foreground">Como aparecerá no chat:</div>
-                      <div className="bg-background rounded p-3 border border-muted">
-                        <p className="text-sm">
-                          <strong className="font-semibold">{aiName}:</strong>
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">Esta é uma mensagem de exemplo da IA</p>
-                      </div>
-                    </div>
                   </div>
-                )}
-              </div>
+                  <Button
+                    onClick={handleCreateRecord}
+                    disabled={createRecordMutation.isPending}
+                    size="lg"
+                  >
+                    {createRecordMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Atribuir Bot
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                // Estado com formulário: Bot já registrado
+                <>
+                  <div>
+                    <h2 className="text-xl font-semibold">Informações Básicas</h2>
+                    <p className="text-sm text-muted-foreground">Configure os dados principais da IA</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="ai-name">Nome da IA *</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">Insira o nome completo da IA com maiúsculas (ex: Maria Luzia)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        id="ai-name"
+                        value={aiName}
+                        onChange={(e) => {
+                          setAiName(e.target.value);
+                          if (validationErrors.aiName) {
+                            setValidationErrors({ ...validationErrors, aiName: "" });
+                          }
+                        }}
+                        placeholder="Ex: Maria Luzia"
+                        disabled={saveMutation.isPending}
+                        className={`text-base border-0 bg-muted/50 dark:bg-muted/30 ${
+                          validationErrors.aiName ? "border-red-500 border" : ""
+                        }`}
+                      />
+                      {validationErrors.aiName ? (
+                        <p className="text-xs text-red-600 dark:text-red-400">{validationErrors.aiName}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Formato: Nome Sobrenome (com iniciais maiúsculas)
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">{aiName.length}/100</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="consultant-name">Nome do Consultor</Label>
+                      <Input
+                        id="consultant-name"
+                        value={consultantName}
+                        onChange={(e) => setConsultantName(e.target.value)}
+                        placeholder="Gerado automaticamente"
+                        disabled={true}
+                        className="border-0 bg-muted/50 dark:bg-muted/30"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Gerado automaticamente: {aiName ? consultantName : "-"}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Descrição</Label>
+                      <Textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => {
+                          setDescription(e.target.value);
+                          if (validationErrors.description) {
+                            setValidationErrors({ ...validationErrors, description: "" });
+                          }
+                        }}
+                        placeholder="Descreva a função desta IA..."
+                        disabled={saveMutation.isPending}
+                        className={`min-h-20 resize-none border-0 bg-muted/50 dark:bg-muted/30 ${
+                          validationErrors.description ? "border-red-500 border" : ""
+                        }`}
+                      />
+                      {validationErrors.description ? (
+                        <p className="text-xs text-red-600 dark:text-red-400">{validationErrors.description}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Opcional</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">{description.length}/500</p>
+                    </div>
+
+                    {/* Preview de Mensagem */}
+                    {aiName && (
+                      <div className="mt-6 pt-6 border-t">
+                        <h3 className="text-sm font-semibold mb-3">Preview de Mensagem</h3>
+                        <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+                          <div className="text-xs text-muted-foreground">Como aparecerá no chat:</div>
+                          <div className="bg-background rounded p-3 border border-muted">
+                            <p className="text-sm">
+                              <strong className="font-semibold">{aiName}:</strong>
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">Esta é uma mensagem de exemplo da IA</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </TabsContent>
 
             {/* Aba: Integrações */}
             <TabsContent value="integrations" className="space-y-4">
-              <div>
-                <h2 className="text-xl font-semibold">Integrações Externas</h2>
-                <p className="text-sm text-muted-foreground">Configure APIs e serviços externos</p>
-              </div>
-
-              <div className="space-y-4">
-                {/* N8N Workflow URL */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="n8n-workflow">N8N Workflow URL</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">URL do workflow N8N para integração automática</p>
-                      </TooltipContent>
-                    </Tooltip>
+              {!recordExists ? (
+                <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold">Bot Não Atribuído</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Atribua um bot na aba "Geral" para configurar integrações
+                    </p>
                   </div>
-                  <Input
-                    id="n8n-workflow"
-                    type="url"
-                    value={n8nWebhookUrl}
-                    onChange={(e) => setN8nWebhookUrl(e.target.value)}
-                    placeholder="https://n8n.exemplo.com/workflow/..."
-                    disabled={saveMutation.isPending}
-                    className="border-0 bg-muted/50 dark:bg-muted/30"
-                  />
-                  <p className="text-xs text-muted-foreground">Opcional - Pode ser adicionado/atualizado depois</p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <h2 className="text-xl font-semibold">Integrações Externas</h2>
+                    <p className="text-sm text-muted-foreground">Configure APIs e serviços externos</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* N8N Workflow URL */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="n8n-workflow">N8N Workflow URL</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">URL do workflow N8N para integração automática</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        id="n8n-workflow"
+                        type="url"
+                        value={n8nWebhookUrl}
+                        onChange={(e) => setN8nWebhookUrl(e.target.value)}
+                        placeholder="https://n8n.exemplo.com/workflow/..."
+                        disabled={saveMutation.isPending}
+                        className="border-0 bg-muted/50 dark:bg-muted/30"
+                      />
+                      <p className="text-xs text-muted-foreground">Opcional - Pode ser adicionado/atualizado depois</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </TabsContent>
 
             {/* Aba: Credenciais (Token Uazapi) */}
             <TabsContent value="credentials" className="space-y-4">
-              <div>
-                <h2 className="text-xl font-semibold">Credenciais e Tokens</h2>
-                <p className="text-sm text-muted-foreground">Gerencie chaves de autenticação de APIs</p>
-              </div>
-
-              <div className="space-y-4">
-                {/* Uazapi Token */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Key className="h-4 w-4 text-muted-foreground" />
-                    <Label htmlFor="uazapi-token">Token Uazapi</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">Chave de autenticação para API Uazapi (mantida criptografada)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Input
-                    id="uazapi-token"
-                    type="password"
-                    value={uazapiToken}
-                    onChange={(e) => setUazapiToken(e.target.value)}
-                    placeholder="Sua chave de autenticação Uazapi"
-                    disabled={saveMutation.isPending}
-                    className="border-0 bg-muted/50 dark:bg-muted/30"
-                  />
-                  <p className="text-xs text-muted-foreground">Opcional - Mantido de forma segura no banco de dados</p>
-                </div>
-
-                {/* Avisos de Segurança */}
-                <div className="mt-6 pt-6 border-t">
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    🔒 Informações de Segurança
-                  </h3>
-                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 space-y-2 text-xs">
-                    <p>• Seus tokens e chaves são criptografados no banco de dados</p>
-                    <p>• Nunca compartilhe suas credenciais com outras pessoas</p>
-                    <p>• Se suspeitar de comprometimento, regenere o token imediatamente</p>
+              {!recordExists ? (
+                <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold">Bot Não Atribuído</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Atribua um bot na aba "Geral" para gerenciar credenciais
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <h2 className="text-xl font-semibold">Credenciais e Tokens</h2>
+                    <p className="text-sm text-muted-foreground">Gerencie chaves de autenticação de APIs</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Uazapi Token */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Key className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor="uazapi-token">Token Uazapi</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">Chave de autenticação para API Uazapi (mantida criptografada)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        id="uazapi-token"
+                        type="password"
+                        value={uazapiToken}
+                        onChange={(e) => setUazapiToken(e.target.value)}
+                        placeholder="Sua chave de autenticação Uazapi"
+                        disabled={saveMutation.isPending}
+                        className="border-0 bg-muted/50 dark:bg-muted/30"
+                      />
+                      <p className="text-xs text-muted-foreground">Opcional - Mantido de forma segura no banco de dados</p>
+                    </div>
+
+                    {/* Avisos de Segurança */}
+                    <div className="mt-6 pt-6 border-t">
+                      <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                        🔒 Informações de Segurança
+                      </h3>
+                      <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 space-y-2 text-xs">
+                        <p>• Seus tokens e chaves são criptografados no banco de dados</p>
+                        <p>• Nunca compartilhe suas credenciais com outras pessoas</p>
+                        <p>• Se suspeitar de comprometimento, regenere o token imediatamente</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </TabsContent>
           </Tabs>
         </div>
