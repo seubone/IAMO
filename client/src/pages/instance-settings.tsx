@@ -12,9 +12,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Loader2, Check, Plus, HelpCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Check, Plus, HelpCircle, Key } from "lucide-react";
 import type { EvolutionInstance } from "@/types/whatsapp";
 
 export function InstanceSettingsPage() {
@@ -32,6 +38,7 @@ export function InstanceSettingsPage() {
   const [recordExists, setRecordExists] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
 
   // Buscar dados da instância Evolution (foto, nome)
   const { data: evolutionInstance } = useQuery<EvolutionInstance>({
@@ -334,8 +341,16 @@ export function InstanceSettingsPage() {
       {/* Conteúdo com Scroll */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-4 py-8">
-          {/* Seção: Configurações da IA */}
-          <div className="space-y-4">
+          {/* Abas */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="general">Geral</TabsTrigger>
+              <TabsTrigger value="integrations">Integrações</TabsTrigger>
+              <TabsTrigger value="credentials">Credenciais</TabsTrigger>
+            </TabsList>
+
+            {/* Aba: Geral */}
+            <TabsContent value="general" className="space-y-4">
               <div>
                 <h2 className="text-xl font-semibold">Informações Básicas</h2>
                 <p className="text-sm text-muted-foreground">Configure os dados principais da IA</p>
@@ -419,6 +434,32 @@ export function InstanceSettingsPage() {
                   <p className="text-xs text-muted-foreground">{description.length}/500</p>
                 </div>
 
+                {/* Preview de Mensagem */}
+                {aiName && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-sm font-semibold mb-3">Preview de Mensagem</h3>
+                    <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+                      <div className="text-xs text-muted-foreground">Como aparecerá no chat:</div>
+                      <div className="bg-background rounded p-3 border border-muted">
+                        <p className="text-sm">
+                          <strong className="font-semibold">{aiName}:</strong>
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">Esta é uma mensagem de exemplo da IA</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Aba: Integrações */}
+            <TabsContent value="integrations" className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Integrações Externas</h2>
+                <p className="text-sm text-muted-foreground">Configure APIs e serviços externos</p>
+              </div>
+
+              <div className="space-y-4">
                 {/* N8N Workflow URL */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -443,10 +484,21 @@ export function InstanceSettingsPage() {
                   />
                   <p className="text-xs text-muted-foreground">Opcional - Pode ser adicionado/atualizado depois</p>
                 </div>
+              </div>
+            </TabsContent>
 
+            {/* Aba: Credenciais (Token Uazapi) */}
+            <TabsContent value="credentials" className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Credenciais e Tokens</h2>
+                <p className="text-sm text-muted-foreground">Gerencie chaves de autenticação de APIs</p>
+              </div>
+
+              <div className="space-y-4">
                 {/* Uazapi Token */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4 text-muted-foreground" />
                     <Label htmlFor="uazapi-token">Token Uazapi</Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -469,24 +521,20 @@ export function InstanceSettingsPage() {
                   <p className="text-xs text-muted-foreground">Opcional - Mantido de forma segura no banco de dados</p>
                 </div>
 
-              </div>
-
-              {/* Preview de Mensagem */}
-              {aiName && (
+                {/* Avisos de Segurança */}
                 <div className="mt-6 pt-6 border-t">
-                  <h3 className="text-sm font-semibold mb-3">Preview de Mensagem</h3>
-                  <div className="bg-muted/30 rounded-lg p-4 space-y-2">
-                    <div className="text-xs text-muted-foreground">Como aparecerá no chat:</div>
-                    <div className="bg-background rounded p-3 border border-muted">
-                      <p className="text-sm">
-                        <strong className="font-semibold">{aiName}:</strong>
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">Esta é uma mensagem de exemplo da IA</p>
-                    </div>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    🔒 Informações de Segurança
+                  </h3>
+                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 space-y-2 text-xs">
+                    <p>• Seus tokens e chaves são criptografados no banco de dados</p>
+                    <p>• Nunca compartilhe suas credenciais com outras pessoas</p>
+                    <p>• Se suspeitar de comprometimento, regenere o token imediatamente</p>
                   </div>
                 </div>
-              )}
-          </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Botões de Ação */}
