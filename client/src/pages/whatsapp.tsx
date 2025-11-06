@@ -148,37 +148,50 @@ const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string
 };
 
 /**
- * Detect if a message is from AI or Consultant based on message prefix
- * - AI: First letter of first name is uppercase (e.g., "Maria luzia: mensagem")
- * - Consultant: First letter of first name is lowercase (e.g., "miguel: mensagem" or "cainan maia: mensagem")
- * Also checks senderType as fallback
+ * Determine message sender type with proper priority:
+ * 1. senderType from Evolution API (most reliable - comes from server)
+ * 2. fromMe flag (indicates bot-sent messages)
+ * 3. Message prefix detection (case-sensitive first letter, fallback only)
+ * 4. Default to "unknown" for client messages or undetectable sources
+ *
+ * Security note: Only senderType and fromMe are tamper-proof from client
+ * Prefix detection is used only as fallback since clients could spoof it
  */
-const detectMessageSender = (messageText: string, senderType?: string | null): "ai" | "consultant" | "unknown" => {
-  // First check senderType if available
+const detectMessageSender = (
+  messageText: string,
+  senderType?: string | null,
+  fromMe?: boolean
+): "ai" | "consultant" | "client" => {
+  // Priority 1: Check senderType from Evolution API (most reliable)
   if (senderType === "bot") return "ai";
   if (senderType === "consultant") return "consultant";
 
-  // Try to extract prefix from message text
-  // Possible formats:
-  // - "*Name:*\nmessage"  (with asterisks and newline)
-  // - "*Name:\nmessage"   (single asterisk at start)
-  // - "Name: message"     (without formatting)
-  let prefixMatch = messageText.match(/^\*([A-Za-z\s]+):\*?\n/);
-  if (!prefixMatch) {
-    prefixMatch = messageText.match(/^([A-Za-z\s]+):\s/);
-  }
+  // Priority 2: Check if message is from the bot account (fromMe=true)
+  if (fromMe === true) return "ai";
 
-  if (prefixMatch && prefixMatch[1]) {
-    const name = prefixMatch[1].trim();
-    if (name.length > 0) {
-      const firstChar = name.charAt(0);
-      console.log(`[DEBUG] detectMessageSender - name: "${name}", firstChar: "${firstChar}", isAI: ${firstChar === firstChar.toUpperCase()}`);
-      // If first letter is uppercase, it's AI; if lowercase, it's Consultant
-      return firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase() ? "ai" : "consultant";
+  // Priority 3: If it's from someone else and we don't have senderType, try prefix detection
+  // But only as a fallback - prefix can be spoofed by clients
+  if (fromMe === false) {
+    let prefixMatch = messageText.match(/^\*([A-Za-z\s]+):\*?\n/);
+    if (!prefixMatch) {
+      prefixMatch = messageText.match(/^([A-Za-z\s]+):\s/);
+    }
+
+    if (prefixMatch && prefixMatch[1]) {
+      const name = prefixMatch[1].trim();
+      if (name.length > 0) {
+        const firstChar = name.charAt(0);
+        // If first letter is uppercase, assume it's AI; if lowercase, assume it's Consultant
+        // This is NOT reliable for client messages but helps categorize internal messages
+        const isAI = firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase();
+        if (isAI) return "ai";
+        return "consultant";
+      }
     }
   }
 
-  return "unknown";
+  // Priority 4: Default to "client" for messages we can't determine source
+  return "client";
 };
 
 export default function WhatsApp() {
@@ -1321,22 +1334,12 @@ export default function WhatsApp() {
                               const shouldShowAvatar = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
                               const showSenderLabel = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
 
-                              // Detect if message is from AI or Consultant based on message prefix
+                              // Detect message sender type with proper priority:
+                              // 1. senderType from API (most reliable)
+                              // 2. fromMe flag (bot messages)
+                              // 3. Prefix detection (fallback, can be spoofed)
                               const messageText = message.message?.conversation || "";
-                              let messageSenderType = detectMessageSender(messageText, message.senderType);
-
-                              // Debug: Log every message styling decision
-                              if (fromMe && !messageText.match(/^\*([A-Za-z\s]+):\*?\n/)) {
-                                console.log(`[DEBUG STYLE] fromMe=${fromMe}, msgType="${messageSenderType}", text="${messageText.substring(0, 30)}..."`);
-                              }
-
-                              // If detection is unknown but fromMe=true, treat as AI (bot messages)
-                              if (messageSenderType === "unknown" && fromMe) {
-                                messageSenderType = "ai";
-                                console.log(`[DEBUG] Override unknown to AI - fromMe: true`);
-                              } else if (messageSenderType === "unknown") {
-                                console.log(`[DEBUG] Sender type UNKNOWN - fromMe: ${fromMe}`);
-                              }
+                              const messageSenderType = detectMessageSender(messageText, message.senderType, fromMe);
 
                               // Determine message styling based on sender type
                               let fromMeSurfaceClass: string;
@@ -1351,12 +1354,12 @@ export default function WhatsApp() {
                                 fromMeSurfaceClass = "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25";
                                 messageAlignment = "justify-start";
                               } else {
-                                // Unknown sender: use default styling (should rarely happen)
+                                // Client messages: Default styling (card background)
                                 fromMeSurfaceClass = "bg-card border";
                                 messageAlignment = "justify-start";
                               }
 
-                              const attachmentWrapperClasses = (messageSenderType === "ai" || fromMe)
+                              const attachmentWrapperClasses = (messageSenderType === "ai")
                                 ? "flex flex-col gap-2 items-end max-w-[65%]"
                                 : "flex flex-col gap-2 items-start";
                               const renderSenderBadge = () => {
@@ -1500,7 +1503,7 @@ export default function WhatsApp() {
                                     <div className={attachmentWrapperClasses}>
                                       {renderSenderBadge()}
                                       <div
-                                        className={`w-80 rounded-xl p-4 relative group ${messageSenderType !== "unknown" ? `${fromMeSurfaceClass} text-white` : (fromMe ? `${fromMeSurfaceClass} text-white` : 'bg-card border text-card-foreground')}`}
+                                        className={`w-80 rounded-xl p-4 relative group ${messageSenderType !== "client" ? `${fromMeSurfaceClass} text-white` : 'bg-card border text-card-foreground'}`}
                                       >
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
@@ -1574,7 +1577,7 @@ export default function WhatsApp() {
                                    !message.message?.documentMessage && (
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden flex flex-col gap-2 ${
-                                      messageSenderType !== "unknown" ? fromMeSurfaceClass : (fromMe ? fromMeSurfaceClass : 'bg-card border')
+                                      messageSenderType !== "client" ? fromMeSurfaceClass : 'bg-card border'
                                     }`}
                                     style={{
                                       wordBreak: 'break-word',
