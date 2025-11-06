@@ -147,28 +147,38 @@ const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string
   return nodes.length > 0 ? nodes : text;
 };
 
-type KnownSenderType = "consultant" | "bot";
+/**
+ * Detect if a message is from AI or Consultant based on message prefix
+ * - AI: First letter of first name is uppercase (e.g., "Maria luzia: mensagem")
+ * - Consultant: First letter of first name is lowercase (e.g., "miguel: mensagem" or "cainan maia: mensagem")
+ * Also checks senderType as fallback
+ */
+const detectMessageSender = (messageText: string, senderType?: string | null): "ai" | "consultant" | "unknown" => {
+  // First check senderType if available
+  if (senderType === "bot") return "ai";
+  if (senderType === "consultant") return "consultant";
 
-const SENDER_TYPE_META: Record<KnownSenderType, { label: string; badgeClass: string; surfaceClass: string }> = {
-  consultant: {
-    label: "Consultor",
-    badgeClass:
-      "bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/25",
-    surfaceClass: "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25",
-  },
-  bot: {
-    label: "IA",
-    badgeClass:
-      "bg-indigo-500/15 text-indigo-700 border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200 dark:border-indigo-500/25",
-    surfaceClass: "text-white bg-indigo-500 dark:bg-indigo-600 shadow-lg shadow-indigo-500/25",
-  },
-};
-
-const getSenderMeta = (senderType?: string | null) => {
-  if (senderType === "consultant" || senderType === "bot") {
-    return SENDER_TYPE_META[senderType];
+  // Try to extract prefix from message text
+  // Possible formats:
+  // - "*Name:*\nmessage"  (with asterisks and newline)
+  // - "*Name:\nmessage"   (single asterisk at start)
+  // - "Name: message"     (without formatting)
+  let prefixMatch = messageText.match(/^\*([A-Za-z\s]+):\*?\n/);
+  if (!prefixMatch) {
+    prefixMatch = messageText.match(/^([A-Za-z\s]+):\s/);
   }
-  return undefined;
+
+  if (prefixMatch && prefixMatch[1]) {
+    const name = prefixMatch[1].trim();
+    if (name.length > 0) {
+      const firstChar = name.charAt(0);
+      console.log(`[DEBUG] detectMessageSender - name: "${name}", firstChar: "${firstChar}", isAI: ${firstChar === firstChar.toUpperCase()}`);
+      // If first letter is uppercase, it's AI; if lowercase, it's Consultant
+      return firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase() ? "ai" : "consultant";
+    }
+  }
+
+  return "unknown";
 };
 
 export default function WhatsApp() {
@@ -1310,29 +1320,54 @@ export default function WhatsApp() {
                               const shouldReserveAvatarSpace = Boolean(isGroupChat && !fromMe);
                               const shouldShowAvatar = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
                               const showSenderLabel = shouldReserveAvatarSpace && !isSameSenderAsPrevious;
-                              const senderMeta = getSenderMeta(message.senderType);
-                              const fromMeSurfaceClass = fromMe
-                                ? senderMeta?.surfaceClass ?? "text-white bg-message-sent"
-                                : "bg-card border";
-                              const attachmentWrapperClasses = fromMe
+
+                              // Detect if message is from AI or Consultant based on message prefix
+                              const messageText = message.message?.conversation || "";
+                              let messageSenderType = detectMessageSender(messageText, message.senderType);
+
+                              // Debug: Log every message styling decision
+                              if (fromMe && !messageText.match(/^\*([A-Za-z\s]+):\*?\n/)) {
+                                console.log(`[DEBUG STYLE] fromMe=${fromMe}, msgType="${messageSenderType}", text="${messageText.substring(0, 30)}..."`);
+                              }
+
+                              // If detection is unknown but fromMe=true, treat as AI (bot messages)
+                              if (messageSenderType === "unknown" && fromMe) {
+                                messageSenderType = "ai";
+                                console.log(`[DEBUG] Override unknown to AI - fromMe: true`);
+                              } else if (messageSenderType === "unknown") {
+                                console.log(`[DEBUG] Sender type UNKNOWN - fromMe: ${fromMe}`);
+                              }
+
+                              // Determine message styling based on sender type
+                              let fromMeSurfaceClass: string;
+                              let messageAlignment: string;
+
+                              if (messageSenderType === "ai") {
+                                // AI messages: Purple background, right-aligned
+                                fromMeSurfaceClass = "text-white bg-indigo-500 dark:bg-indigo-600 shadow-lg shadow-indigo-500/25";
+                                messageAlignment = "justify-end";
+                              } else if (messageSenderType === "consultant") {
+                                // Consultant messages: Green background, left-aligned
+                                fromMeSurfaceClass = "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25";
+                                messageAlignment = "justify-start";
+                              } else {
+                                // Unknown sender: use default styling (should rarely happen)
+                                fromMeSurfaceClass = "bg-card border";
+                                messageAlignment = "justify-start";
+                              }
+
+                              const attachmentWrapperClasses = (messageSenderType === "ai" || fromMe)
                                 ? "flex flex-col gap-2 items-end max-w-[65%]"
                                 : "flex flex-col gap-2 items-start";
                               const renderSenderBadge = () => {
-                                if (!fromMe || !senderMeta) return null;
-                                return (
-                                  <Badge
-                                    variant="outline"
-                                    className={`ml-auto mb-1 border-transparent shadow-none ${senderMeta.badgeClass}`}
-                                  >
-                                    {senderMeta.label}
-                                  </Badge>
-                                );
+                                // Badge is no longer shown - color differentiation is enough
+                                return null;
                               };
 
                               return (
                                 <div
                                   key={message.id}
-                                  className={`flex gap-2 group w-full ${fromMe ? 'justify-end' : 'justify-start'} ${
+                                  className={`flex gap-2 group w-full ${messageAlignment} ${
                                     isSameSenderAsPrevious ? 'mt-0.5' : 'mt-3'
                                   }`}
                                   data-testid={`message-${message.id}`}
@@ -1465,7 +1500,7 @@ export default function WhatsApp() {
                                     <div className={attachmentWrapperClasses}>
                                       {renderSenderBadge()}
                                       <div
-                                        className={`w-80 rounded-xl p-4 relative group ${fromMe ? `${fromMeSurfaceClass} text-white` : 'bg-card border text-card-foreground'}`}
+                                        className={`w-80 rounded-xl p-4 relative group ${messageSenderType !== "unknown" ? `${fromMeSurfaceClass} text-white` : (fromMe ? `${fromMeSurfaceClass} text-white` : 'bg-card border text-card-foreground')}`}
                                       >
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
@@ -1539,7 +1574,7 @@ export default function WhatsApp() {
                                    !message.message?.documentMessage && (
                                   <div
                                     className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden flex flex-col gap-2 ${
-                                      fromMe ? fromMeSurfaceClass : 'bg-card border'
+                                      messageSenderType !== "unknown" ? fromMeSurfaceClass : (fromMe ? fromMeSurfaceClass : 'bg-card border')
                                     }`}
                                     style={{
                                       wordBreak: 'break-word',
