@@ -1576,7 +1576,7 @@ export default function WhatsApp() {
                                    !message.message?.ptvMessage &&
                                    !message.message?.documentMessage && (
                                   <div
-                                    className={`max-w-[65%] min-w-0 rounded-3xl px-4 py-4 break-words overflow-hidden flex flex-col gap-2 ${
+                                    className={`max-w-[65%] min-w-0 rounded-xl px-4 py-4 break-words overflow-hidden flex flex-col gap-2 ${
                                       messageSenderType !== "client" ? fromMeSurfaceClass : 'bg-card border'
                                     }`}
                                     style={{
