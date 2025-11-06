@@ -1915,7 +1915,7 @@ export default function WhatsApp() {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center gap-4">
                   {selectedInstance?.connectionStatus && selectedInstance.connectionStatus !== 'open' && (
-                    <div className="absolute top-4 left-4 right-4 bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-start gap-3">
+                    <div className="w-full bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-start gap-3">
                       <div className="text-xl flex-shrink-0">⚠️</div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-destructive">Instância Desconectada</h4>
