@@ -389,6 +389,12 @@ export default function WhatsApp() {
     queryKey: ["/api/whatsapp/instances"],
   });
 
+  // Fetch AI data for the selected instance
+  const { data: aiData } = useQuery({
+    queryKey: [`/api/ai-data/instance/${selectedInstanceId}`],
+    enabled: !!selectedInstanceId,
+  });
+
   // Sort instances by favorites + recents
   const instances = allInstances?.sort((a, b) => {
     // Favoritos primeiro
@@ -913,9 +919,21 @@ export default function WhatsApp() {
     recipientNumber = recipientNumber.split(':')[0]; // Remove :16 or other suffixes
 
     // Use instance number in Brazilian format (55XXYYYYYYYY)
-    // Adicionar nome do usuário logado ao início da mensagem
-    const userDisplayName = user?.name || 'Usuário';
-    const textWithName = `*${userDisplayName}:*\n${messageText.trim()}`;
+    // Usar nome da IA se registrada, senão usar apenas a mensagem
+    let textWithName = messageText.trim();
+
+    if (aiData?.bot_name) {
+      // Formatar nome da IA: primeira palavra com maiúscula, resto com minúscula
+      const parts = aiData.bot_name.trim().split(/\s+/);
+      if (parts.length > 0) {
+        // Primeira palavra com iniciais maiúsculas, resto em minúsculas
+        const firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const restName = parts.slice(1).map(part => part.toLowerCase()).join(' ');
+        const formattedName = restName ? `${firstName} ${restName}` : firstName;
+
+        textWithName = `*${formattedName}:*\n${messageText.trim()}`;
+      }
+    }
 
     sendMessageMutation.mutate({
       instanceNumber: instanceNumber,
