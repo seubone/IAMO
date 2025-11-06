@@ -148,19 +148,67 @@ const renderTextWithLinks = (text: string): Array<string | JSX.Element> | string
 };
 
 /**
+ * Extract sender name prefix from message text
+ * Handles formats like:
+ * - "*Name:*\nmessage"
+ * - "*Name:\nmessage"
+ * - "Name: message"
+ * Returns { name, cleanMessage } or { name: null, cleanMessage: original }
+ */
+const extractMessagePrefix = (
+  messageText: string,
+  botConfig?: { bot_name?: string | null; consultant_name?: string | null } | null
+): { name: string | null; cleanMessage: string; isValid: boolean } => {
+  // Try format: "*Name:*\n" or "*Name:\n"
+  let match = messageText.match(/^\*([A-Za-z\s]+):\*?\n(.*)$/s);
+  if (match) {
+    const extractedName = match[1].trim();
+    // Check if it matches bot_name or consultant_name from config
+    const isValid = botConfig
+      ? (extractedName === botConfig.bot_name || extractedName === botConfig.consultant_name)
+      : true; // If no config, accept any name
+
+    return {
+      name: extractedName,
+      cleanMessage: match[2],
+      isValid
+    };
+  }
+
+  // Try format: "Name: message"
+  match = messageText.match(/^([A-Za-z\s]+):\s(.*)$/s);
+  if (match) {
+    const extractedName = match[1].trim();
+    // Check if it matches bot_name or consultant_name from config
+    const isValid = botConfig
+      ? (extractedName === botConfig.bot_name || extractedName === botConfig.consultant_name)
+      : true; // If no config, accept any name
+
+    return {
+      name: extractedName,
+      cleanMessage: match[2],
+      isValid
+    };
+  }
+
+  return { name: null, cleanMessage: messageText, isValid: false };
+};
+
+/**
  * Determine message sender type with proper priority:
  * 1. senderType from Evolution API (most reliable - comes from server)
  * 2. fromMe flag (indicates bot-sent messages)
- * 3. Message prefix detection (case-sensitive first letter, fallback only)
- * 4. Default to "unknown" for client messages or undetectable sources
+ * 3. Message prefix detection (validated against bot config)
+ * 4. Default to "client" for client messages or undetectable sources
  *
  * Security note: Only senderType and fromMe are tamper-proof from client
- * Prefix detection is used only as fallback since clients could spoof it
+ * Prefix detection is validated against bot_name and consultant_name from config
  */
 const detectMessageSender = (
   messageText: string,
   senderType?: string | null,
-  fromMe?: boolean
+  fromMe?: boolean,
+  botConfig?: { bot_name?: string | null; consultant_name?: string | null } | null
 ): "ai" | "consultant" | "client" => {
   // Priority 1: Check senderType from Evolution API (most reliable)
   if (senderType === "bot") return "ai";
@@ -170,19 +218,18 @@ const detectMessageSender = (
   if (fromMe === true) return "ai";
 
   // Priority 3: If it's from someone else and we don't have senderType, try prefix detection
-  // But only as a fallback - prefix can be spoofed by clients
+  // But only as a fallback - and validate against bot config
   if (fromMe === false) {
-    let prefixMatch = messageText.match(/^\*([A-Za-z\s]+):\*?\n/);
-    if (!prefixMatch) {
-      prefixMatch = messageText.match(/^([A-Za-z\s]+):\s/);
-    }
-
-    if (prefixMatch && prefixMatch[1]) {
-      const name = prefixMatch[1].trim();
-      if (name.length > 0) {
+    const { name, isValid } = extractMessagePrefix(messageText, botConfig);
+    if (name && isValid) {
+      // Name is valid (matches config if available)
+      if (botConfig) {
+        if (name === botConfig.bot_name) return "ai";
+        if (name === botConfig.consultant_name) return "consultant";
+      } else {
+        // Fallback: if no config, use case detection
         const firstChar = name.charAt(0);
         // If first letter is uppercase, assume it's AI; if lowercase, assume it's Consultant
-        // This is NOT reliable for client messages but helps categorize internal messages
         const isAI = firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase();
         if (isAI) return "ai";
         return "consultant";
@@ -234,6 +281,32 @@ export default function WhatsApp() {
 
   // ID da instância selecionada (extraído do Zustand) - deve estar aqui antes de usar em hooks
   const selectedInstanceId = selectedInstance?.id || null;
+
+  // Fetch bot configuration for the selected instance
+  const { data: botConfig } = useQuery({
+    queryKey: ['botConfig', selectedInstance?.number],
+    queryFn: async () => {
+      if (!selectedInstance?.number) return null;
+      try {
+        const response = await apiRequest(`/api/bot-config/${selectedInstance.number}`);
+        console.log('[DEBUG] Bot config fetched:', response);
+        return response;
+      } catch (error) {
+        console.error('Failed to fetch bot config:', error);
+        return null;
+      }
+    },
+    enabled: !!selectedInstance?.number,
+  });
+
+  // Debug log for prefix validation
+  useEffect(() => {
+    console.log('[DEBUG] Bot config available:', {
+      bot_name: botConfig?.bot_name,
+      consultant_name: botConfig?.consultant_name,
+      hasConfig: !!botConfig
+    });
+  }, [botConfig]);
 
   const [isContactMetadataDialogOpen, setIsContactMetadataDialogOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
@@ -1337,29 +1410,61 @@ export default function WhatsApp() {
                               // Detect message sender type with proper priority:
                               // 1. senderType from API (most reliable)
                               // 2. fromMe flag (bot messages)
-                              // 3. Prefix detection (fallback, can be spoofed)
+                              // 3. Prefix detection (validated against bot config)
                               const messageText = message.message?.conversation || "";
-                              const messageSenderType = detectMessageSender(messageText, message.senderType, fromMe);
+                              const messageSenderType = detectMessageSender(messageText, message.senderType, fromMe, botConfig);
+
+                              // Extract prefix (sender name) if exists - validated against bot config
+                              const { name: prefixName, cleanMessage, isValid: isPrefixValid } = extractMessagePrefix(messageText, botConfig);
+
+                              // Determine if we should show the prefix label
+                              // Show prefix only for AI and Consultant, and only if different from previous sender, and only if valid
+                              const shouldShowPrefix =
+                                (messageSenderType === "ai" || messageSenderType === "consultant") &&
+                                !isSameSenderAsPrevious &&
+                                prefixName &&
+                                isPrefixValid;
+
+                              // Debug logging for prefix detection
+                              if (prefixName || messageText.includes(':')) {
+                                console.log(`[DEBUG] Message ${message.id}:`, {
+                                  text: messageText.substring(0, 50),
+                                  extractedName: prefixName,
+                                  senderType: messageSenderType,
+                                  shouldShow: shouldShowPrefix,
+                                  isSameSenderAsPrevious,
+                                  botConfigNames: {
+                                    bot_name: botConfig?.bot_name,
+                                    consultant_name: botConfig?.consultant_name
+                                  }
+                                });
+                              }
 
                               // Determine message styling based on sender type
                               let fromMeSurfaceClass: string;
                               let messageAlignment: string;
 
                               if (messageSenderType === "ai") {
-                                // AI messages: Purple background, right-aligned
-                                fromMeSurfaceClass = "text-white bg-indigo-500 dark:bg-indigo-600 shadow-lg shadow-indigo-500/25";
+                                // AI messages: Green background, right-aligned (identified by green circles in prefix)
+                                fromMeSurfaceClass = "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25";
                                 messageAlignment = "justify-end";
                               } else if (messageSenderType === "consultant") {
-                                // Consultant messages: Green background, left-aligned
-                                fromMeSurfaceClass = "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25";
-                                messageAlignment = "justify-start";
+                                // Consultant messages: Purple background, right-aligned (identified by name prefix without circles)
+                                // If has prefix label, use solid purple; if standalone message (avulsa), use lighter purple with border
+                                if (shouldShowPrefix) {
+                                  fromMeSurfaceClass = "text-white bg-violet-500 dark:bg-violet-600 shadow-lg shadow-violet-500/25";
+                                } else {
+                                  // Standalone consultant message: lighter purple background with darker purple border
+                                  fromMeSurfaceClass = "text-violet-900 dark:text-violet-100 bg-violet-200/50 dark:bg-violet-950/40 border border-violet-500";
+                                }
+                                messageAlignment = "justify-end";
                               } else {
-                                // Client messages: Default styling (card background)
+                                // Client messages: Default styling (card background), left-aligned
                                 fromMeSurfaceClass = "bg-card border";
                                 messageAlignment = "justify-start";
                               }
 
-                              const attachmentWrapperClasses = (messageSenderType === "ai")
+                              const attachmentWrapperClasses = (messageSenderType === "ai" || messageSenderType === "consultant")
                                 ? "flex flex-col gap-2 items-end max-w-[65%]"
                                 : "flex flex-col gap-2 items-start";
                               const renderSenderBadge = () => {
@@ -1370,12 +1475,30 @@ export default function WhatsApp() {
                               return (
                                 <div
                                   key={message.id}
-                                  className={`flex gap-2 group w-full ${messageAlignment} ${
-                                    isSameSenderAsPrevious ? 'mt-0.5' : 'mt-3'
-                                  }`}
+                                  className={`flex flex-col gap-1 group w-full`}
                                   data-testid={`message-${message.id}`}
                                 >
-                                  {/* Message Actions (shows on hover) - antes da mensagem se for minha */}
+                                  {/* Prefix label - shown above message bubble for grouped messages */}
+                                  {shouldShowPrefix && (
+                                    <div className={`flex ${messageSenderType === "ai" || messageSenderType === "consultant" ? "justify-end" : "justify-start"} px-4`}>
+                                      <div className={`font-bold text-sm flex items-center gap-1.5 px-3 py-1 rounded ${
+                                        messageSenderType === "ai"
+                                          ? "bg-emerald-500/30 text-emerald-100"
+                                          : "bg-violet-500/30 text-violet-100"
+                                      }`}>
+                                        <span>{prefixName}</span>
+                                        {messageSenderType === "ai" && <span>🟢🟢</span>}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Main message container with alignment */}
+                                  <div
+                                    className={`flex gap-2 w-full ${messageAlignment} ${
+                                      isSameSenderAsPrevious ? 'mt-0.5' : 'mt-0'
+                                    }`}
+                                  >
+                                    {/* Message Actions (shows on hover) - antes da mensagem se for minha */}
                                   {fromMe && selectedInstance?.number && (
                                     <MessageActions
                                       messageId={message.id}
@@ -1668,7 +1791,7 @@ export default function WhatsApp() {
                                      !message.message?.reactionMessage &&
                                       !message.message?.editedMessage && (
                                       <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', maxWidth: '100%' }}>
-                                        {renderTextWithLinks(cleanMarkdownFormatting(message.message?.conversation || ""))}
+                                        {renderTextWithLinks(cleanMarkdownFormatting(cleanMessage))}
                                       </p>
                                     )}
 
@@ -1705,6 +1828,8 @@ export default function WhatsApp() {
                                       }}
                                     />
                                   )}
+                                  </div>
+                                  {/* End of main message container */}
                                 </div>
                               );
                             })}
