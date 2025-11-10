@@ -1216,34 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT $3 OFFSET $4
       `, [remoteJid, relatedInstanceIds, limit, offset]);
 
-      // Aplicar prefixo de consultor para mensagens enviadas pelo usuário (fromMe: true)
-      const processedRows = await Promise.all(
-        result.rows.map(async (row: any) => {
-          const fromMe = row.fromMe === true;
-
-          if (fromMe) {
-            const botConfig = await getBotConfig(row.instanceId);
-
-            if (botConfig) {
-              const identity = resolveSenderIdentity({
-                messageText: extractPrimaryMessageText(row.message),
-                pushName: row.pushName,
-                botConfig,
-              });
-
-              return {
-                ...row,
-                pushName: identity.pushName ?? row.pushName,
-                senderType: identity.senderType,
-              };
-            }
-          }
-
-          return row;
-        })
-      );
-
-      res.json(processedRows);
+      res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       res.status(500).json({ error: "Erro ao buscar mensagens" });
@@ -1477,28 +1450,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ Instância ${normalizedNumber} com status: ${instance.connectionStatus}. Prosseguindo com envio...`);
 
-      // Buscar configuração do bot para adicionar prefixo se necessário
-      let finalText = text;
-      try {
-        const botConfig = await getBotConfig(normalizedNumber);
-        console.log(`🔍 getBotConfig resultado:`, botConfig);
-
-        if (botConfig?.has_bot_enabled && botConfig?.use_prefix_for_consultant && botConfig?.consultant_name) {
-          // Adicionar prefixo ao texto da mensagem
-          // Template padrão: "*{name}:*\n"
-          const template = botConfig.message_prefix_template || "*{name}:*\n";
-          const prefix = template.replace("{name}", botConfig.consultant_name);
-          finalText = prefix + text;
-          console.log(`✅ Prefixo adicionado ao final text: "${prefix.trim()}"`);
-          console.log(`📝 Mensagem final: "${finalText}"`);
-        } else {
-          console.log(`⚠️  Bot não configurado ou desabilitado - has_bot_enabled: ${botConfig?.has_bot_enabled}, use_prefix_for_consultant: ${botConfig?.use_prefix_for_consultant}, consultant_name: ${botConfig?.consultant_name}`);
-        }
-      } catch (error: any) {
-        console.warn(`⚠️  Erro ao buscar configuração do bot para prefixo: ${error?.message || error}`);
-        // Continuar sem prefixo se houver erro
-      }
-
       // 🚀 OTIMIZAÇÃO #2: Envio assíncrono (não espera resposta da API)
       // Retorna resposta ao cliente imediatamente, envia em background
       // Economiza 200-300ms de latência (tempo de resposta da Evolution/UazAPI)
@@ -1516,7 +1467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         instanceNumber: normalizedNumber,
         instanceRemoteJid: ownerNumber || normalizedNumber || undefined,
         recipientNumber,
-        content: finalText,
+        content: text,
       }).then(result => {
         if (result.success) {
           console.log(`✅ Mensagem enviada com sucesso via ${result.api} (${result.latency}ms)`);

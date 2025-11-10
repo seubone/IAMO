@@ -1,6 +1,4 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Bot, User } from "lucide-react";
 
 export type MessageSender = "ia" | "user" | "system";
 export type MessageTag = "engaged" | "payment_link" | "quote" | "paid";
@@ -25,8 +23,6 @@ const tagConfig = {
 };
 
 export function ChatMessageComponent({ message }: ChatMessageProps) {
-  const isIA = message.sender === "ia";
-  const isUser = message.sender === "user";
   const isSystem = message.sender === "system";
 
   if (isSystem) {
@@ -41,34 +37,22 @@ export function ChatMessageComponent({ message }: ChatMessageProps) {
 
   return (
     <div
-      className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+      className="flex gap-3 flex-row"
       data-testid={`message-${message.id}`}
     >
-      <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className={isIA ? "bg-primary/10" : "bg-muted"}>
-          {isIA ? <Bot className="h-4 w-4 text-primary" /> : <User className="h-4 w-4" />}
-        </AvatarFallback>
-      </Avatar>
-
-      <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? "items-end" : "items-start"}`}>
-        <div
-          className={`rounded-lg px-4 py-2 break-words overflow-hidden ${
-            isIA
-              ? "bg-muted/50"
-              : "bg-primary/10 border border-primary/20"
-          }`}
-        >
+      <div className="flex flex-col gap-1 max-w-[75%] items-start flex-1">
+        <div className="rounded-lg px-4 py-2 break-words overflow-hidden bg-muted">
           <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{message.content}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">
-            {new Date(message.timestamp).toLocaleTimeString('pt-BR', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
+            {new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit'
             })}
           </span>
-          
+
           {message.tags?.map((tag) => (
             <Badge
               key={tag}
