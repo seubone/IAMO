@@ -76,6 +76,13 @@ npm run db:push       # aplica schema com Drizzle
 
 ### 4. Desenvolvimento
 
+#### Opção A: Script Unificado (Recomendado)
+```bash
+./run.sh dev          # sobe API + client com variáveis do .env
+./run.sh help         # mostra todos os comandos disponíveis
+```
+
+#### Opção B: NPM Scripts
 ```bash
 npm run dev           # sobe API + client (porta API 5051, web 5000)
 # ou
@@ -91,6 +98,7 @@ npm start             # roda server em modo producao
 
 ## Scripts uteis
 
+### NPM Scripts
 | Script | Descricao |
 |--------|-----------|
 | `npm run dev` | Sobe `server/index.ts` (TSX watch) e Vite na porta 5000. |
@@ -100,6 +108,22 @@ npm start             # roda server em modo producao
 | `npm start` | Executa API em producao usando `dist/index.js`. |
 | `npm run check` | `tsc` para verificar tipos. |
 | `npm run db:push` | Aplica schema Drizzle no banco configurado. |
+
+### Unified Test & Dev Script (`./run.sh`)
+**Recomendado para desenvolvimento e testes.**
+
+```bash
+./run.sh dev                    # Inicia desenvolvimento (API + Client)
+./run.sh test:api               # Testa endpoints da API
+./run.sh test:message           # Testa envio de mensagem
+./run.sh test:sync              # Testa sincronizacao de instancias
+./run.sh test:evolution         # Testa autenticacao Evolution API
+./run.sh test:evolution:debug   # Debug detalhado da Evolution API
+./run.sh validate               # Valida configuracao do .env
+./run.sh help                   # Mostra ajuda completa
+```
+
+Para mais informações, veja [DOCS/RUN_SCRIPT_GUIDE.md](DOCS/RUN_SCRIPT_GUIDE.md).
 
 ## Integracao WhatsApp (Evolution + UazAPI)
 
