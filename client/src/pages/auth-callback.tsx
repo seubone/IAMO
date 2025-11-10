@@ -1,130 +1,66 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { handleGoogleCallback } from "@/lib/google-auth";
 
 export default function AuthCallback() {
   const [, setLocation] = useLocation();
   const { setAuth } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("Confirmando seu email...");
+  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
-    const handleCallback = async () => {
+    async function processCallback() {
       try {
-        // Get the current session after email confirmation
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+        // Handle the Google OAuth callback
+        const authData = await handleGoogleCallback();
 
-        if (sessionError) {
-          throw sessionError;
-        }
+        if (authData && authData.user && authData.token) {
+          // Set authentication
+          setAuth(authData.user, authData.token);
 
-        if (session?.user) {
-          // User is authenticated after email confirmation
-          const user = session.user;
+          toast({
+            title: "Autenticação bem-sucedida!",
+            description: `Bem-vindo, ${authData.user.name}`,
+          });
 
-          // Fetch user profile from local DB or create it
-          try {
-            const userResponse = await fetch("/api/auth/me", {
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
-            });
-
-            if (userResponse.ok) {
-              const userData = await userResponse.json();
-              setAuth(userData, session.access_token);
-
-              toast({
-                title: "Email confirmado com sucesso! ✓",
-                description: `Bem-vindo, ${userData.name}`,
-              });
-
-              // Redirect to dashboard after 2 seconds
-              setTimeout(() => {
-                setLocation("/");
-              }, 2000);
-            } else {
-              throw new Error("Erro ao carregar dados do usuário");
-            }
-          } catch (error) {
-            console.error("Error fetching user data:", error);
-            toast({
-              variant: "destructive",
-              title: "Erro",
-              description: "Erro ao carregar dados do usuário",
-            });
-            setLocation("/login");
-          }
+          // Redirect to home page
+          setLocation("/");
         } else {
-          // No session, user might not have confirmed email yet
-          setMessage(
-            "Se você confirmou seu email, faça login com suas credenciais. Se não recebeu o email, verifique a pasta de spam."
-          );
-          setLoading(false);
-
-          // Redirect to login after 5 seconds
-          setTimeout(() => {
-            setLocation("/login");
-          }, 5000);
+          throw new Error("Dados de autenticação inválidos");
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error("Auth callback error:", error);
-        setMessage(
-          "Erro ao confirmar email. Por favor, tente novamente ou entre em contato com o suporte."
-        );
-        setLoading(false);
 
+        const errorMessage = error instanceof Error ? error.message : "Erro ao processar autenticação";
         toast({
           variant: "destructive",
-          title: "Erro",
-          description: error.message || "Erro ao confirmar email",
+          title: "Erro na autenticação",
+          description: errorMessage,
         });
 
+        // Redirect back to login after error
         setTimeout(() => {
-          setLocation("/login");
-        }, 5000);
+          setLocation("/auth/login");
+        }, 2000);
+      } finally {
+        setIsProcessing(false);
       }
-    };
+    }
 
-    handleCallback();
-  }, [setLocation, setAuth, toast]);
+    processCallback();
+  }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold font-heading">Monitor IA</CardTitle>
-          <CardDescription>Confirmando seu email...</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center">
-            {loading && (
-              <div className="space-y-4">
-                <div className="flex justify-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                </div>
-                <p className="text-sm text-muted-foreground">{message}</p>
-              </div>
-            )}
-
-            {!loading && (
-              <div className="space-y-4">
-                <div className="text-sm text-muted-foreground">{message}</div>
-                <p className="text-xs text-muted-foreground">
-                  Redirecionando para login em alguns segundos...
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="text-center">
+        <div className="mb-4">
+          <div className="inline-flex h-12 w-12 animate-spin rounded-full border-4 border-border border-t-primary" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Processando autenticação...</h2>
+        <p className="text-muted-foreground">Por favor, aguarde enquanto processamos sua autenticação com o Google.</p>
+      </div>
     </div>
   );
 }

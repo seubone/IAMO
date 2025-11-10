@@ -621,6 +621,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google OAuth callback (receives access token from Supabase OAuth flow)
+  app.post("/api/auth/google-callback", async (req, res) => {
+    try {
+      const { accessToken, email, name } = req.body;
+
+      if (!accessToken || !email) {
+        return res.status(400).json({ error: "Token e email são obrigatórios" });
+      }
+
+      // User already exists in Supabase (from OAuth flow)
+      // Sync or create user in local DB
+      let localUser = await storage.getUserByEmail(email);
+      if (!localUser) {
+        // Create new user in local DB with data from Google
+        localUser = await storage.createUser({
+          id: `google_${email.replace(/[@.]/g, "_")}`, // Generate unique ID from email
+          name: name || email.split("@")[0],
+          email,
+          password: "", // No password for OAuth users
+          role: "viewer", // Default role
+        });
+      }
+
+      return res.json({
+        user: {
+          id: localUser.id,
+          name: localUser.name,
+          email: localUser.email,
+          role: localUser.role,
+        },
+        token: accessToken,
+        success: true,
+      });
+    } catch (error: any) {
+      console.error("Google callback error:", error);
+      res.status(400).json({ error: error.message || "Erro ao processar callback do Google" });
+    }
+  });
+
   // Get current user
   app.get("/api/auth/me", authMiddleware, async (req: AuthRequest, res) => {
     const user = await storage.getUser(req.user!.id);
