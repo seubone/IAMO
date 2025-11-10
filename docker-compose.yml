@@ -2,24 +2,72 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: monitor-ia
     ports:
+      - "5051:5051"
       - "5000:5000"
     environment:
+      # Node environment
       - NODE_ENV=production
+
+      # Database Configuration
       - DATABASE_URL=${DATABASE_URL}
+
+      # Evolution API (WhatsApp)
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
       - EVOLUTION_DB_HOST=${EVOLUTION_DB_HOST}
       - EVOLUTION_DB_PORT=${EVOLUTION_DB_PORT}
       - EVOLUTION_DB_NAME=${EVOLUTION_DB_NAME}
       - EVOLUTION_DB_USER=${EVOLUTION_DB_USER}
       - EVOLUTION_DB_PASSWORD=${EVOLUTION_DB_PASSWORD}
+
+      # Server Configuration
+      - PORT=5051
       - JWT_SECRET=${JWT_SECRET}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - UAZAPI_BASE_URL=${UAZAPI_BASE_URL}
+
+      # Supabase
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+
+      # Vite Frontend Variables
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+
+    # Restart policy
     restart: unless-stopped
+
+    # Health check
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5051/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Resource limits (adjust based on VPS capacity)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+networks:
+  default:
+    name: monitor-ia-network
