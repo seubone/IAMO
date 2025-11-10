@@ -24,6 +24,7 @@ const tagConfig = {
 
 export function ChatMessageComponent({ message }: ChatMessageProps) {
   const isSystem = message.sender === "system";
+  const isUser = message.sender === "user";
 
   if (isSystem) {
     return (
@@ -35,13 +36,15 @@ export function ChatMessageComponent({ message }: ChatMessageProps) {
     );
   }
 
+  const messageColor = isUser ? "bg-purple-200 dark:bg-purple-900" : "bg-muted";
+
   return (
     <div
       className="flex gap-3 flex-row"
       data-testid={`message-${message.id}`}
     >
       <div className="flex flex-col gap-1 max-w-[75%] items-start flex-1">
-        <div className="rounded-lg px-4 py-2 break-words overflow-hidden bg-muted">
+        <div className={`rounded-lg px-4 py-2 break-words overflow-hidden ${messageColor}`}>
           <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{message.content}</p>
         </div>
 
