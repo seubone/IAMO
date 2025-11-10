@@ -242,12 +242,12 @@ export default function Login() {
 
           <Button
             type="button"
-            className="w-full h-11 rounded-full text-base font-semibold bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600"
+            className="w-full h-11 rounded-full text-base font-semibold bg-white dark:bg-slate-900 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-800 border border-gray-300 dark:border-slate-700"
             onClick={onGoogleSignIn}
             disabled={isLoading}
             data-testid="button-google-login"
           >
-            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+            <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
               {/* Blue path */}
               <path
                 fill="#4285F4"
@@ -269,14 +269,7 @@ export default function Login() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span className="font-semibold">
-              <span style={{ color: '#4285F4' }}>G</span>
-              <span style={{ color: '#EA4335' }}>o</span>
-              <span style={{ color: '#FBBC05' }}>o</span>
-              <span style={{ color: '#4285F4' }}>g</span>
-              <span style={{ color: '#34A853' }}>l</span>
-              <span style={{ color: '#EA4335' }}>e</span>
-            </span>
+            Sign in with Google
           </Button>
 
           <div className="text-center text-sm">
@@ -404,12 +397,12 @@ export default function Login() {
 
           <Button
             type="button"
-            className="w-full h-11 rounded-full text-base font-semibold bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-slate-700 border border-gray-300 dark:border-slate-600"
+            className="w-full h-11 rounded-full text-base font-semibold bg-white dark:bg-slate-900 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-slate-800 border border-gray-300 dark:border-slate-700"
             onClick={onGoogleSignIn}
             disabled={isLoading}
             data-testid="button-google-register"
           >
-            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+            <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
               {/* Blue path */}
               <path
                 fill="#4285F4"
@@ -431,14 +424,7 @@ export default function Login() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span className="font-semibold">
-              <span style={{ color: '#4285F4' }}>G</span>
-              <span style={{ color: '#EA4335' }}>o</span>
-              <span style={{ color: '#FBBC05' }}>o</span>
-              <span style={{ color: '#4285F4' }}>g</span>
-              <span style={{ color: '#34A853' }}>l</span>
-              <span style={{ color: '#EA4335' }}>e</span>
-            </span>
+            Sign up with Google
           </Button>
 
           <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
