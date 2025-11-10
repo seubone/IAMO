@@ -1,4 +1,4 @@
-import { dbStorage as storage } from "./db-storage";
+import { dbStorage as storage } from "../config/db-storage";
 import bcrypt from "bcryptjs";
 
 export async function seedData() {

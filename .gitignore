@@ -33,3 +33,8 @@ nul
 
 # Scripts temporários
 create-db.js
+
+# Shell scripts with credentials - use environment variables instead
+*.sh
+test_message.sh
+sync-instances.sh

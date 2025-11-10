@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./db";
-import { deleteUazapiToken, getUazapiTokenByInstanceNumber, upsertUazapiToken } from "./uazapi-supabase";
+import { deleteUazapiToken, getUazapiTokenByInstanceNumber, upsertUazapiToken } from "../services/uazapi-supabase";
 import {
   users,
   ias,
@@ -21,8 +21,8 @@ import {
   type InsertConversation,
   type InsertMessage,
   type InsertMetric,
-} from "../shared/schema";
-import type { IStorage } from "./storage";
+} from "../../shared/schema";
+import type { IStorage } from "../utils/storage";
 
 export class DatabaseStorage implements IStorage {
   // Users

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import type { User } from "@shared/schema";
-import { verifySupabaseToken } from "../supabase";
+import { verifySupabaseToken } from "../config/supabase";
 
 // Validação obrigatória do JWT_SECRET em produção
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {

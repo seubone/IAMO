@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { authMiddleware, type AuthRequest } from "../middleware/auth";
-import { supabase } from "../supabase";
+import { supabase } from "../config/supabase";
 
 /**
  * Rotas para gerenciar ai_data (usando tabela bot_instances)

@@ -1,5 +1,5 @@
-import { supabase } from "./supabase";
-import { evolutionPool } from "./evolution-db";
+import { supabase } from "../config/supabase";
+import { evolutionPool } from "../config/evolution-db";
 
 interface EvolutionInstanceRecord {
   id: string;

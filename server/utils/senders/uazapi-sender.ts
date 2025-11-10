@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { supabase } from '../supabase';
-import { getUazapiTokenByInstanceNumber } from '../uazapi-supabase';
+import { supabase } from '../../config/supabase';
+import { getUazapiTokenByInstanceNumber } from '../../services/uazapi-supabase';
 import type { MessageData, MediaData, SendResult } from '../types/sender.types';
 
 /**

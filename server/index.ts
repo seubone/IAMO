@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
-import { validateEnv } from "./env";
+import { validateEnv } from "./config/env";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { seedData } from "./seed";
-import "./evolution-db"; // Initialize Evolution DB connection
+import { setupVite, serveStatic, log } from "./utils/vite";
+import { seedData } from "./scripts/seed";
+import "./config/evolution-db"; // Initialize Evolution DB connection
 
 // Validate environment variables on startup
 const env = validateEnv();

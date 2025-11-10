@@ -1,6 +1,6 @@
 import { EvolutionSender } from './senders/evolution-sender';
 import { UazAPISender } from './senders/uazapi-sender';
-import { supabase } from './supabase';
+import { supabase } from '../config/supabase';
 import type {
   MessageData,
   MediaData,

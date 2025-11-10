@@ -6,7 +6,7 @@ import {
   deleteBotConfig,
   formatMessageWithPrefix,
   generateConsultantName,
-} from "../bot-instances-supabase";
+} from "../services/bot-instances-supabase";
 import type { BotInstanceConfig } from "../../shared/bot-instance.types";
 
 /**

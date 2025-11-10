@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { dbStorage as storage } from "./db-storage";
+import { dbStorage as storage } from "./config/db-storage";
 import { authMiddleware, generateToken, type AuthRequest } from "./middleware/auth";
 import { requirePermission, requireRole } from "./middleware/rbac";
 import bcrypt from "bcryptjs";
@@ -9,10 +9,10 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { insertUserSchema, insertTicketSchema, insertActionSchema, insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
-import { supabase } from "./supabase";
-import { getUazapiTokenByInstanceNumber } from "./uazapi-supabase";
-import { unifiedSender } from "./send-strategy";
-import { evolutionPool } from "./evolution-db";
+import { supabase } from "./config/supabase";
+import { getUazapiTokenByInstanceNumber } from "./services/uazapi-supabase";
+import { unifiedSender } from "./utils/send-strategy";
+import { evolutionPool } from "./config/evolution-db";
 import { registerBotConfigRoutes } from "./routes/bot-config.routes";
 import { registerIAConfigRoutes } from "./routes/ia-config.routes";
 import { registerAIDataRoutes } from "./routes/ai-data.routes";
@@ -188,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const identifier = (rawInstanceNumber ?? "").trim();
     const digitsOnly = identifier.replace(/\D/g, "");
 
-    const { evolutionPool } = await import("./evolution-db");
+    const { evolutionPool } = await import("./config/evolution-db");
     const result = await evolutionPool.query(
       `
         SELECT
@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (activeInstances.size === 0) return;
 
     try {
-      const { evolutionPool } = await import("./evolution-db");
+      const { evolutionPool } = await import("./config/evolution-db");
       
       for (const [instanceId, clients] of Array.from(activeInstances.entries())) {
         // Skip instâncias sem clientes conectados
@@ -934,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authenticated: !!(req as any).user,
       });
 
-      const { evolutionPool } = await import("./evolution-db");
+      const { evolutionPool } = await import("./config/evolution-db");
 
       // Show all instances regardless of connectionStatus
       // Users need access to all instances from Evolution DB to send messages
@@ -1031,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/instances/:instanceId/chats/:remoteJid/unread-count", authMiddleware, async (req, res) => {
     try {
       const { instanceId, remoteJid } = req.params;
-      const { evolutionPool } = await import("./evolution-db");
+      const { evolutionPool } = await import("./config/evolution-db");
       
       const result = await evolutionPool.query(`
         SELECT "unreadMessages"
@@ -1056,8 +1056,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/media/decrypt/:messageId", authMiddleware, async (req, res) => {
     try {
       const { messageId } = req.params;
-      const { evolutionPool } = await import("./evolution-db");
-      const { decryptWhatsAppMedia, bufferToDataUrl, MediaExpiredError } = await import("./whatsapp-media-decrypt");
+      const { evolutionPool } = await import("./config/evolution-db");
+      const { decryptWhatsAppMedia, bufferToDataUrl, MediaExpiredError } = await import("./services/whatsapp-media-decrypt");
 
       // Buscar mensagem com informações de mídia
       const result = await evolutionPool.query(`
@@ -1130,7 +1130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error: any) {
       // Importar MediaExpiredError para verificação
-      const { MediaExpiredError } = await import("./whatsapp-media-decrypt");
+      const { MediaExpiredError } = await import("./services/whatsapp-media-decrypt");
 
       // Tratar erro de mídia expirada (410 Gone ou 403 Forbidden)
       if (error instanceof MediaExpiredError || error.name === 'MediaExpiredError' || (error.message && error.message.includes('403')) ) {
@@ -2123,7 +2123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validação 2: Verificar se a instância existe no Evolution DB
-      const { evolutionPool } = await import("./evolution-db");
+      const { evolutionPool } = await import("./config/evolution-db");
       const evolutionInstance = await evolutionPool.query(`
         SELECT
           id,
@@ -2257,7 +2257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("🔄 Iniciando sincronização de instâncias Uazapi...");
 
-      const { evolutionPool } = await import("./evolution-db");
+      const { evolutionPool } = await import("./config/evolution-db");
 
       // Get all instances from Evolution DB (apenas com número válido)
       const instancesResult = await evolutionPool.query(`

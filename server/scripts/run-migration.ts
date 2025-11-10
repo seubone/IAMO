@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { evolutionPool } from './evolution-db';
+import { evolutionPool } from '../config/evolution-db';
 
 /**
  * Script para executar migrations do banco de dados
