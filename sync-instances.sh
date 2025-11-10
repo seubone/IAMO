@@ -1,7 +1,26 @@
 #!/bin/bash
 
-TOKEN="eyJhbGciOiJIUzI1NiIsImtpZCI6ImlrcFZ1bU1sdUdENitDUksiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3N2ZnVjdXN1aG53bXd5b2pteGdyLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJmMmJkZjU5NC1hN2VmLTRjNzktODViOS1jZmM0MDgwN2FhZDIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzYxNjcyMDY5LCJpYXQiOjE3NjE2Njg0NjksImVtYWlsIjoiY29udGF0by5jYWluYW5kZXNpZ25AZ21haWwuY29tIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbCI6ImNvbnRhdG8uY2FpbmFuZGVzaWduQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiY2FpbmFuIG1haWEiLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6ImYyYmRmNTk0LWE3ZWYtNGM3OS04NWI5LWNmYzQwODA3YWFkMiJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzYxNjY4NDY5fV0sInNlc3Npb25faWQiOiJlMjc1NjU1NS1jOTBhLTQxMjItODdkZS1iNjdhZTI0YWQyNWQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.QFHjGeZg1bKDngPBalyVJrvfLRhBuq09nCzcZ_cl978"
+# Script para sincronizar instâncias UazAPI
+# Requer variável de ambiente: SYNC_INSTANCES_TOKEN (definida no .env)
 
-curl -X POST "http://localhost:5051/api/sync/uazapi-instances" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json"
+# Validar se o token foi definido
+if [ -z "$SYNC_INSTANCES_TOKEN" ]; then
+  echo "❌ Erro: SYNC_INSTANCES_TOKEN não está definido no .env"
+  echo "   Certifique-se de que a variável de ambiente SYNC_INSTANCES_TOKEN está configurada"
+  exit 1
+fi
+
+# Validar se o servidor está rodando
+if ! timeout 2 bash -c "echo >/dev/tcp/localhost/5051" 2>/dev/null; then
+  echo "❌ Erro: Servidor não está rodando em localhost:5051"
+  echo "   Execute 'npm run dev' para iniciar o servidor"
+  exit 1
+fi
+
+echo "🔄 Sincronizando instâncias UazAPI..."
+curl -s -X POST "http://localhost:5051/api/sync/uazapi-instances" \
+  -H "Authorization: Bearer $SYNC_INSTANCES_TOKEN" \
+  -H "Content-Type: application/json" | jq '.'
+
+echo ""
+echo "✅ Sincronização concluída"
