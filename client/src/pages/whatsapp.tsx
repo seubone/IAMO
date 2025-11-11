@@ -1445,8 +1445,8 @@ export default function WhatsApp() {
                               let messageAlignment: string;
 
                               if (messageSenderType === "ai") {
-                                // AI messages: Green background, right-aligned (identified by green circles in prefix)
-                                fromMeSurfaceClass = "text-white bg-emerald-500 dark:bg-emerald-600 shadow-lg shadow-emerald-500/25";
+                                // AI messages: Purple background, right-aligned
+                                fromMeSurfaceClass = "text-white bg-violet-500 dark:bg-violet-600 shadow-lg shadow-violet-500/25";
                                 messageAlignment = "justify-end";
                               } else if (messageSenderType === "consultant") {
                                 // Consultant messages: Purple background, right-aligned (identified by name prefix without circles)
@@ -1483,7 +1483,7 @@ export default function WhatsApp() {
                                     <div className={`flex ${messageSenderType === "ai" || messageSenderType === "consultant" ? "justify-end" : "justify-start"} px-4`}>
                                       <div className={`font-bold text-sm flex items-center gap-1.5 px-3 py-1 rounded ${
                                         messageSenderType === "ai"
-                                          ? "bg-emerald-500/30 text-emerald-100"
+                                          ? "bg-violet-500/30 text-violet-100"
                                           : "bg-violet-500/30 text-violet-100"
                                       }`}>
                                         <span>{prefixName}</span>
