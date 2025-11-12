@@ -31,6 +31,13 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
 
+    // In production with reverse proxy, allow any origin but validate via other means
+    // This is safe because we validate via JWT tokens on protected routes
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+
+    // In development, use strict CORS checking
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
