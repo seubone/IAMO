@@ -1,0 +1,34 @@
+tree 9055094e0d38b9a116a0e0de3fb4d07f7520763c
+parent b4c5f251e8565e905c64ed943b60aa7bc29e7a03
+author CarboneTI <contato.cainandesign@gmail.com> 1761854515 -0300
+committer CarboneTI <contato.cainandesign@gmail.com> 1761854515 -0300
+
+style: Redesenhar campo de input com design dividido estilo WhatsApp Web
+
+## Mudanças
+
+### Layout Dividido
+- **Seção Esquerda**: Botões de anexo e emoji (fundo escuro #2a2a2a)
+- **Divisor Vertical**: Linha subtil com gradiente
+- **Seção Direita**: Campo de texto + botão de envio/microfone (fundo cinza #3a3a3a)
+
+### Estilo Visual
+- Removido layout linear simples anterior
+- Altura fixa: 64px (h-16)
+- Ícones maiores: 6x6 ao invés de 5x5
+- Input com fundo semi-transparente (bg-white/5) e borda sutil
+- Botão de envio destacado em azul (bg-blue-500)
+- Hover states melhorados com semi-transparência
+
+### Melhorias
+- Melhor organização visual das ações
+- Separação clara entre controles e input
+- Design mais limpo e moderno similar ao WhatsApp Web
+- Melhor acessibilidade com títulos nos botões
+
+## Build Status
+✅ Build passou sem erros de compilação
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>

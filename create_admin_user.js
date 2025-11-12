@@ -5,8 +5,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Configuration
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://svfucusuhnwmwyojmxgr.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZnVjdXN1aG53bXd5b2pteGdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUyNDMxOCwiZXhwIjoyMDYxMTAwMzE4fQ.d9vxS_ZZnIrWlmxxY6niwe8Bb7Ku1dmpApQWF3XGstQ';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Validate required environment variables
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ ERROR: Missing required environment variables:');
+  if (!SUPABASE_URL) console.error('  - SUPABASE_URL');
+  if (!SUPABASE_SERVICE_ROLE_KEY) console.error('  - SUPABASE_SERVICE_ROLE_KEY');
+  console.error('\nPlease set these variables in your .env file before running this script.');
+  process.exit(1);
+}
 
 const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -15,11 +24,19 @@ console.log('CREATE ADMIN USER FOR MONITOR.IA');
 console.log('========================================\n');
 
 async function createAdminUser() {
-  const email = 'admin@monitor.ia';
-  const password = 'Admin@123456';
+  // These should be provided via environment variables
+  // DO NOT use default credentials in production
+  const email = process.env.ADMIN_EMAIL || 'admin@simonia.local';
+  let password = process.env.ADMIN_PASSWORD;
+
+  if (!password) {
+    console.error('❌ ERROR: ADMIN_PASSWORD environment variable is required!');
+    console.error('Please provide a strong password via ADMIN_PASSWORD env var.');
+    process.exit(1);
+  }
 
   console.log(`Creating admin user: ${email}`);
-  console.log(`Password: ${password}\n`);
+  console.log(`Password will be set from ADMIN_PASSWORD env var\n`);
 
   try {
     // First, check if user already exists
@@ -62,9 +79,7 @@ async function createAdminUser() {
     console.log('  - Email:', data.user.email);
     console.log('  - Email confirmed:', data.user.email_confirmed_at ? 'Yes' : 'No');
     console.log('  - Created at:', data.user.created_at);
-    console.log('\n📝 SAVE THESE CREDENTIALS:');
-    console.log('  Email: admin@monitor.ia');
-    console.log('  Password: Admin@123456');
+    console.log('\n📝 Remember: You used the password from ADMIN_PASSWORD environment variable');
 
     // Test authentication
     console.log('\n🔐 Testing authentication...\n');
@@ -85,9 +100,9 @@ async function createAdminUser() {
     console.log('  - User ID:', authData.user.id);
     console.log('  - Access token (first 50 chars):', authData.session.access_token.substring(0, 50) + '...');
     console.log('\n========================================');
-    console.log('SUCCESS! You can now login with:');
-    console.log('  Email: admin@monitor.ia');
-    console.log('  Password: Admin@123456');
+    console.log('✅ SUCCESS! Admin user created and verified');
+    console.log(`Email: ${email}`);
+    console.log('Use the password you provided via ADMIN_PASSWORD env var');
     console.log('========================================\n');
 
   } catch (err) {

@@ -31,13 +31,7 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
 
-    // In production with reverse proxy, allow any origin but validate via other means
-    // This is safe because we validate via JWT tokens on protected routes
-    if (process.env.NODE_ENV === 'production') {
-      return callback(null, true);
-    }
-
-    // In development, use strict CORS checking
+    // Check if origin is in the allowed list (works for both dev and production)
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -108,8 +102,8 @@ app.use((req, res, next) => {
     };
   }
 
-  // Seed data on startup in development
-  if (app.get("env") === "development") {
+  // Seed data on startup ONLY in development
+  if (process.env.NODE_ENV === "development") {
     try {
       await seedData();
     } catch (error) {
@@ -122,7 +116,10 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Don't expose detailed error messages in production
+    const message = process.env.NODE_ENV === 'production'
+      ? (status === 500 ? "Internal Server Error" : err.message)
+      : (err.message || "Internal Server Error");
 
     console.error("Error:", err);
     res.status(status).json({ message });
