@@ -33,7 +33,7 @@ RUN apk add --no-cache dumb-init curl postgresql-client \
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY scripts/init-db.sh ./init-db.sh
+COPY --from=builder /app/scripts/init-db.sh ./init-db.sh
 
 # Make init script executable
 RUN chmod +x ./init-db.sh
