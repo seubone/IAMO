@@ -2,7 +2,6 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { type Server } from "http";
-import viteConfig from "../../vite.config";
 import { nanoid } from "nanoid";
 
 export function log(message: string, source = "express") {
@@ -17,9 +16,13 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
-  // Dynamic import to avoid loading vite in production
+  // Dynamic imports to avoid loading vite in production
   const { createServer: createViteServer, createLogger } = await import("vite");
   const viteLogger = createLogger();
+
+  // Also dynamically import vite.config to avoid loading it in production
+  const viteConfigModule = await import("../../vite.config");
+  const viteConfig = viteConfigModule.default;
 
   const serverOptions = {
     middlewareMode: true,
