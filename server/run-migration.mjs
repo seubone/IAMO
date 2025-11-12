@@ -4,7 +4,7 @@ const { Client } = pg;
 const client = new Client({
   host: '31.97.255.54',
   port: 5432,
-  database: 'monitor_ia',
+  database: 'simonia',
   user: 'postgres',
   password: 'd4b5507303632dbd23b1',
   ssl: false

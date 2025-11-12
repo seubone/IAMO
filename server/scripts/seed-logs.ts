@@ -13,7 +13,7 @@ export async function seedLogs() {
         level: "info",
         source: "auth",
         message: "Usuário fez login com sucesso",
-        details: { email: "admin@monitor.ia", ip: "192.168.1.100" },
+        details: { email: "admin@simonia.com", ip: "192.168.1.100" },
       },
       {
         level: "info",

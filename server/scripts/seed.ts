@@ -14,21 +14,21 @@ export async function seedData() {
   // Create users
   const adminUser = await storage.createUser({
     name: "Admin User",
-    email: "admin@monitor.ia",
+    email: "admin@simonia.com",
     password: await bcrypt.hash("admin123", 10),
     role: "admin",
   });
 
   const operatorUser = await storage.createUser({
     name: "Operador Silva",
-    email: "operador@monitor.ia",
+    email: "operador@simonia.com",
     password: await bcrypt.hash("operator123", 10),
     role: "operator",
   });
 
   const viewerUser = await storage.createUser({
     name: "Viewer Santos",
-    email: "viewer@monitor.ia",
+    email: "viewer@simonia.com",
     password: await bcrypt.hash("viewer123", 10),
     role: "viewer",
   });
@@ -296,7 +296,7 @@ export async function seedData() {
 
   console.log("\n🎉 Seed concluído com sucesso!");
   console.log("\n📝 Credenciais de acesso:");
-  console.log("Admin: admin@monitor.ia / admin123");
-  console.log("Operador: operador@monitor.ia / operator123");
-  console.log("Visualizador: viewer@monitor.ia / viewer123");
+  console.log("Admin: admin@simonia.com / admin123");
+  console.log("Operador: operador@simonia.com / operator123");
+  console.log("Visualizador: viewer@simonia.com / viewer123");
 }
