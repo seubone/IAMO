@@ -1,55 +1,42 @@
-# Build stage
+# ---------- builder ----------
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Install build dependencies
+# ferramentas para compilar nativos (bufferutil, etc)
 RUN apk add --no-cache python3 make g++
 
-# Copy package files
+# copia manifests primeiro pra cache decente
 COPY package*.json ./
 
-# Install dependencies (including dev dependencies for build)
+# install completo (com dev) para buildar nativos e gerar node_modules
 RUN npm ci
 
-# Copy source code
+# copia o resto
 COPY . .
 
-# Build the application
+# build do projeto (TypeScript/Vite)
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine
+# tira dev deps e fica só prod
+RUN npm prune --omit=dev
 
+# ---------- runtime ----------
+FROM node:20-alpine
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apk add --no-cache curl dumb-init
+# init e user não-root
+RUN apk add --no-cache dumb-init \
+  && addgroup -g 1001 -S nodejs \
+  && adduser -S nodejs -u 1001
 
-# Create app user for security
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# só o que precisa pra rodar
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-
-# Switch to nodejs user
 USER nodejs
-
-# Expose port (API port from .env, default 5051)
 EXPOSE 5051
-
-# Health check (with longer timeout for slow starts)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:5051/health || exit 1
-
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["/sbin/dumb-init", "--"]
-
-# Run the application
-CMD ["node", "dist/index.js"]
+  CMD node -e "require('http').get('http://localhost:5051/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+ENTRYPOINT ["/usr/bin/dumb-init","--"]
+CMD ["node","dist/index.js"]
