@@ -453,6 +453,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Get Evolution Database Configuration
+  app.get("/api/config/evolution-db", authMiddleware, requireRole("admin"), (_req, res) => {
+    res.json({
+      host: process.env.EVOLUTION_DB_HOST || "",
+      port: process.env.EVOLUTION_DB_PORT || "5432",
+      name: process.env.EVOLUTION_DB_NAME || "",
+      user: process.env.EVOLUTION_DB_USER || "postgres",
+      password: process.env.EVOLUTION_DB_PASSWORD || "",
+    });
+  });
+
+  // Update Evolution Database Configuration
+  app.post("/api/config/evolution-db", authMiddleware, requireRole("admin"), async (req, res) => {
+    try {
+      const { host, port, name, user, password } = req.body;
+
+      // Validate required fields
+      if (!host || !port || !name || !user || !password) {
+        return res.status(400).json({
+          error: "Todos os campos são obrigatórios (host, port, name, user, password)"
+        });
+      }
+
+      // Update environment variables (in-memory)
+      process.env.EVOLUTION_DB_HOST = host;
+      process.env.EVOLUTION_DB_PORT = port;
+      process.env.EVOLUTION_DB_NAME = name;
+      process.env.EVOLUTION_DB_USER = user;
+      process.env.EVOLUTION_DB_PASSWORD = password;
+
+      // Update .env file
+      const fs = await import("fs");
+      const path = await import("path");
+      const envPath = path.join(process.cwd(), ".env");
+
+      let envContent = fs.readFileSync(envPath, "utf-8");
+
+      // Update or add each variable
+      const updateEnvVar = (content: string, key: string, value: string) => {
+        const regex = new RegExp(`^${key}=.*$`, "m");
+        if (regex.test(content)) {
+          return content.replace(regex, `${key}=${value}`);
+        } else {
+          return content + `\n${key}=${value}`;
+        }
+      };
+
+      envContent = updateEnvVar(envContent, "EVOLUTION_DB_HOST", host);
+      envContent = updateEnvVar(envContent, "EVOLUTION_DB_PORT", port);
+      envContent = updateEnvVar(envContent, "EVOLUTION_DB_NAME", name);
+      envContent = updateEnvVar(envContent, "EVOLUTION_DB_USER", user);
+      envContent = updateEnvVar(envContent, "EVOLUTION_DB_PASSWORD", password);
+
+      fs.writeFileSync(envPath, envContent, "utf-8");
+
+      // Try to reconnect to the database with new credentials
+      const connectionString = `postgresql://${user}:${password}@${host}:${port}/${name}`;
+      console.log("🔄 Tentando reconectar ao banco Evolution com novas credenciais...");
+
+      try {
+        const testPool = require("pg").Pool;
+        const pool = new testPool({ connectionString, connectionTimeoutMillis: 5000 });
+        await pool.query("SELECT 1");
+        await pool.end();
+        console.log("✅ Conexão com banco Evolution bem-sucedida!");
+      } catch (dbError: any) {
+        console.error("❌ Erro ao conectar com novo banco:", dbError.message);
+        return res.status(400).json({
+          error: `Não foi possível conectar ao banco com as credenciais fornecidas: ${dbError.message}`
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Configurações do Evolution DB atualizadas com sucesso!",
+        config: { host, port, name, user },
+      });
+    } catch (error: any) {
+      console.error("Erro ao atualizar configurações:", error);
+      res.status(500).json({
+        error: "Erro ao atualizar configurações do Evolution DB",
+        details: error.message
+      });
+    }
+  });
+
   // Debug JWT verification (development/troubleshooting only)
   app.post("/api/debug/jwt", async (req, res) => {
     const { token } = req.body;
@@ -567,26 +653,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (sessionData?.session) {
-        // Supabase auth successful
-        let localUser = await storage.getUserByEmail(email);
-        if (!localUser) {
-          // Create user in local DB if doesn't exist
-          const supabaseUser = sessionData.session.user;
-          localUser = await storage.createUser({
-            id: supabaseUser.id,
-            name: supabaseUser.user_metadata?.name || email.split("@")[0],
-            email,
-            password: "", // Don't store password locally
-            role: "viewer", // Default role
-          });
-        }
-
+        // Supabase auth successful - return user data directly from Supabase
+        const supabaseUser = sessionData.session.user;
         return res.json({
           user: {
-            id: localUser.id,
-            name: localUser.name,
-            email: localUser.email,
-            role: localUser.role,
+            id: supabaseUser.id,
+            name: supabaseUser.user_metadata?.name || email.split("@")[0],
+            email: supabaseUser.email,
+            role: "viewer", // Default role (can be updated later when local DB is available)
           },
           token: sessionData.session.access_token,
         });
@@ -768,14 +842,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get all tickets
   app.get("/api/tickets", authMiddleware, requirePermission("tickets:read"), async (req, res) => {
-    const tickets = await storage.getAllTickets();
-    res.json(tickets);
+    try {
+      const tickets = await storage.getAllTickets();
+      res.json(tickets);
+    } catch (error: any) {
+      console.error("Error fetching tickets:", error);
+      // Return empty array if local database is unavailable
+      res.json([]);
+    }
   });
 
   // Get tickets by IA
   app.get("/api/tickets/ia/:iaId", authMiddleware, requirePermission("tickets:read"), async (req, res) => {
-    const tickets = await storage.getTicketsByIA(req.params.iaId);
-    res.json(tickets);
+    try {
+      const tickets = await storage.getTicketsByIA(req.params.iaId);
+      res.json(tickets);
+    } catch (error: any) {
+      console.error("Error fetching tickets:", error);
+      // Return empty array if local database is unavailable
+      res.json([]);
+    }
   });
 
   // Create ticket
@@ -810,31 +896,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get all actions
   app.get("/api/actions", authMiddleware, requirePermission("actions:read"), async (req, res) => {
-    const actions = await storage.getAllActions();
-    res.json(actions);
+    try {
+      const actions = await storage.getAllActions();
+      res.json(actions);
+    } catch (error: any) {
+      console.error("Error fetching actions:", error);
+      // Return empty array if local database is unavailable
+      res.json([]);
+    }
   });
 
   // Get actions by IA
   app.get("/api/actions/ia/:iaId", authMiddleware, requirePermission("actions:read"), async (req, res) => {
-    const actions = await storage.getActionsByIA(req.params.iaId);
-    res.json(actions);
+    try {
+      const actions = await storage.getActionsByIA(req.params.iaId);
+      res.json(actions);
+    } catch (error: any) {
+      console.error("Error fetching actions:", error);
+      // Return empty array if local database is unavailable
+      res.json([]);
+    }
   });
 
   // ============ CONVERSATION ROUTES ============
   
   // Get all conversations
   app.get("/api/conversations", authMiddleware, requirePermission("conversations:read"), async (req, res) => {
-    const conversations = await storage.getAllConversations();
-    res.json(conversations);
+    try {
+      const conversations = await storage.getAllConversations();
+      res.json(conversations);
+    } catch (error: any) {
+      console.error("Error fetching conversations:", error);
+      // Return empty array if local database is unavailable
+      res.json([]);
+    }
   });
 
   // Get conversation by attendance ID
   app.get("/api/conversations/attendance/:attendanceId", authMiddleware, requirePermission("conversations:read"), async (req, res) => {
-    const conversation = await storage.getConversationByAttendanceId(req.params.attendanceId);
-    if (!conversation) {
-      return res.status(404).json({ error: "Conversa não encontrada" });
+    try {
+      const conversation = await storage.getConversationByAttendanceId(req.params.attendanceId);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversa não encontrada" });
+      }
+      res.json(conversation);
+    } catch (error: any) {
+      console.error("Error fetching conversation:", error);
+      // Return 404 if local database is unavailable
+      res.status(404).json({ error: "Conversa não encontrada" });
     }
-    res.json(conversation);
   });
 
   // Create conversation
@@ -1023,7 +1133,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching chats:", error);
-      res.status(500).json({ error: "Erro ao buscar conversas" });
+      // Return empty array instead of 500 error - Evolution DB may be temporarily unavailable
+      res.json([]);
     }
   });
 
@@ -1043,12 +1154,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Chat não encontrado" });
       }
       
-      res.json({ 
-        unreadMessages: result.rows[0].unreadMessages || 0 
+      res.json({
+        unreadMessages: result.rows[0].unreadMessages || 0
       });
     } catch (error: any) {
       console.error("Error fetching unread count:", error);
-      res.status(500).json({ error: "Erro ao buscar contador de não lidas" });
+      // Return 0 instead of 500 error - Evolution DB may be temporarily unavailable
+      res.json({ unreadMessages: 0 });
     }
   });
 
@@ -1219,7 +1331,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result.rows);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
-      res.status(500).json({ error: "Erro ao buscar mensagens" });
+      // Return empty array instead of 500 error - Evolution DB may be temporarily unavailable
+      res.json([]);
     }
   });
 

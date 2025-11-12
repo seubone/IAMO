@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Bot, Trash2 } from "lucide-react";
+import { Plus, Bot, Trash2, Database } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,14 +23,28 @@ const iaFormSchema = z.object({
   tags: z.string().optional(),
 });
 
+const evolutionDbSchema = z.object({
+  host: z.string().min(1, "Host é obrigatório"),
+  port: z.string().regex(/^\d+$/, "Porta deve ser um número válido"),
+  name: z.string().min(1, "Nome do banco é obrigatório"),
+  user: z.string().min(1, "Usuário é obrigatório"),
+  password: z.string().min(1, "Senha é obrigatória"),
+});
+
 type IAFormData = z.infer<typeof iaFormSchema>;
+type EvolutionDbFormData = z.infer<typeof evolutionDbSchema>;
 
 export default function Settings() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [evolutionDbDialogOpen, setEvolutionDbDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: ias = [], isLoading: isLoadingIAs } = useQuery({
     queryKey: ["/api/ias"],
+  });
+
+  const { data: evolutionDbConfig, isLoading: isLoadingEvolutionDb } = useQuery({
+    queryKey: ["/api/config/evolution-db"],
   });
 
   const form = useForm<IAFormData>({
@@ -40,6 +54,24 @@ export default function Settings() {
       status: "active",
       tags: "",
     },
+  });
+
+  const evolutionDbForm = useForm<EvolutionDbFormData>({
+    resolver: zodResolver(evolutionDbSchema),
+    defaultValues: {
+      host: "",
+      port: "5432",
+      name: "",
+      user: "postgres",
+      password: "",
+    },
+    values: evolutionDbConfig ? {
+      host: evolutionDbConfig.host || "",
+      port: String(evolutionDbConfig.port || "5432"),
+      name: evolutionDbConfig.name || "",
+      user: evolutionDbConfig.user || "postgres",
+      password: evolutionDbConfig.password || "",
+    } : undefined,
   });
 
   const createIAMutation = useMutation({
@@ -90,8 +122,42 @@ export default function Settings() {
     },
   });
 
+  const updateEvolutionDbMutation = useMutation({
+    mutationFn: async (data: EvolutionDbFormData) => {
+      return apiRequest("/api/config/evolution-db", {
+        method: "POST",
+        body: JSON.stringify({
+          host: data.host,
+          port: parseInt(data.port),
+          name: data.name,
+          user: data.user,
+          password: data.password,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/evolution-db"] });
+      toast({
+        title: "Configurações atualizadas",
+        description: "As configurações do banco Evolution foram atualizadas com sucesso",
+      });
+      setEvolutionDbDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao atualizar configurações",
+        description: error.message || "Não foi possível atualizar as configurações do Evolution",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: IAFormData) => {
     createIAMutation.mutate(data);
+  };
+
+  const onEvolutionDbSubmit = (data: EvolutionDbFormData) => {
+    updateEvolutionDbMutation.mutate(data);
   };
   return (
     <div className="flex flex-col h-screen overflow-y-auto">
@@ -352,6 +418,173 @@ export default function Settings() {
                 Copiar
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Banco de Dados Evolution
+                </CardTitle>
+                <CardDescription>
+                  Configure as credenciais do banco de dados Evolution (WhatsApp)
+                </CardDescription>
+              </div>
+              <Dialog open={evolutionDbDialogOpen} onOpenChange={setEvolutionDbDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-edit-evolution-db">
+                    Editar Configurações
+                  </Button>
+                </DialogTrigger>
+                <DialogContent data-testid="dialog-edit-evolution-db">
+                  <DialogHeader>
+                    <DialogTitle>Configurar Banco de Dados Evolution</DialogTitle>
+                    <DialogDescription>
+                      Atualize as credenciais de conexão ao banco de dados Evolution
+                    </DialogDescription>
+                  </DialogHeader>
+                  {isLoadingEvolutionDb ? (
+                    <p className="text-sm text-muted-foreground py-4">Carregando configurações...</p>
+                  ) : (
+                    <Form {...evolutionDbForm}>
+                      <form onSubmit={evolutionDbForm.handleSubmit(onEvolutionDbSubmit)} className="space-y-4">
+                        <FormField
+                          control={evolutionDbForm.control}
+                          name="host"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Host</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Ex: localhost ou 31.97.255.54"
+                                  {...field}
+                                  data-testid="input-evolution-host"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={evolutionDbForm.control}
+                          name="port"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Porta</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="5432"
+                                  type="number"
+                                  {...field}
+                                  data-testid="input-evolution-port"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={evolutionDbForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome do Banco de Dados</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="evolution"
+                                  {...field}
+                                  data-testid="input-evolution-name"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={evolutionDbForm.control}
+                          name="user"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Usuário</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="postgres"
+                                  {...field}
+                                  data-testid="input-evolution-user"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={evolutionDbForm.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Senha</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Insira a senha do banco de dados"
+                                  type="password"
+                                  {...field}
+                                  data-testid="input-evolution-password"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setEvolutionDbDialogOpen(false)}
+                            data-testid="button-cancel-evolution-db"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={updateEvolutionDbMutation.isPending}
+                            data-testid="button-save-evolution-db"
+                          >
+                            {updateEvolutionDbMutation.isPending ? "Salvando..." : "Salvar Configurações"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoadingEvolutionDb ? (
+              <p className="text-sm text-muted-foreground">Carregando configurações...</p>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs uppercase text-muted-foreground">Host</Label>
+                  <p className="font-mono text-sm">{evolutionDbConfig?.host || "-"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase text-muted-foreground">Porta</Label>
+                  <p className="font-mono text-sm">{evolutionDbConfig?.port || "-"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase text-muted-foreground">Banco de Dados</Label>
+                  <p className="font-mono text-sm">{evolutionDbConfig?.name || "-"}</p>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase text-muted-foreground">Usuário</Label>
+                  <p className="font-mono text-sm">{evolutionDbConfig?.user || "-"}</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

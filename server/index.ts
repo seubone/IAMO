@@ -78,7 +78,12 @@ app.use((req, res, next) => {
 (async () => {
   // Seed data on startup in development
   if (app.get("env") === "development") {
-    await seedData();
+    try {
+      await seedData();
+    } catch (error) {
+      console.error("❌ Erro ao executar seed de dados:", error instanceof Error ? error.message : error);
+      console.log("⚠️ Continuando sem seed. O banco pode estar indisponível.");
+    }
   }
 
   const server = await registerRoutes(app);
