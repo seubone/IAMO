@@ -11,8 +11,8 @@ const env = validateEnv();
 console.log("✅ Environment variables validated");
 
 // Dynamic import for vite (dev only) to avoid loading it in production
-let setupVite: any;
-let serveStatic: any;
+let setupVite: ((app: any, server: any) => Promise<void>) | null = null;
+let serveStaticFiles: ((app: any) => void) | null = null;
 let log: any = (message: string) => console.log(`[express] ${message}`);
 
 const app = express();
@@ -87,10 +87,7 @@ app.use((req, res, next) => {
     log = viteUtils.log;
   } else {
     // Use static file serving in production
-    serveStatic = (app: any) => {
-      const staticDir = import.meta.url.includes("dist")
-        ? "../public"
-        : "./public";
+    serveStaticFiles = (app: any) => {
       app.use(express.static("dist/public"));
     };
   }
@@ -118,10 +115,10 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  if (app.get("env") === "development" && setupVite) {
     await setupVite(app, server);
-  } else {
-    serveStatic(app);
+  } else if (serveStaticFiles) {
+    serveStaticFiles(app);
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
