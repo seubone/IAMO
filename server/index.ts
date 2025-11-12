@@ -3,13 +3,17 @@ import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { validateEnv } from "./config/env";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./utils/vite";
 import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
 
 // Validate environment variables on startup
 const env = validateEnv();
 console.log("✅ Environment variables validated");
+
+// Dynamic import for vite (dev only) to avoid loading it in production
+let setupVite: any;
+let serveStatic: any;
+let log: any = (message: string) => console.log(`[express] ${message}`);
 
 const app = express();
 
@@ -76,6 +80,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Load vite utilities only in development to avoid loading vite in production
+  if (process.env.NODE_ENV === "development") {
+    const viteUtils = await import("./utils/vite");
+    setupVite = viteUtils.setupVite;
+    log = viteUtils.log;
+  } else {
+    // Use static file serving in production
+    serveStatic = (app: any) => {
+      const staticDir = import.meta.url.includes("dist")
+        ? "../public"
+        : "./public";
+      app.use(express.static("dist/public"));
+    };
+  }
+
   // Seed data on startup in development
   if (app.get("env") === "development") {
     try {
