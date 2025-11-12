@@ -1,10 +1,14 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import { validateEnv } from "./config/env";
 import { registerRoutes } from "./routes";
 import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Validate environment variables on startup
 const env = validateEnv();
@@ -88,7 +92,12 @@ app.use((req, res, next) => {
   } else {
     // Use static file serving in production
     serveStaticFiles = (app: any) => {
-      app.use(express.static("dist/public"));
+      const publicPath = path.resolve(__dirname, "..", "dist", "public");
+      app.use(express.static(publicPath));
+      // Fallback to index.html for SPA routing
+      app.use("*", (req, res) => {
+        res.sendFile(path.resolve(publicPath, "index.html"));
+      });
     };
   }
 
@@ -115,9 +124,9 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development" && setupVite) {
+  if (process.env.NODE_ENV === "development" && setupVite) {
     await setupVite(app, server);
-  } else if (serveStaticFiles) {
+  } else if (process.env.NODE_ENV === "production" && serveStaticFiles) {
     serveStaticFiles(app);
   }
 

@@ -39,4 +39,5 @@ EXPOSE 5051
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD curl -f http://localhost:5051/health || exit 1
 ENTRYPOINT ["/usr/bin/dumb-init","--"]
+ENV NODE_ENV=production
 CMD ["node","dist/index.js"]
