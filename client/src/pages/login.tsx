@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { auth } from "@/lib/api";
 import { signInWithGoogle } from "@/lib/google-auth";
 import { useLocation } from "wouter";
-import backgroundVideo from "@/wallpaper seubone.mp4";
+import backgroundVideo from "@/wallpaper-seubone.mp4";
 
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
