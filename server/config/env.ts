@@ -30,16 +30,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.string()
     .url("FRONTEND_URL must be a valid URL")
     .optional()
-    .refine(
-      (val) => {
-        // In production, FRONTEND_URL is required
-        if (process.env.NODE_ENV === "production") {
-          return val !== undefined && val.length > 0;
-        }
-        return true;
-      },
-      "FRONTEND_URL is required in production for email callbacks"
-    ),
+    .default("https://localhost:5000"),
 
   // Uazapi
   UAZAPI_BASE_URL: z.string().url().optional().default("https://quatro-cinco.uazapi.com"),
