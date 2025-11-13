@@ -155,7 +155,16 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen w-full">
-      <div className="relative hidden overflow-hidden lg:flex lg:w-[65%] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+      <div className="relative hidden overflow-hidden lg:flex lg:w-[65%]">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/assets/login-bg.mp4" type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-slate-950/30" aria-hidden="true" />
       </div>
 
