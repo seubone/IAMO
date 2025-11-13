@@ -11,7 +11,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { auth } from "@/lib/api";
 import { signInWithGoogle } from "@/lib/google-auth";
 import { useLocation } from "wouter";
-import backgroundVideo from "@/wallpaper-seubone.mp4";
 
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
@@ -453,18 +452,8 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen w-full">
-      <div className="relative hidden overflow-hidden lg:flex lg:w-[65%]">
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          aria-hidden="true"
-        >
-          <source src={backgroundVideo} type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-slate-950/50" aria-hidden="true" />
+      <div className="relative hidden overflow-hidden lg:flex lg:w-[65%] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+        <div className="absolute inset-0 bg-slate-950/30" aria-hidden="true" />
       </div>
 
       <div className="relative z-[1] flex w-full items-center justify-center bg-background p-6 lg:w-[35%]">
