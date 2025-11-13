@@ -34,10 +34,9 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
-# Copy init script and make executable BEFORE changing user
+# Copy init script if it exists, otherwise create a no-op script
 COPY --from=builder /app/scripts/init-db.sh ./init-db.sh
-RUN chmod +x ./init-db.sh && \
-    chown nodejs:nodejs ./init-db.sh
+RUN chmod +x ./init-db.sh && chown nodejs:nodejs ./init-db.sh
 
 USER nodejs
 EXPOSE 5051
@@ -45,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD curl -f http://localhost:5051/health || exit 1
 ENTRYPOINT ["/usr/bin/dumb-init","--"]
 ENV NODE_ENV=production
-CMD ["sh", "-c", "[ -f ./init-db.sh ] && ./init-db.sh || true; node dist/index.js"]
+CMD ["sh", "-c", "if [ -f ./init-db.sh ]; then ./init-db.sh 2>&1 || echo 'Warning: init-db.sh failed but continuing'; fi && node dist/index.js"]
