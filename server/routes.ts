@@ -604,19 +604,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: authError?.message || "Erro ao registrar usuário" });
       }
 
-      // Create user in local DB for role management
-      const existingLocalUser = await storage.getUserByEmail(email);
-      let localUser;
-      if (!existingLocalUser) {
-        localUser = await storage.createUser({
-          id: authData.user.id,
-          name,
-          email,
-          password: "", // Don't store password locally - use Supabase
-          role: "viewer", // Default role
-        });
-      } else {
-        localUser = existingLocalUser;
+      // Create user in local DB for role management (optional - will be created on first login if not exists)
+      try {
+        const existingLocalUser = await storage.getUserByEmail(email);
+        if (!existingLocalUser) {
+          await storage.createUser({
+            id: authData.user.id,
+            name,
+            email,
+            password: "", // Don't store password locally - use Supabase
+            role: "viewer", // Default role
+          });
+        }
+      } catch (dbError) {
+        // Log but don't fail registration if local DB is not available
+        console.warn("⚠️ Could not create user in local DB (will be created on first login):", dbError);
       }
 
       // Return success message - user needs to confirm email
@@ -624,10 +626,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: "Usuário registrado com sucesso! Verifique seu email para confirmar o cadastro.",
         user: {
-          id: localUser.id,
-          name: localUser.name,
-          email: localUser.email,
-          role: localUser.role,
+          id: authData.user.id,
+          name: authData.user.user_metadata?.name || name,
+          email: authData.user.email,
+          role: "viewer", // Default role
         },
         requiresEmailConfirmation: true,
       });

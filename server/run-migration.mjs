@@ -1,13 +1,18 @@
 import pg from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 const { Client } = pg;
 
+// Parse DATABASE_URL from environment
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  process.exit(1);
+}
+
 const client = new Client({
-  host: '31.97.255.54',
-  port: 5432,
-  database: 'simonia',
-  user: 'postgres',
-  password: 'd4b5507303632dbd23b1',
-  ssl: false
+  connectionString: process.env.DATABASE_URL,
 });
 
 async function runMigration() {
