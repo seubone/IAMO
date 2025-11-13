@@ -1,41 +1,35 @@
-node_modules
-dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-.env.production
-
-# IDE
-.vscode
-.idea
-.claude/
-.config/
-.local/
-
-# Logs
-*.log
-server.log
-server.err
-
-# Temporary files
-nul
-*.tmp
-*.swp
 
 # Database
-*.db
-*.sqlite
-
+# Environment variables
+# IDE
+# Logs
 # Scripts temporários
-create-db.js
-
 # Shell scripts with credentials - use environment variables instead
+# Temporary files
+*.db
+*.log
 *.sh
+*.sqlite
+*.swp
+*.tar.gz
+*.tmp
+.claude/
+.config/
+.DS_Store
+.env
+.env.*.local
+.env.local
+.env.production
+.idea
+.local/
+.vscode
+create-db.js
+dist
+node_modules
+nul
+server.err
+server.log
+server/public
+sync-instances.sh.env.production
 test_message.sh
-sync-instances.sh
+vite.config.ts.*
