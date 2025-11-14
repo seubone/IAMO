@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +13,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useLoadSupabaseConfig } from "@/hooks/use-supabase-config";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
-import { useEffect } from "react";
 import Monitoring from "@/pages/monitoring";
 import WhatsApp from "@/pages/whatsapp";
 import Tickets from "@/pages/tickets";

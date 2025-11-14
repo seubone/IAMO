@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type JSX } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, type JSX } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { WhatsAppHeader } from "@/components/WhatsAppHeader";
@@ -45,6 +45,7 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { useDebounce } from "@/lib/utils";
 import { InstanceSelectorModal } from "@/components/InstanceSelectorModal";
 import { InstanceSettingsDialog } from "@/components/InstanceSettingsDialog";
+import { CreateInstanceDialog } from "@/components/CreateInstanceDialog";
 import { useSelectedInstance } from "@/hooks/use-selected-instance";
 import { useSidebarWidth } from "@/hooks/use-sidebar-width";
 import { useAuth } from "@/hooks/use-auth";
@@ -249,6 +250,7 @@ export default function WhatsApp() {
   const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
   const [isInstanceSelectorOpen, setIsInstanceSelectorOpen] = useState(false);
   const [isInstanceSettingsDialogOpen, setIsInstanceSettingsDialogOpen] = useState(false);
+  const [isCreateInstanceDialogOpen, setIsCreateInstanceDialogOpen] = useState(false);
   const [instanceSettingsContext, setInstanceSettingsContext] = useState<{ number?: string; name?: string } | null>(null);
   const [iaStatusForChat, setIaStatusForChat] = useState<'active' | 'paused' | 'inactive'>('active'); // Placeholder para o status da IA na conversa
   const { selectedInstance, setSelectedInstance } = useSelectedInstance();
@@ -1227,6 +1229,7 @@ export default function WhatsApp() {
                 onInstanceClick={() => setIsInstanceSelectorOpen(true)}
                 onInstanceSettingsClick={() => openInstanceSettings()}
                 onConfigureIAClick={handleConfigureIA}
+                onCreateInstanceClick={() => setIsCreateInstanceDialogOpen(true)}
                 isLoadingChats={isLoadingChats}
                 chats={chats || []}
                 filteredChats={filteredChats}
@@ -2159,6 +2162,11 @@ export default function WhatsApp() {
         }}
         instanceNumber={instanceSettingsContext?.number ?? undefined}
         instanceName={instanceSettingsContext?.name ?? undefined}
+      />
+
+      <CreateInstanceDialog
+        open={isCreateInstanceDialogOpen}
+        onOpenChange={setIsCreateInstanceDialogOpen}
       />
 
     </div>

@@ -16,6 +16,7 @@ import { evolutionPool } from "./config/evolution-db";
 import { registerBotConfigRoutes } from "./routes/bot-config.routes";
 import { registerIAConfigRoutes } from "./routes/ia-config.routes";
 import { registerAIDataRoutes } from "./routes/ai-data.routes";
+import { registerInstanceRoutes } from "./routes/instances.routes";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -2660,6 +2661,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register AI Data routes (para tabela ai_data)
   registerAIDataRoutes(app);
+
+  // Register Evolution API instance management routes
+  registerInstanceRoutes(app);
 
   return httpServer;
 }

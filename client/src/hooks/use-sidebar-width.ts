@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const SIDEBAR_STORAGE_KEY = 'chat-sidebar-width';
 const MIN_WIDTH = 250; // Largura mínima da sidebar (px)

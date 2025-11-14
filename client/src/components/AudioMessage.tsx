@@ -1,6 +1,6 @@
+import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Play, Pause, MoreVertical, Download } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { generateAvatarDataUri, resolveAvatarIdentifier } from "@/lib/avatar-generator";
 

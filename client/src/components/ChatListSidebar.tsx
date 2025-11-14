@@ -13,6 +13,7 @@ import {
   Cpu,
   WifiOff,
   Wifi,
+  Plus,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ interface ChatListSidebarProps {
   onInstanceClick: () => void;
   onInstanceSettingsClick?: () => void;
   onConfigureIAClick?: () => void;
+  onCreateInstanceClick?: () => void;
   isLoadingChats: boolean;
   chats: EvolutionChat[];
   filteredChats: EvolutionChat[];
@@ -121,6 +123,7 @@ export function ChatListSidebar({
   onInstanceClick,
   onInstanceSettingsClick,
   onConfigureIAClick,
+  onCreateInstanceClick,
   isLoadingChats,
   chats,
   filteredChats,
@@ -340,6 +343,17 @@ export function ChatListSidebar({
               title="Configurar IA"
             >
               <Cpu className="h-4 w-4" />
+            </Button>
+          )}
+          {onCreateInstanceClick && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10"
+              onClick={onCreateInstanceClick}
+              title="Criar nova instância"
+            >
+              <Plus className="h-4 w-4" />
             </Button>
           )}
         </div>
