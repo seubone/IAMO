@@ -61,7 +61,9 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     // Use window.location.host which includes port (e.g., "localhost:5000")
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
+    // Build WebSocket URL - ensure token is properly encoded
+    const encodedToken = encodeURIComponent(token);
+    const wsUrl = `${protocol}//${host}/?token=${encodedToken}`;
 
     console.log("🔌 Connecting to WebSocket...", wsUrl.replace(token, "[TOKEN]"));
     const ws = new WebSocket(wsUrl);
@@ -116,13 +118,12 @@ export function useWebSocket(options?: UseWebSocketOptions) {
               });
               break;
             case "whatsapp_message_received":
-              // OPTIMIZATION: Only invalidate the specific chat's queries
+              // CRITICAL FIX: Properly invalidate both messages AND chat list
               // Data structure: { instanceId, remoteJid, messageId, ... }
               const { instanceId, remoteJid } = message.data || {};
 
               if (instanceId && remoteJid) {
-                // 1. Invalidate only THIS chat's messages (most specific)
-                // This is the critical fix - prevents invalidating unrelated chats
+                // 1. Invalidate this chat's messages (most specific)
                 queryClient.invalidateQueries({
                   queryKey: [
                     `/api/whatsapp/instances/${instanceId}/chats/${remoteJid}/messages`
@@ -130,10 +131,18 @@ export function useWebSocket(options?: UseWebSocketOptions) {
                   exact: false  // Also invalidates pagination variants
                 });
 
-                console.log(`📱 Message received - invalidating chat: ${remoteJid}`);
+                console.log(`📱 ✅ Message received - invalidating messages for: ${remoteJid}`);
+
+                // 2. CRITICAL: Also invalidate the entire chat list
+                // This updates last message, unread count, and order
+                queryClient.invalidateQueries({
+                  queryKey: [`/api/whatsapp/instances/${instanceId}/chats`],
+                  exact: true  // Exact match only - don't invalidate sub-queries
+                });
+
+                console.log(`📱 ✅ Invalidating chat list for instance: ${instanceId}`);
               } else {
                 // Fallback: if data doesn't have instanceId/remoteJid, invalidate all messages
-                // (This should rarely happen)
                 console.warn("⚠️ WhatsApp message missing instanceId/remoteJid");
 
                 queryClient.invalidateQueries({
@@ -144,16 +153,16 @@ export function useWebSocket(options?: UseWebSocketOptions) {
                            key[4] === "messages";
                   }
                 });
-              }
 
-              // 2. Also update chat list (to show unread count, etc)
-              if (instanceId) {
+                // Also invalidate all chat lists
                 queryClient.invalidateQueries({
-                  queryKey: [`/api/whatsapp/instances/${instanceId}/chats`],
-                  exact: false
+                  predicate: (query) => {
+                    const key = query.queryKey;
+                    return Array.isArray(key) &&
+                           key[0] === "/api/whatsapp/instances" &&
+                           key[2] === "chats";
+                  }
                 });
-
-                console.log(`📱 Also invalidating chat list for instance: ${instanceId}`);
               }
 
               // Call callback if provided (using ref to avoid dependency issues)

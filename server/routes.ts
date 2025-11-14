@@ -430,18 +430,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // OPTIMIZATION: Removed server-side polling
-  // Why: Client-side polling (10s) is sufficient and more efficient
-  // - Client only polls the active chat (not all instances)
-  // - Server polling was creating duplicate work
-  // - WebSocket + client polling is enough for real-time updates
-  // - This reduces database queries by ~50%
+  // CRITICAL FIX: Re-enabled server-side polling for real-time updates
+  // Why: WebSocket alone is not reliable enough for instant message updates
+  // - Server polling ensures messages are caught even if WebSocket fails
+  // - Poll interval: 2000ms (2s) for near-instant updates
+  // - Deduplication by timestamp prevents duplicate messages
+  // - This is essential for user experience
   //
-  // If real-time updates are critical, increase client polling frequency:
-  // whatsapp.tsx:478 -> change refetchInterval from 10000 to 5000
-  //
-  // setInterval(pollNewMessages, 3000);
-  console.log("📱 ℹ️ Server-side polling disabled (using WebSocket + client polling instead)");
+  // The server polls only active instances (those with connected clients)
+  // so the performance impact is minimal
+  setInterval(pollNewMessages, 2000);
+  console.log("📱 ✅ Server-side polling enabled (2s interval) for real-time message updates");
 
   // ============ PUBLIC CONFIG ROUTES ============
 
@@ -1083,9 +1082,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { instanceId } = req.params;
 
+      // CRITICAL FIX: Add validation logs to debug chat loading issues
+      console.log(`💬 Fetching chats:`, {
+        instanceId: instanceId || "❌ UNDEFINED",
+        timestamp: new Date().toISOString()
+      });
+
+      // Validate required parameter
+      if (!instanceId) {
+        console.warn(`⚠️ Missing required parameter: instanceId`);
+        return res.status(400).json({
+          error: "Missing required parameter: instanceId",
+          details: { instanceId }
+        });
+      }
+
       // Get all instance IDs that share the same WhatsApp number (ownerJid)
       // This enables cross-instance chat synchronization
       const relatedInstanceIds = await getRelatedInstanceIds(instanceId);
+
+      console.log(`🔍 Related instances found:`, {
+        original: instanceId,
+        related: relatedInstanceIds,
+        count: relatedInstanceIds.length
+      });
+
+      if (relatedInstanceIds.length === 0) {
+        console.warn(`⚠️ No instance found with id: ${instanceId}`);
+        return res.status(404).json({
+          error: "Instance not found",
+          details: { instanceId }
+        });
+      }
 
       // Query with last message preview
       // NOVO: Busca chats de TODAS as instâncias relacionadas (mesmo ownerJid)
@@ -1132,11 +1160,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT 100
       `, [relatedInstanceIds]);
 
+      console.log(`✅ Chats found:`, {
+        count: result.rows.length,
+        instanceIds: relatedInstanceIds
+      });
+
       res.json(result.rows);
     } catch (error: any) {
-      console.error("Error fetching chats:", error);
-      // Return empty array instead of 500 error - Evolution DB may be temporarily unavailable
-      res.json([]);
+      // CRITICAL FIX: Return proper error response instead of silent failure
+      console.error("❌ Error fetching chats:", {
+        error: error.message,
+        code: error.code,
+        detail: error.detail,
+        instanceId: req.params.instanceId,
+        stack: error.stack
+      });
+
+      res.status(500).json({
+        error: "Failed to fetch chats",
+        message: error.message,
+        code: error.code,
+        // Only in development - hide details in production
+        ...(process.env.NODE_ENV === 'development' && {
+          detail: error.detail,
+          instanceId: req.params.instanceId
+        })
+      });
     }
   });
 
@@ -1303,9 +1352,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
       const offset = parseInt(req.query.offset as string) || 0;
 
+      // CRITICAL FIX: Add validation logs to debug "mariaianova" issue
+      console.log(`📨 Fetching messages:`, {
+        instanceId: instanceId || "❌ UNDEFINED",
+        remoteJid: remoteJid || "❌ UNDEFINED",
+        limit,
+        offset,
+        timestamp: new Date().toISOString()
+      });
+
+      // Validate required parameters
+      if (!instanceId || !remoteJid) {
+        console.warn(`⚠️ Missing required parameters - instanceId: ${instanceId}, remoteJid: ${remoteJid}`);
+        return res.status(400).json({
+          error: "Missing required parameters: instanceId and remoteJid",
+          details: { instanceId, remoteJid }
+        });
+      }
+
       // Get all instance IDs that share the same WhatsApp number (ownerJid)
       // This enables cross-instance message synchronization
       const relatedInstanceIds = await getRelatedInstanceIds(instanceId);
+
+      console.log(`🔍 Related instances found:`, {
+        original: instanceId,
+        related: relatedInstanceIds,
+        count: relatedInstanceIds.length
+      });
+
+      if (relatedInstanceIds.length === 0) {
+        console.warn(`⚠️ No instance found with id: ${instanceId}`);
+        return res.status(404).json({
+          error: "Instance not found",
+          details: { instanceId }
+        });
+      }
 
       // CORRIGIDO: Usa DESC para pegar mensagens mais recentes primeiro
       // O frontend inverte o array para exibir corretamente (mais antiga → mais recente)
@@ -1330,11 +1411,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT $3 OFFSET $4
       `, [remoteJid, relatedInstanceIds, limit, offset]);
 
+      console.log(`✅ Messages found:`, {
+        remoteJid,
+        count: result.rows.length,
+        instanceIds: relatedInstanceIds,
+        limit,
+        offset
+      });
+
       res.json(result.rows);
     } catch (error: any) {
-      console.error("Error fetching messages:", error);
-      // Return empty array instead of 500 error - Evolution DB may be temporarily unavailable
-      res.json([]);
+      // CRITICAL FIX: Return proper error response instead of silent failure
+      console.error("❌ Error fetching messages:", {
+        error: error.message,
+        code: error.code,
+        detail: error.detail,
+        instanceId: req.params.instanceId,
+        remoteJid: req.params.remoteJid,
+        stack: error.stack
+      });
+
+      // Return 500 error so client knows something went wrong
+      res.status(500).json({
+        error: "Failed to fetch messages",
+        message: error.message,
+        code: error.code,
+        // Only in development - hide details in production
+        ...(process.env.NODE_ENV === 'development' && {
+          detail: error.detail,
+          instanceId: req.params.instanceId,
+          remoteJid: req.params.remoteJid
+        })
+      });
     }
   });
 

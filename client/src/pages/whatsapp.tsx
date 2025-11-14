@@ -573,13 +573,20 @@ export default function WhatsApp() {
   }, []);
 
   // Fetch chats for selected instance com polling otimizado
+  // CRITICAL FIX: Reduced polling intervals for real-time updates
   const { data: chats, isLoading: isLoadingChats } = useQuery<EvolutionChat[]>({
     queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats`],
     enabled: !!selectedInstanceId,
-    // Polling a cada 5s (reduzido de 3s para menos log spam)
-    // WebSocket atualiza em tempo real, polling é backup
-    refetchInterval: selectedInstanceId && isPageVisible ? 5000 : false,
-    staleTime: 3000, // Cache de 3s
+    // FIXED: Reduzido para 3s para garantir atualização rápida
+    // Server-side polling (2s) + WebSocket ensure real-time updates
+    // Client-side polling (3s) é backup rápido
+    refetchInterval: selectedInstanceId && isPageVisible ? 3000 : false,
+    // FIXED: staleTime = 0 para respeitar invalidations do WebSocket imediatamente
+    staleTime: 0,
+    // FIXED: Refetch quando aba ganha foco para sincronizar
+    refetchOnWindowFocus: true,
+    // FIXED: Refetch quando instância muda
+    refetchOnMount: true,
   });
 
   // Calcular total de mensagens não lidas e atualizar título da página
@@ -600,6 +607,7 @@ export default function WhatsApp() {
   }, [chats]);
 
   // Fetch messages for selected chat com polling otimizado
+  // CRITICAL FIX: Near-instant message updates with server polling + WebSocket
   const { data: allMessages, isLoading: isLoadingMessages, error: messagesError } = useQuery<EvolutionMessage[]>({
     queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`, { limit: messageLimit }],
     queryFn: async () => {
@@ -609,17 +617,18 @@ export default function WhatsApp() {
       return response;
     },
     enabled: !!selectedInstanceId && !!selectedChatJid,
-    // FIXED: Reduzido de 10s para 3s para fallback mais rápido
-    // WebSocket é primário, polling é backup rápido
-    // Se WebSocket falhar, mensagens aparecem em 3s ao invés de 10s
-    refetchInterval: selectedChatJid && isPageVisible ? 3000 : false,
+    // FIXED: Reduzido de 3s para 2s para ser levemente mais rápido que server polling (2s)
+    // Server polling (2s) + WebSocket ensure messages appear almost instantly
+    // Client polling (2s) é backup rápido se WebSocket falhar
+    refetchInterval: selectedChatJid && isPageVisible ? 2000 : false,
     // FIXED: staleTime=0 para respeitar cache invalidations imediatamente
-    // Antes: staleTime=5000 causava race conditions com invalidations
-    // Resultado: invalidações eram ignoradas, mensagens demoravam 10s para aparecer
+    // Isso garante que quando WebSocket invalida, as mensagens são recarregadas imediatamente
     staleTime: 0,
     // FIXED: Auto-refresh ao usuário voltar à aba
     // Garante que mensagens novas são carregadas ao trocar de aba
     refetchOnWindowFocus: true,
+    // FIXED: Refetch quando chat muda
+    refetchOnMount: true,
   });
 
   // Reset mensagens quando troca de chat

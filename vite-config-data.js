@@ -3,6 +3,10 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Determine frontend and backend ports
+const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || "5000", 10);
+const BACKEND_PORT = parseInt(process.env.PORT || "5051", 10);
+
 export const viteConfigData = {
   resolve: {
     alias: {
@@ -17,12 +21,12 @@ export const viteConfigData = {
     emptyOutDir: true,
   },
   server: {
-    port: 5000,
+    port: FRONTEND_PORT,
     strictPort: true,
     host: "0.0.0.0",
     proxy: {
       "/api": {
-        target: "http://localhost:5051",
+        target: `http://localhost:${BACKEND_PORT}`,
         changeOrigin: true,
         secure: false,
         ws: true,

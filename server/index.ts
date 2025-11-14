@@ -1,14 +1,22 @@
-import "dotenv/config";
-import express, { type Request, Response, NextFunction } from "express";
-import cors from "cors";
+import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+
+// Determine which .env file to load based on NODE_ENV or default to .env
+// This must be done BEFORE other dotenv.config() calls
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envFile = process.env.NODE_ENV === "production"
+  ? path.resolve(__dirname, "..", ".env.production")
+  : path.resolve(__dirname, "..", ".env");
+
+dotenv.config({ path: envFile });
+
+import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { validateEnv } from "./config/env";
 import { registerRoutes } from "./routes";
 import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Validate environment variables on startup
 const env = validateEnv();
