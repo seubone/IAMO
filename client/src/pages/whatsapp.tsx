@@ -1568,14 +1568,12 @@ export default function WhatsApp() {
                                     <div className={`${attachmentWrapperClasses} relative`}>
                                       {renderSenderBadge()}
                                       <StickerMessage messageId={message.id} />
-                                      {!isSameSenderAsNext && (
-                                        <div className="flex items-center gap-1">
-                                          <p className="text-[10px] opacity-60">
-                                            {formatTimestamp(message.messageTimestamp)}
-                                          </p>
-                                          <MessageStatus status={message.status} fromMe={fromMe} />
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-1">
+                                        <p className="text-[10px] opacity-60">
+                                          {formatTimestamp(message.messageTimestamp)}
+                                        </p>
+                                        <MessageStatus status={message.status} fromMe={fromMe} />
+                                      </div>
                                     </div>
                                   )}
 
@@ -1587,14 +1585,12 @@ export default function WhatsApp() {
                                         messageId={message.id}
                                         caption={message.message.imageMessage.caption}
                                       />
-                                      {!isSameSenderAsNext && (
-                                        <div className="flex items-center gap-1 absolute bottom-2 left-2">
-                                          <p className="text-[10px] opacity-60 text-foreground drop-shadow">
-                                            {formatTimestamp(message.messageTimestamp)}
-                                          </p>
-                                          <MessageStatus status={message.status} fromMe={fromMe} />
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-1 absolute bottom-2 left-2">
+                                        <p className="text-[10px] opacity-60 text-foreground drop-shadow">
+                                          {formatTimestamp(message.messageTimestamp)}
+                                        </p>
+                                        <MessageStatus status={message.status} fromMe={fromMe} />
+                                      </div>
                                     </div>
                                   )}
 
@@ -1606,14 +1602,12 @@ export default function WhatsApp() {
                                         messageId={message.id}
                                         caption={message.message.videoMessage.caption}
                                       />
-                                      {!isSameSenderAsNext && (
-                                        <div className="flex items-center gap-1 absolute bottom-2 left-2">
-                                          <p className="text-[10px] opacity-60 text-foreground drop-shadow">
-                                            {formatTimestamp(message.messageTimestamp)}
-                                          </p>
-                                          <MessageStatus status={message.status} fromMe={fromMe} />
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-1 absolute bottom-2 left-2">
+                                        <p className="text-[10px] opacity-60 text-foreground drop-shadow">
+                                          {formatTimestamp(message.messageTimestamp)}
+                                        </p>
+                                        <MessageStatus status={message.status} fromMe={fromMe} />
+                                      </div>
                                     </div>
                                   )}
 
@@ -1622,14 +1616,12 @@ export default function WhatsApp() {
                                     <div className={`${attachmentWrapperClasses} relative`}>
                                       {renderSenderBadge()}
                                       <VideoMessage messageId={message.id} />
-                                      {!isSameSenderAsNext && (
-                                        <div className="flex items-center gap-1 absolute bottom-2 left-2">
-                                          <p className="text-[10px] opacity-60 text-foreground drop-shadow">
-                                            {formatTimestamp(message.messageTimestamp)}
-                                          </p>
-                                          <MessageStatus status={message.status} fromMe={fromMe} />
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-1 absolute bottom-2 left-2">
+                                        <p className="text-[10px] opacity-60 text-foreground drop-shadow">
+                                          {formatTimestamp(message.messageTimestamp)}
+                                        </p>
+                                        <MessageStatus status={message.status} fromMe={fromMe} />
+                                      </div>
                                     </div>
                                   )}
 
@@ -1807,15 +1799,13 @@ export default function WhatsApp() {
                                       </p>
                                     )}
 
-                                    {/* Timestamp - mostrar apenas se for última do grupo ou on hover */}
-                                    {!isSameSenderAsNext && (
-                                      <div className="flex items-center justify-end gap-1 mt-1">
-                                        <p className="text-[10px] opacity-60">
-                                          {formatTimestamp(message.messageTimestamp)}
-                                        </p>
-                                        <MessageStatus status={message.status} fromMe={fromMe} />
-                                      </div>
-                                    )}
+                                    {/* Timestamp - mostrar em todas as mensagens */}
+                                    <div className="flex items-center justify-end gap-1 mt-1">
+                                      <p className="text-[10px] opacity-60">
+                                        {formatTimestamp(message.messageTimestamp)}
+                                      </p>
+                                      <MessageStatus status={message.status} fromMe={fromMe} />
+                                    </div>
                                   </div>
                                   )}
 
