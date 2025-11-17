@@ -179,15 +179,37 @@ export function useWebSocket(options?: UseWebSocketOptions) {
               // Handle message status updates (pending -> sent -> delivered -> read)
               console.log(`📨 Message status updated:`, message.data);
 
-              // Invalidate messages to refresh status indicators
-              queryClient.invalidateQueries({
-                predicate: (query) => {
-                  const key = query.queryKey;
-                  return Array.isArray(key) &&
-                         key[0] === "/api/whatsapp/instances" &&
-                         key[4] === "messages";
+              // Update cache directly instead of invalidating (faster, no refetch)
+              // This updates the status without causing a delay
+              queryClient.setQueriesData(
+                {
+                  predicate: (query) => {
+                    const key = query.queryKey;
+                    return Array.isArray(key) &&
+                           key[0] === "/api/whatsapp/instances" &&
+                           key[4] === "messages";
+                  }
+                },
+                (oldData: any) => {
+                  if (!Array.isArray(oldData)) return oldData;
+
+                  // Update message with new status
+                  // Match by messageId, optimistic ID, or message's key.id
+                  return oldData.map((msg: any) => {
+                    const messageIdMatches =
+                      msg.id === message.data.messageId ||
+                      msg.key?.id === message.data.messageId ||
+                      msg.id === message.data.optimisticId ||
+                      msg.key?.id === message.data.optimisticId;
+
+                    if (messageIdMatches) {
+                      console.log(`✅ Message status updated: ${msg.id} -> ${message.data.status}`);
+                      return { ...msg, status: message.data.status };
+                    }
+                    return msg;
+                  });
                 }
-              });
+              );
               break;
           }
         } catch (handlerError) {

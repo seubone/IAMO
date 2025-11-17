@@ -870,11 +870,14 @@ export default function WhatsApp() {
         `/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`
       ]) || [];
 
+      // Gerar ID único para rastrear mensagem otimista
+      const optimisticId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
       // Criar mensagem otimista (será substituída pela real quando chegar do servidor)
       const optimisticMessage: EvolutionMessage = {
-        id: `optimistic-${Date.now()}`,
+        id: optimisticId,
         key: {
-          id: `optimistic-${Date.now()}`,
+          id: optimisticId,
           fromMe: true,
           remoteJid: selectedChatJid || '',
         },
@@ -894,8 +897,8 @@ export default function WhatsApp() {
         newMessages
       );
 
-      // Retornar contexto para rollback se necessário
-      return { previousMessages };
+      // Retornar contexto incluindo o optimisticId para correlação
+      return { previousMessages, optimisticId };
     },
     onSuccess: (response, variables) => {
       toast({
@@ -905,11 +908,9 @@ export default function WhatsApp() {
       setMessageText("");
       deleteMessageDraft();
 
-      // Invalidar para que a mensagem real (do servidor) seja carregada
-      queryClient.invalidateQueries({
-        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-        exact: false
-      });
+      // Não invalidar - deixar a mensagem otimista como está
+      // O WebSocket atualizará o status dela quando o servidor confirmar
+      // Isso evita delay ao recarregar do servidor
     },
     onError: (error: any, variables, context) => {
       // Rollback: restaurar dados anteriores
