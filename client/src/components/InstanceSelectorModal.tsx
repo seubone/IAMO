@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Loader2, Settings, Search, X, MessageCircle } from "lucide-react";
+import { Loader2, Settings, Search, X, MessageCircle, Plus } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +26,7 @@ interface InstanceSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectInstance: (instance: EvolutionInstance) => void;
+  onCreateNewInstance?: () => void;
   selectedInstanceId?: string | null;
 }
 
@@ -33,6 +34,7 @@ export function InstanceSelectorModal({
   open,
   onOpenChange,
   onSelectInstance,
+  onCreateNewInstance,
   selectedInstanceId,
 }: InstanceSelectorModalProps) {
   const [, setLocation] = useLocation();
@@ -72,22 +74,28 @@ export function InstanceSelectorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Selecionar Instância</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden border-0 p-0 rounded-3xl shadow-2xl flex flex-col">
+        <div className="bg-primary/5 px-8 pb-5 pt-8 border-b border-border/60">
+          <DialogTitle className="flex items-center gap-3 text-xl font-semibold text-primary">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <MessageCircle className="h-6 w-6 text-primary" />
+            </span>
+            Selecionar Instância
+          </DialogTitle>
+          <DialogDescription className="mt-3 text-sm text-muted-foreground">
             Escolha uma instância do WhatsApp para continuar
           </DialogDescription>
-        </DialogHeader>
+        </div>
 
-        {/* Campo de Busca */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Campo de Busca */}
+          <div className="relative mb-4">
+          <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome ou número..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10"
+            className="h-12 pl-12 pr-10 rounded-2xl border-0 bg-muted text-base placeholder:text-muted-foreground/70 shadow-inner"
             autoFocus
           />
           {searchQuery && (
@@ -100,41 +108,41 @@ export function InstanceSelectorModal({
           )}
         </div>
 
-        {/* Filtro para mostrar inativas */}
-        <div className="flex items-center gap-2 py-3 border-b">
-          <Checkbox
-            id="show-inactive"
-            checked={showInactive}
-            onCheckedChange={(checked) => setShowInactive(checked as boolean)}
-          />
-          <label
-            htmlFor="show-inactive"
-            className="text-sm font-medium cursor-pointer flex-1"
-          >
-            Mostrar instâncias inativas
-          </label>
-        </div>
+          {/* Filtro para mostrar inativas */}
+          <div className="flex items-center gap-2 py-4 border-b border-border/40 mb-4">
+            <Checkbox
+              id="show-inactive"
+              checked={showInactive}
+              onCheckedChange={(checked) => setShowInactive(checked as boolean)}
+            />
+            <label
+              htmlFor="show-inactive"
+              className="text-sm font-medium cursor-pointer flex-1"
+            >
+              Mostrar instâncias inativas
+            </label>
+          </div>
 
-        {/* Grid de instâncias - Responsivo */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredInstances.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-muted-foreground">
-              {searchQuery
-                ? `Nenhuma instância encontrada para "${searchQuery}"`
-                : showInactive
-                  ? "Nenhuma instância encontrada"
-                  : "Nenhuma instância ativa disponível"}
-            </p>
-          </div>
-        ) : (
-          <TooltipProvider>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 py-4">
+          {/* Grid de instâncias - Responsivo */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredInstances.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">
+                {searchQuery
+                  ? `Nenhuma instância encontrada para "${searchQuery}"`
+                  : showInactive
+                    ? "Nenhuma instância encontrada"
+                    : "Nenhuma instância ativa disponível"}
+              </p>
+            </div>
+          ) : (
+            <TooltipProvider>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl-grid-cols-4 gap-4">
               {filteredInstances.map((instance) => (
-                <Tooltip>
+                <Tooltip key={instance.id}>
                   <TooltipTrigger asChild>
                     <div
                 key={instance.id}
@@ -148,10 +156,10 @@ export function InstanceSelectorModal({
                   }
                 }}
                 className={cn(
-                  "p-4 rounded-lg border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50",
+                  "p-4 rounded-2xl border-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50",
                   selectedInstanceId === instance.id
                     ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50 hover:bg-muted"
+                    : "border-border/60 hover:border-primary/50 hover:bg-muted/50"
                 )}
               >
                 {/* Avatar/Placeholder */}
@@ -254,9 +262,25 @@ export function InstanceSelectorModal({
                   </TooltipContent>
                 </Tooltip>
               ))}
+
+              {onCreateNewInstance && (
+                <button
+                  onClick={onCreateNewInstance}
+                  className="p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-all cursor-pointer hover:bg-muted flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                >
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Plus className="h-8 w-8 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-sm">Criar Nova Instância</p>
+                    <p className="text-xs text-muted-foreground mt-1">Adicionar WhatsApp</p>
+                  </div>
+                </button>
+              )}
             </div>
           </TooltipProvider>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );

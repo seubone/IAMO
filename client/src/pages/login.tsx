@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -54,6 +54,7 @@ export default function Login() {
   const { setAuth } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -62,6 +63,17 @@ export default function Login() {
       password: "",
     },
   });
+
+  // Carregar email salvo ao montar o componente (NÃO salvar senha por segurança)
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("login_email");
+    const wasRemembered = localStorage.getItem("login_remembered") === "true";
+
+    if (savedEmail && wasRemembered) {
+      loginForm.setValue("email", savedEmail);
+      setRememberMe(true);
+    }
+  }, [loginForm]);
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -78,6 +90,20 @@ export default function Login() {
     try {
       const response = await auth.login(data);
       setAuth(response.user, response.token);
+
+      // Salvar apenas email se "Lembrar-me" está marcado (NUNCA guardar senha por segurança)
+      if (rememberMe) {
+        localStorage.setItem("login_email", data.email);
+        localStorage.setItem("login_remembered", "true");
+        // IMPORTANTE: Nunca armazenar senha em localStorage (segurança)
+        localStorage.removeItem("login_password");
+      } else {
+        // Limpar dados salvos se não estiver marcado
+        localStorage.removeItem("login_email");
+        localStorage.removeItem("login_password");
+        localStorage.removeItem("login_remembered");
+      }
+
       toast({
         title: "Login realizado com sucesso!",
         description: `Bem-vindo, ${response.user.name}`,
@@ -225,7 +251,12 @@ export default function Login() {
 
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
-                        <Checkbox id="remember-me" />
+                        <Checkbox
+                          id="remember-me"
+                          className="w-5 h-5 border-2 border-gray-900 dark:border-white rounded"
+                          checked={rememberMe}
+                          onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                        />
                         <label htmlFor="remember-me" className="cursor-pointer leading-none text-muted-foreground">
                           Lembrar-me
                         </label>

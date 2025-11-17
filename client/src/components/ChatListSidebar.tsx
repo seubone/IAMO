@@ -345,17 +345,6 @@ export function ChatListSidebar({
               <Cpu className="h-4 w-4" />
             </Button>
           )}
-          {onCreateInstanceClick && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10"
-              onClick={onCreateInstanceClick}
-              title="Criar nova instância"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          )}
         </div>
       </div>
 

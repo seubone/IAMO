@@ -2145,9 +2145,9 @@ export default function WhatsApp() {
           setSelectedChatJid(null);
           addToRecent(instance.id);
         }}
-        onConfigureInstance={(instance) => {
+        onCreateNewInstance={() => {
           setIsInstanceSelectorOpen(false);
-          openInstanceSettings(instance);
+          setIsCreateInstanceDialogOpen(true);
         }}
         selectedInstanceId={selectedInstance?.id}
       />

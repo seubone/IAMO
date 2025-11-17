@@ -1688,6 +1688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enviar mensagem em background (NÃO espera)
       unifiedSender.sendMessage({
+        instanceName: instance.name,
         instanceNumber: normalizedNumber,
         instanceRemoteJid: ownerNumber || normalizedNumber || undefined,
         recipientNumber,

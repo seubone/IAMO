@@ -149,13 +149,13 @@ export class UnifiedSender {
 
     switch (config) {
       case 'evolution':
-        return await this.sendViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber });
+        return await this.sendViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber, instanceName: data.instanceName });
 
       case 'uazapi':
-        return await this.sendViaUazAPI({ ...data, instanceNumber: normalizedInstanceNumber });
+        return await this.sendViaUazAPI({ ...data, instanceNumber: normalizedInstanceNumber, instanceName: data.instanceName });
 
       default:
-        return await this.sendViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber });
+        return await this.sendViaEvolution({ ...data, instanceNumber: normalizedInstanceNumber, instanceName: data.instanceName });
     }
   }
 

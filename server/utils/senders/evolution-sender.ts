@@ -30,8 +30,11 @@ export class EvolutionSender {
         text: data.content,
       };
 
+      // Use instanceName if available (preferred), fall back to instanceNumber
+      const instanceIdentifier = data.instanceName || data.instanceNumber;
+
       const response = await axios.post(
-        `${this.evolutionBaseUrl}/message/sendText/${data.instanceNumber}`,
+        `${this.evolutionBaseUrl}/message/sendText/${instanceIdentifier}`,
         payload,
         {
           headers: {

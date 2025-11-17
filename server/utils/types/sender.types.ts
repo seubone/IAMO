@@ -3,6 +3,7 @@
  */
 
 export interface MessageData {
+  instanceName?: string; // nome da instância (para Evolution API)
   instanceNumber: string; // número da instância (normalizado)
   instanceRemoteJid?: string; // remoteJid da instância (sem @s.whatsapp.net)
   recipientNumber: string;
