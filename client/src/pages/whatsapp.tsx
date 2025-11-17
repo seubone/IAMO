@@ -623,9 +623,10 @@ export default function WhatsApp() {
     // Server polling (2s) + WebSocket ensure messages appear almost instantly
     // Client polling (2s) é backup rápido se WebSocket falhar
     refetchInterval: selectedChatJid && isPageVisible ? 2000 : false,
-    // FIXED: staleTime=0 para respeitar cache invalidations imediatamente
-    // Isso garante que quando WebSocket invalida, as mensagens são recarregadas imediatamente
-    staleTime: 0,
+    // FIXED: staleTime=5000 (5s) para evitar refetch imediato após setQueryData
+    // Isso permite que optimistic updates apareçam sem delay
+    // WebSocket ainda invalida quando necessário para atualizar status
+    staleTime: 5000,
     // FIXED: Auto-refresh ao usuário voltar à aba
     // Garante que mensagens novas são carregadas ao trocar de aba
     refetchOnWindowFocus: true,
@@ -1180,13 +1181,19 @@ export default function WhatsApp() {
   };
 
   // Group messages by date
-  const groupMessagesByDate = (messages: EvolutionMessage[]) => {
+  // Otimizado com useMemo para evitar re-agrupamento a cada render
+  const groupedMessages = useMemo(() => {
+    if (!messages) return [];
+
     const groups: { date: string; messages: EvolutionMessage[] }[] = [];
-    
-    messages.forEach((message) => {
+
+    // Reverse uma única vez
+    const reversedMessages = [...messages].reverse();
+
+    reversedMessages.forEach((message) => {
       const messageDate = startOfDay(new Date(Number(message.messageTimestamp) * 1000)).getTime();
       const lastGroup = groups[groups.length - 1];
-      
+
       if (!lastGroup || lastGroup.date !== messageDate.toString()) {
         groups.push({
           date: messageDate.toString(),
@@ -1196,9 +1203,9 @@ export default function WhatsApp() {
         lastGroup.messages.push(message);
       }
     });
-    
+
     return groups;
-  };
+  }, [messages]);
 
   const MessageStatus = ({ status, fromMe }: { status?: string; fromMe: boolean }) => {
     if (!fromMe) return null;
@@ -1362,8 +1369,8 @@ export default function WhatsApp() {
                       <MessageListSkeleton />
                     ) : messages && messages.length > 0 ? (
                       <div className="space-y-4 w-full overflow-x-hidden">
-                        {/* CORRIGIDO: Backend retorna DESC (mais recentes primeiro), invertemos para exibir corretamente */}
-                        {groupMessagesByDate([...messages].reverse()).map((group, groupIndex) => (
+                        {/* CORRIGIDO: Backend retorna DESC (mais recentes primeiro), já revertido em useMemo */}
+                        {groupedMessages.map((group, groupIndex) => (
                           <div key={group.date} className="space-y-2 w-full overflow-x-hidden">
                             {/* Date separator */}
                             <div className="flex items-center justify-center my-4">
