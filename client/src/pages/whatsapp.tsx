@@ -646,16 +646,17 @@ export default function WhatsApp() {
 
   // Debug: Log messages data
   useEffect(() => {
-    console.log('📨 Messages Debug:', {
-      allMessages,
-      count: allMessages?.length,
-      isLoading: isLoadingMessages,
-      error: messagesError,
-      selectedInstanceId,
-      selectedChatJid,
-      messageLimit,
-    });
-  }, [allMessages, isLoadingMessages, messagesError, selectedInstanceId, selectedChatJid, messageLimit]);
+    if (allMessages && allMessages.length > 0) {
+      const lastMsg = allMessages[allMessages.length - 1];
+      console.log('📨 Messages Updated:', {
+        count: allMessages.length,
+        lastMessage: lastMsg?.message?.conversation?.substring(0, 30) || 'not-text',
+        lastMessageId: lastMsg?.id,
+        lastIsOptimistic: lastMsg?.id?.includes('msg-') || lastMsg?.id?.includes('-') ? 'YES' : 'NO',
+        isLoading: isLoadingMessages,
+      });
+    }
+  }, [allMessages, isLoadingMessages]);
 
   // Helper function to clean markdown formatting from text
   const cleanMarkdownFormatting = (text?: string | null): string => {
@@ -854,32 +855,33 @@ export default function WhatsApp() {
   // A mensagem aparece na tela <50ms após o clique do usuário
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { instanceNumber: string; recipientNumber: string; text: string }) => {
-      return await apiRequest("/api/whatsapp/send-message", {
+      // Enviar sem await - disparar em background e retornar imediatamente
+      // Assim onMutate executa ANTES do servidor responder
+      apiRequest("/api/whatsapp/send-message", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
-      });
-    },
-    onMutate: async (variables) => {
-      console.log('🔄 onMutate called', { selectedInstanceId, selectedChatJid });
+      }).catch(error => console.error('Background send error:', error));
 
+      // Retornar sucesso imediatamente (não esperamos resposta do servidor)
+      return { success: true };
+    },
+    onMutate: (variables) => {
       const messagesKey = [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`];
 
-      // Cancelar queries em andamento e pausar refetch
-      await queryClient.cancelQueries({ queryKey: messagesKey });
+      // NÃO usar await - executa imediatamente (sem bloquear)
+      queryClient.cancelQueries({ queryKey: messagesKey });
 
-      // Pausar polling enquanto envia mensagem
+      // Pausar polling instantaneamente
       queryClient.setQueryDefaults(messagesKey, { refetchInterval: false });
 
-      // Pegar dados atuais do cache
+      // Pegar dados do cache (síncrono)
       const previousMessages = queryClient.getQueryData<EvolutionMessage[]>(messagesKey) || [];
 
-      console.log('📦 Previous messages from cache:', previousMessages.length);
+      // Gerar ID único (mais rápido, sem substr)
+      const optimisticId = `${Date.now()}-${Math.random()}`;
 
-      // Gerar ID único para rastrear mensagem otimista
-      const optimisticId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      // Criar mensagem otimista (será substituída pela real quando chegar do servidor)
+      // Criar mensagem otimista
       const optimisticMessage: EvolutionMessage = {
         id: optimisticId,
         key: {
@@ -892,24 +894,17 @@ export default function WhatsApp() {
           conversation: variables.text,
         },
         messageTimestamp: Math.floor(Date.now() / 1000),
-        status: 'pending', // Badge visual para indicar envio em progresso
+        status: 'pending',
         senderType: 'consultant',
       };
 
-      // Atualizar cache com mensagem otimista
-      const newMessages = [...previousMessages, optimisticMessage];
-      console.log('✅ Setting optimistic message to cache:', { optimisticId, totalMessages: newMessages.length });
+      // Atualizar cache INSTANTANEAMENTE
+      queryClient.setQueryData(messagesKey, [...previousMessages, optimisticMessage]);
 
-      queryClient.setQueryData(messagesKey, newMessages);
-
-      // Retornar contexto incluindo o optimisticId para correlação
       return { previousMessages, optimisticId, messagesKey };
     },
     onSuccess: (response, variables, context) => {
-      toast({
-        title: "Mensagem enviada",
-        description: "Mensagem enviada com sucesso!",
-      });
+      // Não mostrar toast para não bloquear a renderização
       setMessageText("");
       deleteMessageDraft();
 
@@ -917,10 +912,6 @@ export default function WhatsApp() {
       if (context?.messagesKey) {
         queryClient.setQueryDefaults(context.messagesKey, { refetchInterval: 2000 });
       }
-
-      // Não invalidar - deixar a mensagem otimista como está
-      // O WebSocket atualizará o status dela quando o servidor confirmar
-      // Isso evita delay ao recarregar do servidor
     },
     onError: (error: any, variables, context: any) => {
       // Rollback: restaurar dados anteriores
@@ -1194,7 +1185,7 @@ export default function WhatsApp() {
   // Group messages by date
   // Otimizado com useMemo para evitar re-agrupamento a cada render
   const groupedMessages = useMemo(() => {
-    if (!messages) return [];
+    if (!messages || messages.length === 0) return [];
 
     const groups: { date: string; messages: EvolutionMessage[] }[] = [];
 
