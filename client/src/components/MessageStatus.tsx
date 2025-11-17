@@ -18,6 +18,7 @@ const statusConfig = {
     label: "Enviando...",
     tooltip: "Mensagem sendo processada",
     animation: "animate-spin",
+    text: "⏱️",
   },
   SENDING: {
     icon: Clock,
@@ -25,6 +26,7 @@ const statusConfig = {
     label: "Enviando...",
     tooltip: "Mensagem sendo processada",
     animation: "animate-spin",
+    text: "⏱️",
   },
   SENT: {
     icon: Check,
@@ -32,20 +34,23 @@ const statusConfig = {
     label: "Enviada",
     tooltip: "Mensagem enviada",
     animation: "",
+    text: "✓",
   },
   DELIVERED: {
     icon: CheckCheck,
-    color: "text-green-600 dark:text-green-400",
-    label: "Entregue",
-    tooltip: "Mensagem entregue",
+    color: "text-muted-foreground",
+    label: "Entregue (no banco de dados)",
+    tooltip: "Mensagem recebida no banco de dados",
     animation: "",
+    text: "✓✓",
   },
   READ: {
     icon: CheckCheck,
     color: "text-blue-600 dark:text-blue-400",
     label: "Lida",
-    tooltip: "Mensagem lida",
+    tooltip: "Mensagem lida pelo destinatário",
     animation: "",
+    text: "✓✓",
   },
   FAILED: {
     icon: AlertCircle,
@@ -53,6 +58,7 @@ const statusConfig = {
     label: "Falha ao enviar",
     tooltip: "Falha ao enviar. Toque para reenviar.",
     animation: "",
+    text: "✗",
   },
   ERROR: {
     icon: AlertCircle,
@@ -60,6 +66,7 @@ const statusConfig = {
     label: "Erro",
     tooltip: "Erro ao enviar. Toque para reenviar.",
     animation: "",
+    text: "✗",
   },
 };
 
@@ -80,12 +87,20 @@ export function MessageStatus({ status, fromMe }: MessageStatusProps) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={`inline-flex items-center transition-all duration-200 ${config.animation}`}>
-            <Icon
-              className={`h-3 w-3 ${config.color}`}
-              data-testid={`status-${statusUpper.toLowerCase()}`}
-            />
-          </span>
+          {config.text ? (
+            // Mostrar texto (✓, ✓✓, etc)
+            <span className={`inline-flex items-center text-xs transition-all duration-200 ${config.animation} ${config.color}`} data-testid={`status-${statusUpper.toLowerCase()}`}>
+              {config.text}
+            </span>
+          ) : (
+            // Fallback para ícone
+            <span className={`inline-flex items-center transition-all duration-200 ${config.animation}`}>
+              <Icon
+                className={`h-3 w-3 ${config.color}`}
+                data-testid={`status-${statusUpper.toLowerCase()}`}
+              />
+            </span>
+          )}
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
           {config.tooltip}

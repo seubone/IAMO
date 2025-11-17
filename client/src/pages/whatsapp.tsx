@@ -861,15 +861,20 @@ export default function WhatsApp() {
       });
     },
     onMutate: async (variables) => {
-      // Cancelar queries em andamento para evitar race conditions
-      await queryClient.cancelQueries({
-        queryKey: [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-      });
+      console.log('🔄 onMutate called', { selectedInstanceId, selectedChatJid });
+
+      const messagesKey = [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`];
+
+      // Cancelar queries em andamento e pausar refetch
+      await queryClient.cancelQueries({ queryKey: messagesKey });
+
+      // Pausar polling enquanto envia mensagem
+      queryClient.setQueryDefaults(messagesKey, { refetchInterval: false });
 
       // Pegar dados atuais do cache
-      const previousMessages = queryClient.getQueryData<EvolutionMessage[]>([
-        `/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`
-      ]) || [];
+      const previousMessages = queryClient.getQueryData<EvolutionMessage[]>(messagesKey) || [];
+
+      console.log('📦 Previous messages from cache:', previousMessages.length);
 
       // Gerar ID único para rastrear mensagem otimista
       const optimisticId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -893,15 +898,14 @@ export default function WhatsApp() {
 
       // Atualizar cache com mensagem otimista
       const newMessages = [...previousMessages, optimisticMessage];
-      queryClient.setQueryData(
-        [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-        newMessages
-      );
+      console.log('✅ Setting optimistic message to cache:', { optimisticId, totalMessages: newMessages.length });
+
+      queryClient.setQueryData(messagesKey, newMessages);
 
       // Retornar contexto incluindo o optimisticId para correlação
-      return { previousMessages, optimisticId };
+      return { previousMessages, optimisticId, messagesKey };
     },
-    onSuccess: (response, variables) => {
+    onSuccess: (response, variables, context) => {
       toast({
         title: "Mensagem enviada",
         description: "Mensagem enviada com sucesso!",
@@ -909,17 +913,24 @@ export default function WhatsApp() {
       setMessageText("");
       deleteMessageDraft();
 
+      // Reabilitar polling
+      if (context?.messagesKey) {
+        queryClient.setQueryDefaults(context.messagesKey, { refetchInterval: 2000 });
+      }
+
       // Não invalidar - deixar a mensagem otimista como está
       // O WebSocket atualizará o status dela quando o servidor confirmar
       // Isso evita delay ao recarregar do servidor
     },
-    onError: (error: any, variables, context) => {
+    onError: (error: any, variables, context: any) => {
       // Rollback: restaurar dados anteriores
-      if (context?.previousMessages) {
-        queryClient.setQueryData(
-          [`/api/whatsapp/instances/${selectedInstanceId}/chats/${selectedChatJid}/messages`],
-          context.previousMessages
-        );
+      if (context?.previousMessages && context?.messagesKey) {
+        queryClient.setQueryData(context.messagesKey, context.previousMessages);
+      }
+
+      // Reabilitar polling
+      if (context?.messagesKey) {
+        queryClient.setQueryDefaults(context.messagesKey, { refetchInterval: 2000 });
       }
 
       toast({
