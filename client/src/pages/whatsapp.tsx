@@ -1128,10 +1128,10 @@ export default function WhatsApp() {
   const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return "";
     try {
-      return formatDistanceToNow(new Date(timestamp * 1000), { 
-        addSuffix: true, 
-        locale: ptBR 
-      });
+      const date = new Date(timestamp * 1000);
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      return `${hours}:${minutes}`;
     } catch {
       return "";
     }
