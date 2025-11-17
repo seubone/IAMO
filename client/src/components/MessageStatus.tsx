@@ -1,9 +1,67 @@
-import { Check, CheckCheck, Clock, XCircle } from "lucide-react";
+import { Check, CheckCheck, Clock, XCircle, AlertCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 interface MessageStatusProps {
   status?: string;
   fromMe: boolean;
 }
+
+const statusConfig = {
+  PENDING: {
+    icon: Clock,
+    color: "text-muted-foreground",
+    label: "Enviando...",
+    tooltip: "Mensagem sendo processada",
+    animation: "animate-spin",
+  },
+  SENDING: {
+    icon: Clock,
+    color: "text-muted-foreground",
+    label: "Enviando...",
+    tooltip: "Mensagem sendo processada",
+    animation: "animate-spin",
+  },
+  SENT: {
+    icon: Check,
+    color: "text-muted-foreground",
+    label: "Enviada",
+    tooltip: "Mensagem enviada",
+    animation: "",
+  },
+  DELIVERED: {
+    icon: CheckCheck,
+    color: "text-green-600 dark:text-green-400",
+    label: "Entregue",
+    tooltip: "Mensagem entregue",
+    animation: "",
+  },
+  READ: {
+    icon: CheckCheck,
+    color: "text-blue-600 dark:text-blue-400",
+    label: "Lida",
+    tooltip: "Mensagem lida",
+    animation: "",
+  },
+  FAILED: {
+    icon: AlertCircle,
+    color: "text-destructive",
+    label: "Falha ao enviar",
+    tooltip: "Falha ao enviar. Toque para reenviar.",
+    animation: "",
+  },
+  ERROR: {
+    icon: AlertCircle,
+    color: "text-destructive",
+    label: "Erro",
+    tooltip: "Erro ao enviar. Toque para reenviar.",
+    animation: "",
+  },
+};
 
 export function MessageStatus({ status, fromMe }: MessageStatusProps) {
   // Só mostrar status para mensagens enviadas por mim
@@ -11,33 +69,28 @@ export function MessageStatus({ status, fromMe }: MessageStatusProps) {
     return null;
   }
 
-  const renderIcon = () => {
-    switch (status?.toUpperCase()) {
-      case 'PENDING':
-      case 'SENDING':
-        return <Clock className="h-3 w-3" data-testid="status-pending" />;
-      
-      case 'SENT':
-        return <Check className="h-3 w-3" data-testid="status-sent" />;
-      
-      case 'DELIVERED':
-        return <CheckCheck className="h-3 w-3" data-testid="status-delivered" />;
-      
-      case 'READ':
-        return <CheckCheck className="h-3 w-3 text-blue-500" data-testid="status-read" />;
-      
-      case 'FAILED':
-      case 'ERROR':
-        return <XCircle className="h-3 w-3 text-destructive" data-testid="status-failed" />;
-      
-      default:
-        return null;
-    }
-  };
+  const statusUpper = status?.toUpperCase() || "PENDING";
+  const config =
+    statusConfig[statusUpper as keyof typeof statusConfig] ||
+    statusConfig.PENDING;
+
+  const Icon = config.icon;
 
   return (
-    <span className="inline-flex items-center">
-      {renderIcon()}
-    </span>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center transition-all duration-200 ${config.animation}`}>
+            <Icon
+              className={`h-3 w-3 ${config.color}`}
+              data-testid={`status-${statusUpper.toLowerCase()}`}
+            />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {config.tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

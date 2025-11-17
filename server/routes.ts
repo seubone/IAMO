@@ -1678,11 +1678,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Retorna resposta ao cliente imediatamente, envia em background
       // Economiza 200-300ms de latência (tempo de resposta da Evolution/UazAPI)
 
+      const messageId = `pending-${Date.now()}`;
+
       // Retornar resposta ao cliente IMEDIATAMENTE
       res.json({
         success: true,
         message: "Mensagem sendo processada",
-        messageId: `pending-${Date.now()}`,
+        messageId: messageId,
         status: "pending"
       });
 
@@ -1695,12 +1697,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: text,
       }).then(result => {
         if (result.success) {
-          console.log(`✅ Mensagem enviada com sucesso via ${result.api} (${result.latency}ms)`);
+          console.log(`✅ Mensagem enviada com sucesso via ${result.api} (${result.latency}ms) - ID: ${result.messageId}`);
+
+          // Atualizar status da mensagem para "sent" quando enviada com sucesso
+          // Emitir evento via WebSocket para atualizar todos os clientes conectados
+          const updateEvent = {
+            type: "message_status_updated",
+            data: {
+              messageId: result.messageId || messageId,
+              status: "sent",
+              api: result.api,
+              timestamp: new Date().toISOString(),
+            }
+          };
+
+          // Broadcast para todos os clientes WebSocket da instância
+          wsClients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(JSON.stringify(updateEvent));
+              } catch (error) {
+                console.error("Erro ao enviar evento WebSocket:", error);
+              }
+            }
+          });
         } else {
           console.error(`❌ Erro ao enviar mensagem: ${result.error}`);
+
+          // Emitir evento de falha
+          const failureEvent = {
+            type: "message_status_updated",
+            data: {
+              messageId: messageId,
+              status: "failed",
+              error: result.error,
+              timestamp: new Date().toISOString(),
+            }
+          };
+
+          wsClients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(JSON.stringify(failureEvent));
+              } catch (error) {
+                console.error("Erro ao enviar evento WebSocket:", error);
+              }
+            }
+          });
         }
       }).catch(error => {
         console.error(`❌ Erro crítico ao enviar mensagem em background:`, error);
+
+        // Emitir evento de erro crítico
+        const errorEvent = {
+          type: "message_status_updated",
+          data: {
+            messageId: messageId,
+            status: "failed",
+            error: error.message || "Erro desconhecido",
+            timestamp: new Date().toISOString(),
+          }
+        };
+
+        wsClients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            try {
+              client.send(JSON.stringify(errorEvent));
+            } catch (err) {
+              console.error("Erro ao enviar evento WebSocket:", err);
+            }
+          }
+        });
       });
     } catch (error: any) {
       console.error("Error sending message:", error);

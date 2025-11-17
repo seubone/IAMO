@@ -63,6 +63,7 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
   sender: text("sender").notNull(), // ia, user, system
   content: text("content").notNull(),
+  status: text("status").default("pending"), // pending, sent, delivered, read, failed
   attachments: jsonb("attachments"), // Files, images, documents
   actions: jsonb("actions"), // Actions performed on this message
   tags: text("tags").array(),

@@ -174,6 +174,21 @@ export function useWebSocket(options?: UseWebSocketOptions) {
                 }
               }
               break;
+
+            case "message_status_updated":
+              // Handle message status updates (pending -> sent -> delivered -> read)
+              console.log(`📨 Message status updated:`, message.data);
+
+              // Invalidate messages to refresh status indicators
+              queryClient.invalidateQueries({
+                predicate: (query) => {
+                  const key = query.queryKey;
+                  return Array.isArray(key) &&
+                         key[0] === "/api/whatsapp/instances" &&
+                         key[4] === "messages";
+                }
+              });
+              break;
           }
         } catch (handlerError) {
           console.error("Error handling WebSocket message type:", message.type, handlerError);
