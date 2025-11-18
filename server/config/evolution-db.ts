@@ -23,21 +23,30 @@ function initializeEvolutionDb() {
   evolutionPoolInstance = new Pool({
     connectionString: evolutionDbUrl,
     // Read-only connection settings
-    max: 10, // Máximo de conexões simultâneas
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    max: 5, // Reduzido de 10 para 5 para evitar sobrecarga de conexões
+    idleTimeoutMillis: 120000, // 2 minutos
+    connectionTimeoutMillis: 120000, // 2 minutos timeout para conexões remotas muito lentas/instáveis
+    statement_timeout: 90000, // 90s para queries
   });
 
   evolutionDbInstance = drizzle(evolutionPoolInstance, { schema: evolutionSchema });
 
-  // Testar conexão na inicialização
-  evolutionPoolInstance.connect((err, client, release) => {
-    if (err) {
-      console.error('❌ Erro ao conectar no banco Evolution:', err.message);
-      return;
-    }
-    console.log('✅ Conectado ao banco Evolution (WhatsApp)');
-    release();
+  // Testar conexão na inicialização (async, não bloqueia startup)
+  // Isso é feito de forma assíncrona para não impedir o início da aplicação
+  setImmediate(() => {
+    evolutionPoolInstance?.connect((err, client, release) => {
+      if (err) {
+        console.error('❌ Erro ao conectar no banco Evolution (WhatsApp):');
+        console.error(`   Host: ${process.env.EVOLUTION_DB_HOST}:${process.env.EVOLUTION_DB_PORT}`);
+        console.error(`   Error: ${err.message}`);
+        console.error(`   Code: ${(err as any)?.code || 'N/A'}`);
+        console.error(`   Timeout: ${process.env.EVOLUTION_DB_TIMEOUT || '30000'}ms`);
+        console.error('   💡 Dica: Verifique se o servidor PostgreSQL está acessível e firewall não está bloqueando.');
+        return;
+      }
+      console.log('✅ Conectado ao banco Evolution (WhatsApp)');
+      release?.();
+    });
   });
 
   return { pool: evolutionPoolInstance, db: evolutionDbInstance };
@@ -45,12 +54,12 @@ function initializeEvolutionDb() {
 
 // Pool de conexão para o banco Evolution (lazy loaded)
 export const evolutionPool = new Proxy({} as any, {
-  get() {
+  get(target, prop) {
     if (!initialized) {
       initializeEvolutionDb();
       initialized = true;
     }
-    return evolutionPoolInstance;
+    return (evolutionPoolInstance as any)[prop];
   }
 });
 

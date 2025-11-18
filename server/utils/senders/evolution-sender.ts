@@ -8,8 +8,8 @@ import type { MessageData, MediaData, SendResult } from '../types/sender.types';
 export class EvolutionSender {
   private evolutionBaseUrl: string;
 
-  constructor(baseUrl: string = process.env.EVOLUTION_API_URL || 'http://localhost:8080') {
-    this.evolutionBaseUrl = baseUrl;
+  constructor(baseUrl: string = process.env.EVOLUTION_API_URL || '') {
+    this.evolutionBaseUrl = baseUrl || 'https://eve.seubone.com'; // Fallback to configured default
   }
 
   private sanitizeIdentifier(value?: string | null): string | null {

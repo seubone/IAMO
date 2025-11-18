@@ -36,7 +36,7 @@ export function ChatMessageComponent({ message }: ChatMessageProps) {
     );
   }
 
-  const messageColor = isUser ? "bg-purple-200 dark:bg-purple-900" : "bg-muted";
+  const messageColor = isUser ? "bg-purple-700 dark:bg-purple-800 text-white" : "bg-muted";
 
   return (
     <div

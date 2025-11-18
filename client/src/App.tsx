@@ -50,7 +50,7 @@ function ProtectedRoutes() {
   }
 
   const style = {
-    "--sidebar-width": "16rem",
+    "--sidebar-width": "18rem",
     "--sidebar-width-icon": "3rem",
   };
 
@@ -58,7 +58,7 @@ function ProtectedRoutes() {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <div className={`flex flex-col flex-1 transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-64"}`}>
+        <div className={`flex flex-col flex-1 transition-all duration-300 ${isCollapsed ? "ml-20" : "ml-[18rem]"}`}>
           <main className="flex-1 overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
             <Switch>
               <Route path="/" component={Monitoring} />

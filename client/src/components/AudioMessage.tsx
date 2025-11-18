@@ -295,7 +295,7 @@ export function AudioMessage({
         {/* Player Box - Com bordas lg iguais às caixas de texto */}
         <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all w-full ${
           fromMe
-            ? 'border-purple-300/40 dark:border-purple-700/40 bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-100'
+            ? 'border-violet-500/40 dark:border-violet-600/40 bg-violet-500 dark:bg-violet-600 text-white'
             : 'border-border/60 bg-card text-card-foreground'
         } shadow-sm hover:shadow-md transition-all`}>
           {/* Play/Pause Button - Apenas o ícone roxo */}

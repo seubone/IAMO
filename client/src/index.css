@@ -302,6 +302,23 @@
     color: #87CEEB;
   }
 
+  /* Override link colors for sidebar elements */
+  [class*="sidebar"] a,
+  [class*="footer"] a {
+    color: inherit !important;
+    text-decoration: none;
+  }
+
+  [class*="sidebar"] a:hover,
+  [class*="footer"] a:hover {
+    color: inherit !important;
+  }
+
+  [class*="sidebar"] a:visited,
+  [class*="footer"] a:visited {
+    color: inherit !important;
+  }
+
   @keyframes scroll {
     0% {
       transform: translateX(0);

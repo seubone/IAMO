@@ -2,6 +2,7 @@ import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, L
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
+import { cn } from "@/lib/utils";
 
 const menuItems = [
   {
@@ -84,15 +85,13 @@ export function AppSidebar() {
 
   return (
     <div
-      className={`fixed left-0 top-0 h-screen transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
-      } dark:bg-[#1B1B1B] bg-[#EEEEEE] dark:text-white text-[#373737] rounded-[0x] flex flex-col overflow-hidden`}
-      style={{
-        padding: isCollapsed ? "32px 8px" : "32px 12px",
-      }}
+      className={cn(
+        "fixed left-0 top-0 h-screen border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 flex flex-col overflow-hidden",
+        isCollapsed ? "w-20 px-2" : "w-72 px-4"
+      )}
     >
       {/* Content Frame */}
-      <div className="w-full flex flex-col h-full" style={{ gap: "10px" }}>
+      <div className="flex h-full w-full flex-col gap-3 py-8">
         {/* Logo */}
         <div className="w-full mb-6 flex justify-center">
           {!isCollapsed && (
@@ -121,67 +120,33 @@ export function AppSidebar() {
 
         {/* User Profile Card - Expandable */}
         {!isCollapsed && (
-          <div className="mb-4">
+          <div className="mb-5">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className={`w-full rounded-[8px] dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 p-2 flex items-center gap-2 transition-all hover:dark:bg-opacity-30 hover:bg-opacity-20 ${
-                showUserMenu
-                  ? "dark:bg-opacity-30 bg-opacity-20 rounded-b-none"
-                  : ""
-              }`}
-              style={{
-                backgroundColor: "rgba(52, 66, 173, 0.12)",
-                textDecoration: "none",
-              }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-2xl border border-sidebar-border bg-sidebar-accent/70 px-3 py-3 text-left transition-all hover:bg-sidebar-accent",
+                showUserMenu && "rounded-b-none shadow-lg shadow-sidebar-primary/20"
+              )}
             >
-              {/* Avatar */}
-              <div
-                className="w-10 h-10 rounded-[8px] flex-shrink-0 bg-[#7885E3] dark:bg-[#4D5ABC] flex items-center justify-center text-white font-bold text-xs"
-                style={{
-                  backgroundImage: "url(DSC05189.jpg)",
-                  backgroundSize: "cover",
-                }}
-              >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs shadow-[0_12px_24px_rgba(92,108,246,0.35)]">
                 CM
               </div>
-
-              {/* User Info */}
-              <div className="flex-1 min-w-0 text-left">
-                <p
-                  className="text-xs dark:text-gray-300 text-[#373737] font-medium leading-none"
-                  style={{
-                    fontFamily: "Poppins",
-                    fontWeight: 500,
-                  }}
-                >
-                  Bem vindo
-                </p>
-                <h3
-                  className="text-xs dark:text-white text-[#373737] font-medium truncate"
-                  style={{
-                    fontFamily: "Poppins",
-                    fontWeight: 500,
-                  }}
-                >
-                  Cainan Maia
-                </h3>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-sidebar-foreground/70">Bem vindo</p>
+                <h3 className="truncate text-sm font-semibold text-sidebar-foreground">Cainan Maia</h3>
+                <p className="text-[10px] uppercase tracking-wide text-sidebar-foreground/50">Administrador</p>
               </div>
-
-              {/* Dropdown Arrow */}
-              <ChevronDown
-                className={`w-4 h-4 dark:text-gray-400 text-[#373737] flex-shrink-0 transition-transform ${
-                  showUserMenu ? "rotate-180" : ""
-                }`}
-              />
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-sidebar-border/60 bg-sidebar-accent">
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-sidebar-foreground transition-transform",
+                    showUserMenu && "rotate-180"
+                  )}
+                />
+              </span>
             </button>
-
-            {/* Expandable Menu Options */}
             {showUserMenu && (
-              <div className="dark:bg-opacity-20 dark:border-opacity-30 bg-opacity-12 border border-[#3442AD] border-opacity-15 border-t-0 rounded-b-[8px]"
-                style={{
-                  backgroundColor: "rgba(52, 66, 173, 0.12)",
-                }}
-              >
+              <div className="space-y-1 rounded-b-2xl border border-t-0 border-sidebar-border bg-sidebar-accent/80 px-3 py-2">
                 {userMenuItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -189,12 +154,10 @@ export function AppSidebar() {
                       key={item.title}
                       href={item.url}
                       onClick={() => setShowUserMenu(false)}
-                      className="w-full flex items-center gap-2 px-2 py-2 text-sm dark:text-gray-200 text-[#373737] hover:dark:bg-[#3442AD] hover:dark:bg-opacity-30 hover:bg-[#3442AD] hover:bg-opacity-20 transition-colors dark:hover:text-white hover:text-white"
-                      style={{
-                        textDecoration: "none",
-                      }}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      style={{ textDecoration: "none" }}
                     >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <Icon className="h-4 w-4 flex-shrink-0" />
                       <span>{item.title}</span>
                     </a>
                   );
@@ -206,19 +169,13 @@ export function AppSidebar() {
 
         {/* Collapsed User Avatar */}
         {isCollapsed && (
-          <div
-            className="w-10 h-10 rounded-[6px] bg-[#7885E3] dark:bg-[#4D5ABC] flex items-center justify-center text-white font-bold text-xs mx-auto mb-6"
-            style={{
-              backgroundImage: "url(DSC05189.jpg)",
-              backgroundSize: "cover",
-            }}
-          >
+          <div className="mx-auto mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs shadow-[0_12px_24px_rgba(92,108,246,0.35)]">
             CM
           </div>
         )}
 
         {/* Menu Items */}
-        <nav className={`flex-1 ${isCollapsed ? "flex flex-col items-center gap-4" : "space-y-1"}`}>
+        <nav className={cn("flex-1", isCollapsed ? "flex flex-col items-center gap-3" : "space-y-1")}>
           {menuItems.map((item) => {
             const isActive = location === item.url;
             const Icon = item.icon;
@@ -227,37 +184,32 @@ export function AppSidebar() {
               <a
                 key={item.title}
                 href={item.url}
-                className={`${isCollapsed ? "flex justify-center" : "w-full"} flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-200",
+                  isCollapsed ? "justify-center" : "w-full",
                   isActive
-                    ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
-                    : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
-                }`}
-                style={{
-                  textDecoration: "none",
-                }}
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+                )}
+                style={{ textDecoration: "none" }}
               >
-                {/* Icon */}
                 <Icon
-                  className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                  className={cn(
+                    "h-5 w-5 flex-shrink-0 transition-colors",
                     isActive
-                      ? "text-[#3442AD]"
-                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
-                  }`}
+                      ? "text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground"
+                  )}
                   strokeWidth={2}
                 />
-
-                {/* Label */}
                 {!isCollapsed && (
                   <span
-                    className={`text-sm font-normal transition-colors truncate ${
+                    className={cn(
+                      "truncate text-sm font-medium transition-colors",
                       isActive
-                        ? "text-[#3442AD] dark:text-[#A9B2F4]"
-                        : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
-                    }`}
-                    style={{
-                      fontFamily: "Inter",
-                      fontWeight: 400,
-                    }}
+                        ? "text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 group-hover:text-sidebar-accent-foreground"
+                    )}
                   >
                     {item.title}
                   </span>
@@ -267,132 +219,92 @@ export function AppSidebar() {
           })}
         </nav>
 
-        {/* Footer Items (Tema, Configurações, Sair) */}
-        <div className={`mt-auto pt-2 ${!isCollapsed ? "border-t-0" : ""} dark:border-gray-700 border-gray-200 ${isCollapsed ? "flex flex-col items-center gap-4" : "space-y-1"}`}>
-          {/* Theme Toggle Button */}
+        {/* Footer Items */}
+        <div
+          className={cn(
+            "mt-auto border-t border-sidebar-border/60 pt-4",
+            isCollapsed ? "flex flex-col items-center gap-3" : "space-y-2"
+          )}
+        >
           <button
             onClick={toggleTheme}
-            className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-blue-600 dark:hover:bg-opacity-20 hover:bg-blue-500 hover:bg-opacity-12`}
+            className={cn(
+              "items-center gap-2 rounded-xl border border-transparent bg-sidebar-accent/70 px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:border-sidebar-border hover:bg-sidebar-accent",
+              isCollapsed ? "flex justify-center" : "flex w-full"
+            )}
             title={isDark ? "Modo claro" : "Modo escuro"}
           >
-            {/* Icon */}
             {isDark ? (
-              <Sun className="w-5 h-5 flex-shrink-0 text-blue-600 dark:text-blue-400 dark:group-hover:text-blue-300 group-hover:text-blue-600 transition-colors" />
+              <Sun className="h-5 w-5 flex-shrink-0 text-sidebar-accent-foreground" />
             ) : (
-              <Moon className="w-5 h-5 flex-shrink-0 text-blue-600 dark:text-blue-400 dark:group-hover:text-blue-300 group-hover:text-blue-600 transition-colors" />
+              <Moon className="h-5 w-5 flex-shrink-0 text-sidebar-accent-foreground" />
             )}
-
-            {/* Label */}
-            {!isCollapsed && (
-              <span
-                className="text-sm font-normal text-gray-700 dark:text-gray-300 dark:group-hover:text-white group-hover:text-white transition-colors truncate"
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: 400,
-                }}
-              >
-                {isDark ? "Claro" : "Escuro"}
-              </span>
-            )}
+            {!isCollapsed && <span className="truncate">{isDark ? "Claro" : "Escuro"}</span>}
           </button>
 
-          {/* Settings + Toggle Row (only when expanded) */}
           {!isCollapsed && (
-            <div className="w-full flex items-center gap-2">
-              {/* Settings Item */}
+            <div className="flex items-center gap-3">
               <a
                 href={footerItems[0].url}
-                className={`flex-1 flex items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group ${
+                className={cn(
+                  "group flex flex-1 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                   location === footerItems[0].url
-                    ? "dark:bg-[#3442AD] dark:bg-opacity-30 bg-[#3442AD] bg-opacity-15"
-                    : "dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12"
-                }`}
-                style={{
-                  textDecoration: "none",
-                }}
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+                )}
+                style={{ textDecoration: "none", color: "inherit" }}
               >
-                {/* Icon */}
                 <Settings
-                  className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                  className={cn(
+                    "h-5 w-5 flex-shrink-0",
                     location === footerItems[0].url
-                      ? "text-[#3442AD]"
-                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
-                  }`}
+                      ? "text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60 group-hover:text-sidebar-accent-foreground"
+                  )}
                   strokeWidth={2}
                 />
-
-                {/* Label */}
-                <span
-                  className={`text-sm font-normal transition-colors truncate ${
-                    location === footerItems[0].url
-                      ? "text-[#3442AD] dark:text-[#A9B2F4]"
-                      : "dark:text-gray-300 text-[#373737] dark:group-hover:text-white group-hover:text-white"
-                  }`}
-                  style={{
-                    fontFamily: "Inter",
-                    fontWeight: 400,
-                  }}
-                >
-                  {footerItems[0].title}
-                </span>
+                <span className="truncate">{footerItems[0].title}</span>
               </a>
 
-              {/* Toggle Button */}
               <button
                 onClick={toggleCollapsed}
-                className="p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all flex-shrink-0"
-                title={isCollapsed ? "Expandir" : "Retrair"}
+                className="rounded-xl border border-sidebar-border bg-sidebar-accent/70 p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+                title="Retrair barra lateral"
               >
-                <ChevronLeft
-                  className={`w-4 h-4 dark:text-gray-300 text-[#373737] transition-transform ${
-                    isCollapsed ? "rotate-180" : ""
-                  }`}
-                />
+                <ChevronLeft className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          {/* Collapsed Settings + Toggle */}
           {isCollapsed && (
             <button
               onClick={toggleCollapsed}
-              className="w-full flex justify-center p-2 rounded-lg dark:hover:bg-[#3442AD] dark:hover:bg-opacity-20 hover:bg-[#3442AD] hover:bg-opacity-12 transition-all"
-              title={isCollapsed ? "Expandir" : "Retrair"}
+              className="flex w-full justify-center rounded-xl border border-sidebar-border bg-sidebar-accent/60 p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+              title="Expandir barra lateral"
             >
-              <ChevronLeft
-                className={`w-4 h-4 dark:text-gray-300 text-[#373737] transition-transform ${
-                  isCollapsed ? "rotate-180" : ""
-                }`}
-              />
+              <ChevronLeft className="h-4 w-4 rotate-180" />
             </button>
           )}
 
-          {/* Logout Button */}
           <a
             href={footerItems[1].url}
-            className={`${isCollapsed ? "flex justify-center" : "w-full flex"} items-center gap-2 px-2 py-2 rounded-lg transition-all duration-200 group dark:hover:bg-red-500 dark:hover:bg-opacity-20 hover:bg-red-500 hover:bg-opacity-12`}
-            style={{
-              textDecoration: "none",
-            }}
-          >
-            {/* Icon */}
-            <LogOut className="w-5 h-5 flex-shrink-0 text-[#AD3436] dark:group-hover:text-red-400 group-hover:text-white transition-colors" />
-
-            {/* Label */}
-            {!isCollapsed && (
-              <span
-                className="text-sm font-normal text-[#AD3436] dark:group-hover:text-red-300 group-hover:text-white transition-colors truncate"
-                style={{
-                  fontFamily: "Inter",
-                  fontWeight: 400,
-                }}
-              >
-                {footerItems[1].title}
-              </span>
+            className={cn(
+              "group items-center gap-2 rounded-xl border border-transparent bg-sidebar-accent/70 px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              isCollapsed ? "flex justify-center" : "flex w-full"
             )}
+            style={{ textDecoration: "none", color: "inherit" }}
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="truncate">{footerItems[1].title}</span>}
           </a>
         </div>
       </div>
     </div>
   );
 }
+
+
+
+
+
+

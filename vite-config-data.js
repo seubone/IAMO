@@ -4,8 +4,8 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Determine frontend and backend ports
-const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || "5000", 10);
-const BACKEND_PORT = parseInt(process.env.PORT || "5051", 10);
+const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || "5051", 10);
+const BACKEND_PORT = parseInt(process.env.PORT || "5049", 10);
 
 export const viteConfigData = {
   resolve: {

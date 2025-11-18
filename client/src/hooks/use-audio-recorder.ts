@@ -36,6 +36,18 @@ export function useAudioRecorder() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Limpar AudioContext com segurança
+  const cleanupAudioContext = () => {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch (error) {
+        console.warn('Erro ao fechar AudioContext:', error);
+      }
+    }
+    audioContextRef.current = null;
+  };
+
   // Iniciar gravação
   const startRecording = async () => {
     try {
@@ -106,10 +118,8 @@ export function useAudioRecorder() {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
 
-      // Fechar audio context
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      // Fechar audio context com segurança
+      cleanupAudioContext();
 
       setState((prev) => ({ ...prev, isRecording: false }));
     }
@@ -130,9 +140,8 @@ export function useAudioRecorder() {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
 
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
+    // Fechar audio context com segurança
+    cleanupAudioContext();
 
     audioChunksRef.current = [];
 

@@ -1468,16 +1468,16 @@ export default function WhatsApp() {
 
                               if (messageSenderType === "ai") {
                                 // AI messages: Purple background, right-aligned
-                                fromMeSurfaceClass = "text-white bg-violet-500 dark:bg-violet-600 shadow-lg shadow-violet-500/25";
+                                fromMeSurfaceClass = "text-white shadow-lg";
                                 messageAlignment = "justify-end";
                               } else if (messageSenderType === "consultant") {
                                 // Consultant messages: Purple background, right-aligned (identified by name prefix without circles)
                                 // If has prefix label, use solid purple; if standalone message (avulsa), use lighter purple with border
                                 if (shouldShowPrefix) {
-                                  fromMeSurfaceClass = "text-white bg-violet-500 dark:bg-violet-600 shadow-lg shadow-violet-500/25";
+                                  fromMeSurfaceClass = "text-white shadow-lg";
                                 } else {
                                   // Standalone consultant message: lighter purple background with darker purple border
-                                  fromMeSurfaceClass = "text-violet-900 dark:text-violet-100 bg-violet-200/50 dark:bg-violet-950/40 border border-violet-500";
+                                  fromMeSurfaceClass = "text-purple-900 dark:text-purple-100 bg-purple-200/50 dark:bg-purple-950/40 border";
                                 }
                                 messageAlignment = "justify-end";
                               } else {
@@ -1505,8 +1505,8 @@ export default function WhatsApp() {
                                     <div className={`flex ${messageSenderType === "ai" || messageSenderType === "consultant" ? "justify-end" : "justify-start"} px-4`}>
                                       <div className={`font-bold text-sm flex items-center gap-1.5 px-3 py-1 rounded ${
                                         messageSenderType === "ai"
-                                          ? "bg-violet-500/30 text-violet-100"
-                                          : "bg-violet-500/30 text-violet-100"
+                                          ? "bg-purple-700/30 text-purple-100"
+                                          : "bg-purple-700/30 text-purple-100"
                                       }`}>
                                         <span>{prefixName}</span>
                                         {messageSenderType === "ai" && <span>🟢🟢</span>}
@@ -1641,6 +1641,7 @@ export default function WhatsApp() {
                                       {renderSenderBadge()}
                                       <div
                                         className={`w-80 rounded-xl p-4 relative group ${messageSenderType !== "client" ? `${fromMeSurfaceClass} text-white` : 'bg-card border text-card-foreground'}`}
+                                        style={messageSenderType !== "client" ? { backgroundColor: "#3A4ACD" } : undefined}
                                       >
                                       {/* Header com ícone e info */}
                                       <div className="flex items-start justify-between mb-4">
@@ -1719,6 +1720,7 @@ export default function WhatsApp() {
                                     style={{
                                       wordBreak: 'break-word',
                                       overflowWrap: 'anywhere',
+                                      ...(messageSenderType !== "client" ? { backgroundColor: "#3A4ACD" } : {})
                                     }}
                                   >
                                     {renderSenderBadge()}
@@ -2114,12 +2116,19 @@ export default function WhatsApp() {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-4">
               <div className="text-6xl">📱</div>
               <h3 className="text-xl font-medium">Monitor IA - WhatsApp</h3>
               <p className="text-muted-foreground">
-                Selecione uma instância (número) acima para começar
+                Selecione uma instância (número) para começar
               </p>
+              <Button
+                onClick={() => setIsInstanceSelectorOpen(true)}
+                size="lg"
+                className="mt-4"
+              >
+                Selecionar Instância
+              </Button>
             </div>
           </div>
         )}

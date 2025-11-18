@@ -440,7 +440,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // The server polls only active instances (those with connected clients)
   // so the performance impact is minimal
-  setInterval(pollNewMessages, 2000);
+  setInterval(async () => {
+    try {
+      await pollNewMessages();
+    } catch (error) {
+      // Silently catch polling errors to prevent crashing
+      // Errors are already logged inside pollNewMessages
+    }
+  }, 2000);
   console.log("📱 ✅ Server-side polling enabled (2s interval) for real-time message updates");
 
   // ============ PUBLIC CONFIG ROUTES ============
@@ -1624,7 +1631,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { normalizedNumber, ownerNumber, instance } = await resolveInstanceIdentifier(instanceNumber);
+      // Gerar ID da mensagem IMEDIATAMENTE (antes de qualquer await)
+      const messageId = `pending-${Date.now()}`;
+
+      // 🚀 OTIMIZAÇÃO CRÍTICA: Retornar resposta INSTANTANEAMENTE (0ms)
+      // NÃO fazer nenhum await antes de res.json()
+      // Isso garante que a mensagem aparece no front sem delay
+      res.json({
+        success: true,
+        message: "Mensagem sendo processada",
+        messageId: messageId,
+        status: "pending"
+      });
+
+      // ⏳ PROCESSAMENTO EM BACKGROUND (não bloqueia o cliente)
+      // Resolver dados da instância DEPOIS que a resposta foi enviada
+      const instanceData = await resolveInstanceIdentifier(instanceNumber);
+      const { normalizedNumber, ownerNumber, instance } = instanceData;
 
       console.log("📨 send-message payload", {
         rawInstanceNumber: instanceNumber,
@@ -1636,57 +1659,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!instance) {
-        return res.status(404).json({
-          error: "Instância não encontrada no Evolution Database com o identificador fornecido"
-        });
+        console.error("❌ Instância não encontrada:", instanceNumber);
+        return;
       }
 
       if (!normalizedNumber) {
-        return res.status(400).json({
-          error: "Não foi possível determinar o número da instância. Execute a sincronização ou atualize os dados da instância."
-        });
+        console.error("❌ Não foi possível determinar o número da instância");
+        return;
       }
 
       // Validar formato do número da instância (55 + DDD + número)
       const brazilNumberPattern = /^55\d{10,11}$/;
       if (!brazilNumberPattern.test(normalizedNumber)) {
-        return res.status(400).json({
-          error: "Número da instância deve estar no formato brasileiro: 55 + DDD + número (ex: 5511999999999)"
-        });
+        console.error("❌ Número da instância inválido:", normalizedNumber);
+        return;
       }
 
       // Validar formato do número do destinatário (pode ser brasileiro ou internacional)
       const recipientNumberPattern = /^\d{8,15}$/;
       if (!recipientNumberPattern.test(recipientNumber)) {
-        return res.status(400).json({
-          error: "Número do destinatário inválido. Deve conter apenas dígitos (ex: 5511999999999)"
-        });
+        console.error("❌ Número do destinatário inválido:", recipientNumber);
+        return;
       }
 
       // Verificar se a instância tem status válido
       // Evolution API pode enviar mesmo com status "close" (desconectado)
       // Validamos apenas se o campo existe
       if (!instance.connectionStatus) {
-        return res.status(400).json({
-          error: "Instância sem status de conexão registrado"
-        });
+        console.error("❌ Instância sem status de conexão");
+        return;
       }
 
       console.log(`✅ Instância ${normalizedNumber} com status: ${instance.connectionStatus}. Prosseguindo com envio...`);
-
-      // 🚀 OTIMIZAÇÃO #2: Envio assíncrono (não espera resposta da API)
-      // Retorna resposta ao cliente imediatamente, envia em background
-      // Economiza 200-300ms de latência (tempo de resposta da Evolution/UazAPI)
-
-      const messageId = `pending-${Date.now()}`;
-
-      // Retornar resposta ao cliente IMEDIATAMENTE
-      res.json({
-        success: true,
-        message: "Mensagem sendo processada",
-        messageId: messageId,
-        status: "pending"
-      });
 
       // Enviar mensagem em background (NÃO espera)
       unifiedSender.sendMessage({

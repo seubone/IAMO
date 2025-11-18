@@ -45,6 +45,18 @@ export function AudioRecorderInline({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Limpar AudioContext com segurança
+  const cleanupAudioContext = () => {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch (error) {
+        console.warn('Erro ao fechar AudioContext:', error);
+      }
+    }
+    audioContextRef.current = null;
+  };
+
   // Iniciar gravação
   const startRecording = async () => {
     try {
@@ -116,9 +128,7 @@ export function AudioRecorderInline({
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
 
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      cleanupAudioContext();
     }
   };
 
@@ -137,9 +147,7 @@ export function AudioRecorderInline({
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
 
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
+    cleanupAudioContext();
 
     audioChunksRef.current = [];
     setDuration('0:00');
@@ -208,9 +216,7 @@ export function AudioRecorderInline({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      cleanupAudioContext();
     };
   }, []);
 
