@@ -1,13 +1,30 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required");
+function initializeBotSupabase() {
+  if (supabaseInstance) return supabaseInstance;
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required");
+  }
+
+  supabaseInstance = createClient(supabaseUrl, supabaseKey);
+  return supabaseInstance;
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Lazy-loaded Supabase client
+const supabase = new Proxy({} as any, {
+  get(target, prop) {
+    if (!supabaseInstance) {
+      initializeBotSupabase();
+    }
+    return (supabaseInstance as any)[prop];
+  }
+});
 
 /**
  * Interface for bot instance configuration

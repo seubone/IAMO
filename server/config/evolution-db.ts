@@ -3,32 +3,64 @@ const { Pool } = pkg;
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as evolutionSchema from "@shared/evolution-schema";
 
-// Configurar conexão com banco Evolution (PostgreSQL padrão, não Neon)
-const evolutionDbUrl = `postgresql://${process.env.EVOLUTION_DB_USER}:${process.env.EVOLUTION_DB_PASSWORD}@${process.env.EVOLUTION_DB_HOST}:${process.env.EVOLUTION_DB_PORT}/${process.env.EVOLUTION_DB_NAME}`;
+let evolutionPoolInstance: InstanceType<typeof Pool> | null = null;
+let evolutionDbInstance: ReturnType<typeof drizzle> | null = null;
+let initialized = false;
 
-if (!process.env.EVOLUTION_DB_HOST || !process.env.EVOLUTION_DB_USER || !process.env.EVOLUTION_DB_PASSWORD) {
-  throw new Error(
-    "EVOLUTION_DB credentials must be set. Check EVOLUTION_DB_HOST, EVOLUTION_DB_USER, EVOLUTION_DB_PASSWORD environment variables.",
-  );
+function initializeEvolutionDb() {
+  if (evolutionDbInstance) return { pool: evolutionPoolInstance, db: evolutionDbInstance };
+
+  // Configurar conexão com banco Evolution (PostgreSQL padrão, não Neon)
+  const evolutionDbUrl = `postgresql://${process.env.EVOLUTION_DB_USER}:${process.env.EVOLUTION_DB_PASSWORD}@${process.env.EVOLUTION_DB_HOST}:${process.env.EVOLUTION_DB_PORT}/${process.env.EVOLUTION_DB_NAME}`;
+
+  if (!process.env.EVOLUTION_DB_HOST || !process.env.EVOLUTION_DB_USER || !process.env.EVOLUTION_DB_PASSWORD) {
+    throw new Error(
+      "EVOLUTION_DB credentials must be set. Check EVOLUTION_DB_HOST, EVOLUTION_DB_USER, EVOLUTION_DB_PASSWORD environment variables.",
+    );
+  }
+
+  // Pool de conexão para o banco Evolution (read-only queries)
+  evolutionPoolInstance = new Pool({
+    connectionString: evolutionDbUrl,
+    // Read-only connection settings
+    max: 10, // Máximo de conexões simultâneas
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+
+  evolutionDbInstance = drizzle(evolutionPoolInstance, { schema: evolutionSchema });
+
+  // Testar conexão na inicialização
+  evolutionPoolInstance.connect((err, client, release) => {
+    if (err) {
+      console.error('❌ Erro ao conectar no banco Evolution:', err.message);
+      return;
+    }
+    console.log('✅ Conectado ao banco Evolution (WhatsApp)');
+    release();
+  });
+
+  return { pool: evolutionPoolInstance, db: evolutionDbInstance };
 }
 
-// Pool de conexão para o banco Evolution (read-only queries)
-export const evolutionPool = new Pool({ 
-  connectionString: evolutionDbUrl,
-  // Read-only connection settings
-  max: 10, // Máximo de conexões simultâneas
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+// Pool de conexão para o banco Evolution (lazy loaded)
+export const evolutionPool = new Proxy({} as any, {
+  get() {
+    if (!initialized) {
+      initializeEvolutionDb();
+      initialized = true;
+    }
+    return evolutionPoolInstance;
+  }
 });
 
-export const evolutionDb = drizzle(evolutionPool, { schema: evolutionSchema });
-
-// Testar conexão na inicialização
-evolutionPool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Erro ao conectar no banco Evolution:', err.message);
-    return;
+// Drizzle ORM instance for Evolution (lazy loaded)
+export const evolutionDb = new Proxy({} as any, {
+  get(target, prop) {
+    if (!initialized) {
+      initializeEvolutionDb();
+      initialized = true;
+    }
+    return (evolutionDbInstance as any)[prop];
   }
-  console.log('✅ Conectado ao banco Evolution (WhatsApp)');
-  release();
 });
