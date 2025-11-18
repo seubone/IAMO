@@ -1,4 +1,4 @@
-import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown, ChevronLeft, Moon, Sun } from "lucide-react";
+import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, LogOut, ChevronDown, ChevronLeft, Moon, Sun, BookOpen } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
@@ -30,6 +30,11 @@ const menuItems = [
     title: "Auditoria",
     url: "/audit",
     icon: Shield,
+  },
+  {
+    title: "Releases",
+    url: "/releases",
+    icon: BookOpen,
   },
 ];
 
