@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/config/version";
 
 const menuItems = [
   {
@@ -297,6 +298,12 @@ export function AppSidebar() {
             <LogOut className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && <span className="truncate">{footerItems[1].title}</span>}
           </a>
+
+          {!isCollapsed && (
+            <div className="text-center pt-2">
+              <span className="text-xs text-sidebar-foreground/50 font-medium">{APP_VERSION}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

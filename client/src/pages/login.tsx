@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { auth } from "@/lib/api";
 import { signInWithGoogle } from "@/lib/google-auth";
 import { useLocation } from "wouter";
+import { APP_VERSION } from "@/config/version";
 
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
@@ -195,6 +196,11 @@ export default function Login() {
       </div>
 
       <div className="relative z-[1] flex w-full items-center justify-center bg-background p-6 lg:w-[35%]">
+        {/* Version Display */}
+        <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
+          {APP_VERSION}
+        </div>
+
         <div className="w-full max-w-sm">
           <div className="w-full">
             {!isRegisterMode ? (
