@@ -47,6 +47,8 @@ export function InstanceSelectorModal({
     queryFn: () =>
       apiRequest(`/api/whatsapp/instances${showInactive ? "?inactive=true" : ""}`),
     enabled: open,
+    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
   // 🚀 Filtrar instâncias por nome ou número baseado na busca e status de conexão

@@ -44,12 +44,16 @@ export function InstanceSettingsPage() {
   const { data: evolutionInstance } = useQuery<EvolutionInstance>({
     queryKey: [`/api/whatsapp/instances/${instanceId}`],
     enabled: !!instanceId,
+    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
   // Buscar dados da instância
   const { data: instanceData } = useQuery({
     queryKey: [`/api/ai-data/instance/${instanceId}`],
     enabled: !!instanceId,
+    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
   // Armazenar dados da instância Evolution
