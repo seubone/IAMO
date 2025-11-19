@@ -19,8 +19,8 @@ O sistema de perfil de usuário foi implementado para capturar e armazenar infor
 
 ### 3. Frontend - Componente
 - **`client/src/components/UserOnboarding.tsx`**
-  - Modal de onboarding em 2 passos
-  - Passo 1: Nome completo (obrigatório)
+  - Modal de onboarding em 2 passos (fullscreen com animação slide-up)
+  - Passo 1: Nome e sobrenome (obrigatório)
   - Passo 2: Foto de perfil (opcional)
   - Integração com `useUserProfile` hook
 
@@ -54,6 +54,8 @@ user_profiles_simonia (
 4. Desmarque "Private" para tornar público
 5. Clique "Create bucket"
 
+> **Nota**: Para detalhes completos sobre configuração do bucket, estrutura de armazenamento, RLS policies e troubleshooting, veja [SUPABASE_STORAGE_SETUP.md](./SUPABASE_STORAGE_SETUP.md)
+
 ### Passo 3: Configurar RLS Policies (já incluídas na migration)
 
 A migration inclui automaticamente as políticas:
@@ -73,18 +75,23 @@ O frontend está pronto. Quando um usuário logado não tiver um perfil, o modal
 ## Fluxo de Uso
 
 1. **Usuário faz login**
-2. **Sistema verifica se existe perfil**
-3. **Se não existir perfil:**
-   - Modal abre com Passo 1 (Nome)
-   - Usuário insere nome completo e clica "Próximo"
-   - Modal muda para Passo 2 (Foto)
+2. **Sistema verifica se existe perfil** (se não existir, abre onboarding)
+3. **Modal fullscreen abre com Passo 1 (Nome)**
+   - Animação slide-up da base para o topo
+   - Usuário insere nome e sobrenome (obrigatório)
+   - Pressiona Enter ou clica "Próximo"
+4. **Modal muda para Passo 2 (Foto)**
    - Usuário pode:
-     - Selecionar uma foto (opcional)
-     - Clicar "Concluir" (salva sem foto)
-     - Clicar "Pular esta etapa" (fecha modal sem foto)
-4. **Perfil é salvo no Supabase**
-5. **Modal fecha**
-6. **Nome aparece no sidebar dinamicamente**
+     - Selecionar uma foto (opcional) - preview em tempo real
+     - Clicar "Concluir" (salva o perfil com foto)
+     - Clicar "Voltar" (retorna ao Passo 1)
+     - Clicar "Pular esta etapa" (salva sem foto)
+5. **Perfil é salvo no Supabase**
+   - Nome e sobrenome armazenado em `user_profiles_simonia.name`
+   - Avatar URL armazenado em `user_profiles_simonia.avatar_url`
+   - Avatar file armazenado em Storage: `avatars/{user_id}/{timestamp}-{filename}`
+6. **Modal fecha automaticamente**
+7. **Nome e avatar aparecem no sidebar dinamicamente**
 
 ## API - Hook `useUserProfile()`
 
