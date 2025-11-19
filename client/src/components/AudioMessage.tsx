@@ -293,11 +293,14 @@ export function AudioMessage({
         )}
 
         {/* Player Box - Com bordas lg iguais às caixas de texto */}
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all w-full ${
-          fromMe
-            ? 'border-violet-500/40 dark:border-violet-600/40 bg-violet-500 dark:bg-violet-600 text-white'
-            : 'border-border/60 bg-card text-card-foreground'
-        } shadow-sm hover:shadow-md transition-all`}>
+        <div
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all w-full ${
+            fromMe
+              ? 'border-opacity-40 text-white shadow-sm hover:shadow-md transition-all'
+              : 'border-border/60 bg-card text-card-foreground shadow-sm hover:shadow-md transition-all'
+          }`}
+          style={fromMe ? { backgroundColor: "#3A4ACD", borderColor: "#3A4ACD" } : undefined}
+        >
           {/* Play/Pause Button - Apenas o ícone roxo */}
           <button
             onClick={togglePlayPause}

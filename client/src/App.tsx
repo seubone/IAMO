@@ -22,12 +22,12 @@ import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 import UazapiTest from "@/pages/uazapi-test";
 import JWTDebug from "@/pages/jwt-debug";
-import Releases from "@/pages/releases";
 import Login from "@/pages/login";
 import Logout from "@/pages/logout";
 import AuthCallback from "@/pages/auth-callback";
 import NotFound from "@/pages/not-found";
 import { InstanceSettingsPage } from "@/pages/instance-settings";
+import Releases from "@/pages/releases";
 
 function ProtectedRoutes() {
   const { isAuthenticated, hasHydrated } = useAuth();
@@ -70,7 +70,6 @@ function ProtectedRoutes() {
               <Route path="/audit" component={Audit} />
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
-              <Route path="/releases" component={Releases} />
               <Route path="/uazapi-test" component={UazapiTest} />
               <Route path="/jwt-debug" component={JWTDebug} />
               <Route component={NotFound} />
@@ -95,6 +94,7 @@ export default function App() {
               <Route path="/login" component={Login} />
               <Route path="/logout" component={Logout} />
               <Route path="/auth/callback" component={AuthCallback} />
+              <Route path="/releases" component={Releases} />
               <Route path="*" component={ProtectedRoutes} />
             </Switch>
             <Toaster />

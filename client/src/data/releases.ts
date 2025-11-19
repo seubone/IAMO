@@ -21,7 +21,7 @@ export interface DocumentationSection {
 
 export const releases: ReleaseItem[] = [
   {
-    version: "v1.0.3",
+    version: "v1.0.31",
     date: "2025-11-18",
     title: "Version Display & UI Polish",
     description: "Added version display throughout the application for better tracking and polished message styling.",
@@ -31,7 +31,7 @@ export const releases: ReleaseItem[] = [
       "Display version below logout button in sidebar footer",
       "Changed message bubble color to exact hex #3A4ACD for better visual hierarchy",
       "Centralized version configuration for easy updates",
-      "Docker images pushed: v1.0.3 and latest tags"
+      "Docker images pushed: v1.0.31 and latest tags"
     ]
   },
   {
@@ -439,8 +439,8 @@ docker run -p 5049:5049 -p 5051:5051 simonia:latest
         title: "Docker Deployment",
         content: `**Building Docker Image:**
 \`\`\`bash
-docker build -t cainanmaia/simonia:v1.0.3 .
-docker push cainanmaia/simonia:v1.0.3
+docker build -t cainanmaia/simonia:v1.0.31 .
+docker push cainanmaia/simonia:v1.0.31
 \`\`\`
 
 **Running Container:**
