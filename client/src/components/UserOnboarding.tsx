@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { Loader2, Upload, X } from "lucide-react";
@@ -11,12 +10,20 @@ export function UserOnboarding() {
   const { profile, isLoading: isProfileLoading, updateProfile, uploadAvatar } = useUserProfile();
 
   const [isOpen, setIsOpen] = useState(!profile?.name && !!user);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [step, setStep] = useState<"name" | "avatar">("name");
   const [name, setName] = useState(profile?.name || "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>(profile?.avatar_url || "");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Trigger animation on mount
+  useEffect(() => {
+    if (isOpen) {
+      setIsAnimating(true);
+    }
+  }, [isOpen]);
 
   const handleNameSubmit = () => {
     if (!name.trim()) {
@@ -71,146 +78,169 @@ export function UserOnboarding() {
   if (!isOpen || !user) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-        {step === "name" ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Bem-vindo!</DialogTitle>
-              <DialogDescription>
-                Vamos começar com o seu nome completo (obrigatório)
-              </DialogDescription>
-            </DialogHeader>
+    <>
+      {/* Animated fullscreen overlay */}
+      <style>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
 
-            <div className="space-y-4">
-              <div>
-                <Input
-                  type="text"
-                  placeholder="Digite seu nome completo"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setError("");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleNameSubmit();
-                    }
-                  }}
-                  className="py-6 text-base"
-                  autoFocus
-                  disabled={isLoading || isProfileLoading}
-                />
-                {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+        .onboarding-container {
+          animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+      `}</style>
+
+      <div className="onboarding-container fixed inset-0 z-50 bg-gradient-to-br from-purple-600 via-purple-700 to-purple-900 flex items-center justify-center">
+        {/* Content Container */}
+        <div className="w-full h-full flex flex-col items-center justify-center px-4 py-8">
+          {step === "name" ? (
+            <div className="w-full max-w-md space-y-8 animate-in">
+              {/* Header */}
+              <div className="space-y-4 text-center">
+                <h1 className="text-5xl font-bold text-white tracking-tight">Bem-vindo!</h1>
+                <p className="text-lg text-purple-100">Vamos começar com o seu nome completo (obrigatório)</p>
               </div>
 
-              <Button
-                onClick={handleNameSubmit}
-                disabled={!name.trim() || isLoading || isProfileLoading}
-                className="w-full py-6"
-              >
-                {isLoading || isProfileLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Carregando...
-                  </>
-                ) : (
-                  "Próximo"
-                )}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Foto de Perfil</DialogTitle>
-              <DialogDescription>
-                Adicione uma foto de perfil (opcional - pode pular)
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {avatarPreview ? (
-                <div className="relative mx-auto">
-                  <img
-                    src={avatarPreview}
-                    alt="Preview"
-                    className="w-32 h-32 rounded-full object-cover mx-auto"
-                  />
-                  <button
-                    onClick={() => {
-                      setAvatarPreview("");
-                      setAvatarFile(null);
+              {/* Input Section */}
+              <div className="space-y-4">
+                <div>
+                  <Input
+                    type="text"
+                    placeholder="Digite seu nome completo"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setError("");
                     }}
-                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    disabled={isLoading}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isLoading && !isProfileLoading) {
+                        handleNameSubmit();
+                      }
+                    }}
+                    className="py-6 text-base bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-white/40"
+                    autoFocus
+                    disabled={isLoading || isProfileLoading}
+                  />
+                  {error && <p className="text-sm text-red-200 mt-2">{error}</p>}
                 </div>
-              ) : (
-                <div
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-accent transition"
-                  onClick={() => {
-                    if (!isLoading) {
-                      document.getElementById("avatar-input")?.click();
-                    }
-                  }}
-                >
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium">Clique para selecionar foto</p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG até 5MB</p>
-                </div>
-              )}
-
-              <input
-                id="avatar-input"
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarSelect}
-                className="hidden"
-                disabled={isLoading}
-              />
-
-              {error && <p className="text-sm text-red-500">{error}</p>}
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep("name")}
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  Voltar
-                </Button>
 
                 <Button
-                  onClick={() => handleComplete()}
-                  disabled={isLoading}
-                  className="flex-1"
+                  onClick={handleNameSubmit}
+                  disabled={!name.trim() || isLoading || isProfileLoading}
+                  className="w-full py-6 bg-white text-purple-700 hover:bg-purple-50 font-semibold text-base rounded-lg transition"
                 >
-                  {isLoading ? (
+                  {isLoading || isProfileLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Salvando...
+                      Carregando...
                     </>
                   ) : (
-                    "Concluir"
+                    "Próximo"
                   )}
                 </Button>
               </div>
-
-              <button
-                onClick={() => handleComplete()}
-                disabled={isLoading}
-                className="w-full text-sm text-muted-foreground hover:text-foreground transition"
-              >
-                Pular esta etapa
-              </button>
             </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+          ) : (
+            <div className="w-full max-w-md space-y-8 animate-in">
+              {/* Header */}
+              <div className="space-y-4 text-center">
+                <h1 className="text-5xl font-bold text-white tracking-tight">Foto de Perfil</h1>
+                <p className="text-lg text-purple-100">Adicione uma foto (opcional - pode pular)</p>
+              </div>
+
+              {/* Avatar Section */}
+              <div className="space-y-6">
+                {avatarPreview ? (
+                  <div className="relative mx-auto">
+                    <img
+                      src={avatarPreview}
+                      alt="Preview"
+                      className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-white shadow-xl"
+                    />
+                    <button
+                      onClick={() => {
+                        setAvatarPreview("");
+                        setAvatarFile(null);
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow-lg"
+                      disabled={isLoading}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="border-2 border-dashed border-white/40 rounded-2xl p-12 text-center cursor-pointer hover:bg-white/5 transition"
+                    onClick={() => {
+                      if (!isLoading) {
+                        document.getElementById("avatar-input")?.click();
+                      }
+                    }}
+                  >
+                    <Upload className="w-12 h-12 mx-auto mb-3 text-white/70" />
+                    <p className="text-base font-medium text-white">Clique para selecionar foto</p>
+                    <p className="text-sm text-purple-100">PNG, JPG até 5MB</p>
+                  </div>
+                )}
+
+                <input
+                  id="avatar-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarSelect}
+                  className="hidden"
+                  disabled={isLoading}
+                />
+
+                {error && <p className="text-sm text-red-200 text-center">{error}</p>}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep("name")}
+                    disabled={isLoading}
+                    className="flex-1 py-6 bg-white/10 border-white/20 text-white hover:bg-white/20 font-semibold rounded-lg"
+                  >
+                    Voltar
+                  </Button>
+
+                  <Button
+                    onClick={() => handleComplete()}
+                    disabled={isLoading}
+                    className="flex-1 py-6 bg-white text-purple-700 hover:bg-purple-50 font-semibold rounded-lg"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Concluir"
+                    )}
+                  </Button>
+                </div>
+
+                {/* Skip Button */}
+                <button
+                  onClick={() => handleComplete()}
+                  disabled={isLoading}
+                  className="w-full py-3 text-sm text-white/70 hover:text-white transition font-medium"
+                >
+                  Pular esta etapa
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
