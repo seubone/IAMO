@@ -32,7 +32,7 @@ export default function Releases() {
             <div>
               <a
                 href="/"
-                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-foreground/5"
+                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-white transition hover:bg-foreground/5"
               >
                 ← Voltar para o Simonia
               </a>
