@@ -97,15 +97,15 @@ export function UserOnboarding() {
         }
       `}</style>
 
-      <div className="onboarding-container fixed inset-0 z-50 bg-gradient-to-br from-purple-600 via-purple-700 to-purple-900 flex items-center justify-center">
+      <div className="onboarding-container fixed inset-0 z-50 bg-background flex items-center justify-center">
         {/* Content Container */}
         <div className="w-full h-full flex flex-col items-center justify-center px-4 py-8">
           {step === "name" ? (
             <div className="w-full max-w-md space-y-8 animate-in">
               {/* Header */}
               <div className="space-y-4 text-center">
-                <h1 className="text-5xl font-bold text-white tracking-tight">Bem-vindo!</h1>
-                <p className="text-lg text-purple-100">Vamos começar com o seu nome completo (obrigatório)</p>
+                <h1 className="text-5xl font-bold text-foreground tracking-tight">Bem-vindo!</h1>
+                <p className="text-lg text-muted-foreground">Vamos começar com seu nome e sobrenome (obrigatório)</p>
               </div>
 
               {/* Input Section */}
@@ -113,7 +113,7 @@ export function UserOnboarding() {
                 <div>
                   <Input
                     type="text"
-                    placeholder="Digite seu nome completo"
+                    placeholder="Digite seu nome e sobrenome"
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value);
@@ -124,17 +124,17 @@ export function UserOnboarding() {
                         handleNameSubmit();
                       }
                     }}
-                    className="py-6 text-base bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20 focus:border-white/40"
+                    className="py-6 text-base"
                     autoFocus
                     disabled={isLoading || isProfileLoading}
                   />
-                  {error && <p className="text-sm text-red-200 mt-2">{error}</p>}
+                  {error && <p className="text-sm text-destructive mt-2">{error}</p>}
                 </div>
 
                 <Button
                   onClick={handleNameSubmit}
                   disabled={!name.trim() || isLoading || isProfileLoading}
-                  className="w-full py-6 bg-white text-purple-700 hover:bg-purple-50 font-semibold text-base rounded-lg transition"
+                  className="w-full py-6 font-semibold text-base rounded-lg transition"
                 >
                   {isLoading || isProfileLoading ? (
                     <>
@@ -151,8 +151,8 @@ export function UserOnboarding() {
             <div className="w-full max-w-md space-y-8 animate-in">
               {/* Header */}
               <div className="space-y-4 text-center">
-                <h1 className="text-5xl font-bold text-white tracking-tight">Foto de Perfil</h1>
-                <p className="text-lg text-purple-100">Adicione uma foto (opcional - pode pular)</p>
+                <h1 className="text-5xl font-bold text-foreground tracking-tight">Foto de Perfil</h1>
+                <p className="text-lg text-muted-foreground">Adicione uma foto (opcional - pode pular)</p>
               </div>
 
               {/* Avatar Section */}
@@ -162,14 +162,14 @@ export function UserOnboarding() {
                     <img
                       src={avatarPreview}
                       alt="Preview"
-                      className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-white shadow-xl"
+                      className="w-40 h-40 rounded-full object-cover mx-auto border-4 border-primary shadow-xl"
                     />
                     <button
                       onClick={() => {
                         setAvatarPreview("");
                         setAvatarFile(null);
                       }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow-lg"
+                      className="absolute top-0 right-0 bg-destructive text-primary-foreground rounded-full p-2 hover:bg-destructive/90 shadow-lg"
                       disabled={isLoading}
                     >
                       <X className="w-5 h-5" />
@@ -177,16 +177,16 @@ export function UserOnboarding() {
                   </div>
                 ) : (
                   <div
-                    className="border-2 border-dashed border-white/40 rounded-2xl p-12 text-center cursor-pointer hover:bg-white/5 transition"
+                    className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:bg-accent transition"
                     onClick={() => {
                       if (!isLoading) {
                         document.getElementById("avatar-input")?.click();
                       }
                     }}
                   >
-                    <Upload className="w-12 h-12 mx-auto mb-3 text-white/70" />
-                    <p className="text-base font-medium text-white">Clique para selecionar foto</p>
-                    <p className="text-sm text-purple-100">PNG, JPG até 5MB</p>
+                    <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-base font-medium text-foreground">Clique para selecionar foto</p>
+                    <p className="text-sm text-muted-foreground">PNG, JPG até 5MB</p>
                   </div>
                 )}
 
@@ -199,7 +199,7 @@ export function UserOnboarding() {
                   disabled={isLoading}
                 />
 
-                {error && <p className="text-sm text-red-200 text-center">{error}</p>}
+                {error && <p className="text-sm text-destructive text-center">{error}</p>}
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 pt-4">
@@ -207,7 +207,7 @@ export function UserOnboarding() {
                     variant="outline"
                     onClick={() => setStep("name")}
                     disabled={isLoading}
-                    className="flex-1 py-6 bg-white/10 border-white/20 text-white hover:bg-white/20 font-semibold rounded-lg"
+                    className="flex-1 py-6 font-semibold rounded-lg"
                   >
                     Voltar
                   </Button>
@@ -215,7 +215,7 @@ export function UserOnboarding() {
                   <Button
                     onClick={() => handleComplete()}
                     disabled={isLoading}
-                    className="flex-1 py-6 bg-white text-purple-700 hover:bg-purple-50 font-semibold rounded-lg"
+                    className="flex-1 py-6 font-semibold rounded-lg"
                   >
                     {isLoading ? (
                       <>
@@ -232,7 +232,7 @@ export function UserOnboarding() {
                 <button
                   onClick={() => handleComplete()}
                   disabled={isLoading}
-                  className="w-full py-3 text-sm text-white/70 hover:text-white transition font-medium"
+                  className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition font-medium"
                 >
                   Pular esta etapa
                 </button>
