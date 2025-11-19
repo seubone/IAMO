@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { UserOnboarding } from "@/components/UserOnboarding";
 import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useLoadSupabaseConfig } from "@/hooks/use-supabase-config";
@@ -77,6 +78,7 @@ function ProtectedRoutes() {
           </main>
         </div>
       </div>
+      <UserOnboarding />
     </SidebarProvider>
   );
 }
