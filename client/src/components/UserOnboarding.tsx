@@ -178,9 +178,33 @@ export function UserOnboarding() {
                 ) : (
                   <div
                     className="border-2 border-dashed border-border rounded-2xl p-12 text-center cursor-pointer hover:bg-accent transition"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       if (!isLoading) {
-                        document.getElementById("avatar-input")?.click();
+                        const input = document.getElementById("avatar-input") as HTMLInputElement;
+                        if (input) {
+                          input.click();
+                        }
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const files = e.dataTransfer?.files;
+                      if (files && files.length > 0) {
+                        const file = files[0];
+                        if (file.type.startsWith('image/')) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            setAvatarPreview(event.target?.result as string);
+                            setAvatarFile(file);
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }
                     }}
                   >
@@ -197,6 +221,7 @@ export function UserOnboarding() {
                   onChange={handleAvatarSelect}
                   className="hidden"
                   disabled={isLoading}
+                  style={{ display: 'none' }}
                 />
 
                 {error && <p className="text-sm text-destructive text-center">{error}</p>}
