@@ -2768,18 +2768,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .getPublicUrl(filepath);
 
       // Update user profile in database with avatar URL
-      const { error: dbError } = await supabase
+      console.log("📝 Attempting to upsert profile:", {
+        user_id: req.user.id,
+        avatar_url: publicUrl.publicUrl
+      });
+
+      const { data: upsertData, error: dbError } = await supabase
         .from('user_profiles_simonia')
         .upsert({
           user_id: req.user.id,
+          name: req.user?.name || null,
           avatar_url: publicUrl.publicUrl,
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
 
       if (dbError) {
-        console.error("Error updating profile:", dbError);
-        return res.status(500).json({ error: "Erro ao salvar URL da foto" });
+        console.error("❌ Error updating profile:", {
+          message: dbError.message,
+          code: (dbError as any).code,
+          details: (dbError as any).details,
+          hint: (dbError as any).hint
+        });
+        return res.status(500).json({
+          error: `Erro ao salvar URL da foto: ${dbError.message}`,
+          details: (dbError as any).details
+        });
       }
+
+      console.log("✅ Profile upserted successfully:", upsertData);
 
       res.json({
         success: true,
