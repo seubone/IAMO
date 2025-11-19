@@ -2,6 +2,7 @@ import { Home, MessageSquare, SquareKanban, Settings, Shield, BarChart3, User, L
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/config/version";
 
@@ -68,6 +69,7 @@ const userMenuItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { isCollapsed, toggleCollapsed } = useSidebarCollapse();
+  const { user } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
@@ -135,11 +137,16 @@ export function AppSidebar() {
               )}
             >
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground font-bold text-xs shadow-[0_12px_24px_rgba(92,108,246,0.35)]">
-                CM
+                {(user?.user_metadata?.name || user?.email || "U")
+                  .split(' ')
+                  .slice(0, 2)
+                  .map((n) => n[0])
+                  .join('')
+                  .toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-sidebar-foreground/70">Bem vindo</p>
-                <h3 className="truncate text-sm font-semibold text-sidebar-foreground">Cainan Maia</h3>
+                <h3 className="truncate text-sm font-semibold text-sidebar-foreground">{user?.user_metadata?.name || user?.email || "Usuário"}</h3>
                 <p className="text-[10px] uppercase tracking-wide text-sidebar-foreground/50">Administrador</p>
               </div>
               <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-sidebar-border/60 bg-sidebar-accent">
