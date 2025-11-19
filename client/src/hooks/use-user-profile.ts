@@ -96,26 +96,60 @@ export function useUserProfile() {
     }
   }
 
-  // Upload avatar
+  // Upload avatar via backend endpoint
   async function uploadAvatar(file: File): Promise<string> {
     if (!user) throw new Error("User not authenticated");
 
     try {
       setError(null);
 
-      const filename = `avatars/${user.id}/${Date.now()}-${file.name}`;
+      // Convert file to base64
+      const reader = new FileReader();
 
-      const { error: uploadError } = await supabase.storage
-        .from("user-avatars")
-        .upload(filename, file, { upsert: true });
+      return new Promise((resolve, reject) => {
+        reader.onload = async (event) => {
+          try {
+            const base64String = (event.target?.result as string).split(',')[1];
 
-      if (uploadError) throw uploadError;
+            // Send to backend endpoint with auth token
+            const token = localStorage.getItem("auth_token");
+            if (!token) throw new Error("No auth token found");
 
-      const { data } = supabase.storage
-        .from("user-avatars")
-        .getPublicUrl(filename);
+            const response = await fetch("/api/upload-avatar", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                fileName: file.name,
+                fileBase64: base64String,
+              }),
+            });
 
-      return data.publicUrl;
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || "Failed to upload avatar");
+            }
+
+            const data = await response.json();
+            resolve(data.avatarUrl);
+          } catch (err: any) {
+            console.error("Error uploading avatar:", err.message);
+            setError(err.message);
+            reject(err);
+          }
+        };
+
+        reader.onerror = () => {
+          const error = new Error("Failed to read file");
+          console.error("Error reading file:", error.message);
+          setError(error.message);
+          reject(error);
+        };
+
+        reader.readAsDataURL(file);
+      });
     } catch (err: any) {
       console.error("Error uploading avatar:", err.message);
       setError(err.message);

@@ -2733,5 +2733,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register Evolution API instance management routes
   registerInstanceRoutes(app);
 
+  // User Profile Avatar Upload endpoint
+  app.post("/api/upload-avatar", authMiddleware, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: "Usuário não autenticado" });
+      }
+
+      // Get file from request body (base64 encoded)
+      const { fileName, fileBase64 } = req.body;
+
+      if (!fileName || !fileBase64) {
+        return res.status(400).json({ error: "fileName e fileBase64 são obrigatórios" });
+      }
+
+      // Convert base64 to buffer
+      const buffer = Buffer.from(fileBase64, 'base64');
+
+      // Upload to Supabase Storage using service role key (admin)
+      const filepath = `avatars/${req.user.id}/${Date.now()}-${fileName}`;
+
+      const { data, error: uploadError } = await supabase.storage
+        .from('user-avatars')
+        .upload(filepath, buffer, { upsert: true });
+
+      if (uploadError) {
+        console.error("Error uploading to Supabase:", uploadError);
+        return res.status(500).json({ error: "Erro ao fazer upload do arquivo" });
+      }
+
+      // Get public URL
+      const { data: publicUrl } = supabase.storage
+        .from('user-avatars')
+        .getPublicUrl(filepath);
+
+      // Update user profile in database with avatar URL
+      const { error: dbError } = await supabase
+        .from('user_profiles_simonia')
+        .upsert({
+          user_id: req.user.id,
+          avatar_url: publicUrl.publicUrl,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+      if (dbError) {
+        console.error("Error updating profile:", dbError);
+        return res.status(500).json({ error: "Erro ao salvar URL da foto" });
+      }
+
+      res.json({
+        success: true,
+        avatarUrl: publicUrl.publicUrl,
+        message: "Avatar enviado com sucesso"
+      });
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+
   return httpServer;
 }
