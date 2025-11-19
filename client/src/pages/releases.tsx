@@ -1,4 +1,5 @@
 import { releases } from "@/data/releases";
+import { useAuth } from "@/hooks/use-auth";
 
 const typeLabels: Record<string, string> = {
   feature: "Nova Funcionalidade",
@@ -8,6 +9,8 @@ const typeLabels: Record<string, string> = {
 };
 
 export default function Releases() {
+  const { isAuthenticated } = useAuth();
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-12 sm:px-6 lg:px-0">
@@ -22,14 +25,16 @@ export default function Releases() {
               Aqui você encontra todas as novas funcionalidades, correções e melhorias.
             </p>
           </div>
-          <div>
-            <a
-              href="/"
-              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-foreground/5"
-            >
-              ← Voltar para o Simonia
-            </a>
-          </div>
+          {isAuthenticated && (
+            <div>
+              <a
+                href="/"
+                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-foreground/5"
+              >
+                ← Voltar para o Simonia
+              </a>
+            </div>
+          )}
         </header>
 
         <section className="flex flex-col gap-8">
