@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./use-auth";
 
+// Get API base URL (default to current origin if not set)
+const getApiUrl = () => {
+  const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
+  return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+};
+
 export interface UserProfile {
   id: string;
   user_id: string;
@@ -103,6 +109,12 @@ export function useUserProfile() {
     try {
       setError(null);
 
+      // Get token from Zustand store
+      const { token: authToken } = useAuth.getState();
+      if (!authToken) {
+        throw new Error("No auth token found");
+      }
+
       // Convert file to base64
       const reader = new FileReader();
 
@@ -110,16 +122,16 @@ export function useUserProfile() {
         reader.onload = async (event) => {
           try {
             const base64String = (event.target?.result as string).split(',')[1];
+            const apiUrl = getApiUrl();
 
-            // Send to backend endpoint with auth token
-            const token = localStorage.getItem("auth_token");
-            if (!token) throw new Error("No auth token found");
+            console.log("📤 Uploading avatar to:", `${apiUrl}/api/upload-avatar`);
+            console.log("🔑 Auth token present:", !!authToken);
 
-            const response = await fetch("/api/upload-avatar", {
+            const response = await fetch(`${apiUrl}/api/upload-avatar`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
+                "Authorization": `Bearer ${authToken}`,
               },
               body: JSON.stringify({
                 fileName: file.name,
@@ -129,10 +141,12 @@ export function useUserProfile() {
 
             if (!response.ok) {
               const errorData = await response.json();
+              console.error("❌ Upload failed:", errorData);
               throw new Error(errorData.error || "Failed to upload avatar");
             }
 
             const data = await response.json();
+            console.log("✅ Avatar uploaded successfully");
             resolve(data.avatarUrl);
           } catch (err: any) {
             console.error("Error uploading avatar:", err.message);
