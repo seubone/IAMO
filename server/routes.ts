@@ -13,6 +13,11 @@ import { supabase } from "./config/supabase";
 import { getUazapiTokenByInstanceNumber } from "./services/uazapi-supabase";
 import { unifiedSender } from "./utils/send-strategy";
 import { evolutionPool } from "./config/evolution-db";
+import {
+  fetchInstances as fetchEvolutionInstances,
+  isEvolutionApiConfigured,
+  type EvolutionInstance
+} from "./services/evolution-instances";
 import { registerBotConfigRoutes } from "./routes/bot-config.routes";
 import { registerIAConfigRoutes } from "./routes/ia-config.routes";
 import { registerAIDataRoutes } from "./routes/ai-data.routes";
@@ -1045,21 +1050,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ WHATSAPP/EVOLUTION ROUTES ============
   
-  // Get all instances (números/contas do WhatsApp)
+  // Get all instances (numeros/contas do WhatsApp)
   app.get("/api/whatsapp/instances", authMiddleware, async (req, res) => {
-    try {
-      console.log("📱 Fetching WhatsApp instances...", {
-        user: (req as any).user?.email,
-        authenticated: !!(req as any).user,
-      });
+    console.log("[instances] Fetching WhatsApp instances", {
+      user: (req as any).user?.email,
+      authenticated: !!(req as any).user,
+    });
 
+    const normalizeInstanceStatus = (status?: string | null) => {
+      switch (status) {
+        case "connected":
+          return "open";
+        case "connecting":
+          return "connecting";
+        default:
+          return "close";
+      }
+    };
+
+    const normalizeEvolutionApiInstances = (instances: EvolutionInstance[]) =>
+      instances.map(({ instance }) => ({
+        id: instance.instanceId,
+        name: instance.instanceName,
+        number: instance.instanceNumber || null,
+        ownerJid: instance.instanceId || instance.instanceNumber || null,
+        profilePicUrl: instance.profilePictureUrl || null,
+        profileName: instance.profileName || instance.instanceName,
+        connectionStatus: normalizeInstanceStatus(instance.status),
+      }));
+
+    const fetchFromEvolutionDb = async () => {
       const { evolutionPool } = await import("./config/evolution-db");
 
-      // Show all instances regardless of connectionStatus
-      // Users need access to all instances from Evolution DB to send messages
-      const whereClause = "";
-
-      const result = await evolutionPool.query(`
+      const query = `
         SELECT
           id,
           name,
@@ -1069,18 +1092,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "profileName",
           "connectionStatus"
         FROM "Instance"
-        ${whereClause}
         ORDER BY "createdAt" DESC
-      `);
+        LIMIT 1000
+      `;
 
-      console.log(`✅ Found ${result.rows.length} instances`);
-      res.json(result.rows);
-    } catch (error: any) {
-      console.error("❌ Error fetching instances:", error);
-      res.status(500).json({ error: "Erro ao buscar instâncias" });
+      const timeoutMs = 10000; // 10 seconds timeout (increased from 5s)
+      let timeoutHandle: NodeJS.Timeout | null = null;
+
+      try {
+        const result = await Promise.race([
+          evolutionPool.query(query),
+          new Promise<{ rows: any[] }>((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+              reject(new Error(`Evolution DB query timeout after ${timeoutMs}ms`));
+            }, timeoutMs);
+          }),
+        ]);
+
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        console.log(`[instances] Loaded ${result.rows.length} instances from Evolution DB`);
+        return result.rows;
+      } catch (err) {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        throw err;
+      }
+    };
+
+    try {
+      const rows = await fetchFromEvolutionDb();
+
+      if (!Array.isArray(rows)) {
+        throw new Error("Invalid response from Evolution DB");
+      }
+
+      return res.json(rows);
+    } catch (dbError: any) {
+      console.warn("[instances] Evolution DB fetch failed", {
+        message: dbError?.message,
+        code: dbError?.code,
+        isTimeout: dbError?.message?.includes("timeout"),
+      });
+
+      // Fallback to Evolution API
+      if (!isEvolutionApiConfigured()) {
+        console.error("[instances] Both Evolution DB and API unavailable");
+        return res.status(503).json({
+          error: "Serviço temporariamente indisponível",
+          details: "Evolution DB e API não acessíveis",
+        });
+      }
+
+      try {
+        console.log("[instances] Attempting Evolution API fallback...");
+        const apiInstances = await fetchEvolutionInstances();
+
+        if (!Array.isArray(apiInstances)) {
+          throw new Error("Invalid response from Evolution API");
+        }
+
+        const normalized = normalizeEvolutionApiInstances(apiInstances);
+        console.log(`[instances] Loaded ${normalized.length} instances from Evolution API fallback`);
+        return res.json(normalized);
+      } catch (apiError: any) {
+        console.error("[instances] Evolution API fallback also failed", {
+          message: apiError?.message,
+          dbError: dbError?.message,
+        });
+
+        return res.status(503).json({
+          error: "Serviço temporariamente indisponível",
+          details: "Não foi possível buscar instâncias",
+          source: "db_and_api_failed",
+        });
+      }
     }
   });
-
   // Get chats for a specific instance
   app.get("/api/whatsapp/instances/:instanceId/chats", authMiddleware, async (req, res) => {
     try {
@@ -2810,3 +2896,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+
+

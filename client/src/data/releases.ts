@@ -21,6 +21,20 @@ export interface DocumentationSection {
 
 export const releases: ReleaseItem[] = [
   {
+    version: "v1.0.32",
+    date: "2025-11-19",
+    title: "Envio de Mensagens Restaurado & Fallback de Instâncias",
+    description: "Garante que o composer de mensagens sempre apareça e adiciona fallback automático para listar instâncias mesmo quando o banco Evolution está lento.",
+    type: 'fix',
+    changes: [
+      "Composer permanece visível sempre que há instância selecionada, mesmo sem número salvo",
+      "Seleção automática de chat garante campo de texto pronto para digitar ao abrir o chat",
+      "Endpoint /api/whatsapp/instances aplica timeout de 5s e faz fallback na Evolution API quando o banco Evolution falha",
+      "Exibição de versão atualizada para v1.0.32 em todo o app",
+      "Preparado build/pipeline Docker para a tag v1.0.32"
+    ]
+  },
+  {
     version: "v1.0.31",
     date: "2025-11-18",
     title: "Exibição de Versão & Polimento da Interface",
@@ -439,8 +453,8 @@ docker run -p 5049:5049 -p 5051:5051 simonia:latest
         title: "Implantação Docker",
         content: `**Construindo Imagem Docker:**
 \`\`\`bash
-docker build -t cainanmaia/simonia:v1.0.31 .
-docker push cainanmaia/simonia:v1.0.31
+docker build -t cainanmaia/simonia:v1.0.32 .
+docker push cainanmaia/simonia:v1.0.32
 \`\`\`
 
 **Executando Container:**

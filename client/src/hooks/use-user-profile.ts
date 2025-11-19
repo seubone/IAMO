@@ -73,25 +73,16 @@ export function useUserProfile() {
     try {
       setError(null);
 
-      if (profile) {
-        // Update existing profile
-        const { error: updateError } = await supabase
-          .from("user_profiles_simonia")
-          .update(updates)
-          .eq("user_id", user.id);
+      const payload = {
+        user_id: user.id,
+        ...updates,
+      };
 
-        if (updateError) throw updateError;
-      } else {
-        // Create new profile
-        const { error: insertError } = await supabase
-          .from("user_profiles_simonia")
-          .insert({
-            user_id: user.id,
-            ...updates,
-          });
+      const { error: upsertError } = await supabase
+        .from("user_profiles_simonia")
+        .upsert(payload, { onConflict: "user_id" });
 
-        if (insertError) throw insertError;
-      }
+      if (upsertError) throw upsertError;
 
       // Fetch updated profile
       await fetchProfile();

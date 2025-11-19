@@ -75,6 +75,24 @@ export function UserOnboarding() {
     }
   };
 
+  const handleSkipAvatar = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setError("");
+
+    try {
+      await updateProfile({
+        name: name.trim(),
+        avatar_url: profile?.avatar_url || null
+      });
+      setIsOpen(false);
+    } catch (err: any) {
+      setError(err.message || "Erro ao salvar perfil");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isOpen || !user) return null;
 
   return (
@@ -255,7 +273,7 @@ export function UserOnboarding() {
 
                 {/* Skip Button */}
                 <button
-                  onClick={() => handleComplete()}
+                  onClick={handleSkipAvatar}
                   disabled={isLoading}
                   className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition font-medium"
                 >

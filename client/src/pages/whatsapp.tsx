@@ -745,6 +745,41 @@ export default function WhatsApp() {
     // Depois por timestamp
     return (b.last_message_timestamp || 0) - (a.last_message_timestamp || 0);
   });
+
+  // Ensure there is always a selected chat when data is available
+  useEffect(() => {
+    if (!selectedInstanceId || !chats?.length) {
+      return;
+    }
+
+    if (!selectedChatJid && chats[0]?.remoteJid) {
+      setSelectedChatJid(chats[0].remoteJid);
+      return;
+    }
+
+    const stillExists = chats.some(chat => chat.remoteJid === selectedChatJid);
+    if (!stillExists) {
+      const nextChat = chats.find(chat => chat.remoteJid);
+      if (nextChat?.remoteJid) {
+        setSelectedChatJid(nextChat.remoteJid);
+      }
+    }
+  }, [selectedInstanceId, chats, selectedChatJid]);
+
+  // Keep selection in sync with current filters so composer remains visible even after searching
+  useEffect(() => {
+    if (!filteredChats.length) {
+      return;
+    }
+
+    const chatExists = filteredChats.some(chat => chat.remoteJid === selectedChatJid);
+    if (!selectedChatJid || !chatExists) {
+      const firstFiltered = filteredChats.find(chat => chat.remoteJid);
+      if (firstFiltered?.remoteJid) {
+        setSelectedChatJid(firstFiltered.remoteJid);
+      }
+    }
+  }, [filteredChats, selectedChatJid]);
   
   // Get selected chat details
   const selectedChat = chats?.find(chat => chat.remoteJid === selectedChatJid);
@@ -1862,7 +1897,7 @@ export default function WhatsApp() {
                   </div>
 
                   {/* Input de Mensagem - Design Simples */}
-                  {selectedInstance?.number ? (
+                  {selectedInstanceId ? (
                     <div className="flex-shrink-0 px-4 py-3 relative bg-muted/5 text-foreground">
                       {/* Input file oculto */}
                       <input

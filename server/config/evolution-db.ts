@@ -22,11 +22,12 @@ function initializeEvolutionDb() {
   // Pool de conexão para o banco Evolution (read-only queries)
   evolutionPoolInstance = new Pool({
     connectionString: evolutionDbUrl,
-    // Read-only connection settings
-    max: 5, // Reduzido de 10 para 5 para evitar sobrecarga de conexões
-    idleTimeoutMillis: 120000, // 2 minutos
-    connectionTimeoutMillis: 120000, // 2 minutos timeout para conexões remotas muito lentas/instáveis
-    statement_timeout: 90000, // 90s para queries
+    // Read-only connection settings - otimizado para leitura
+    max: 10, // Aumentado para 10 para melhor paralelismo
+    min: 2, // Manter 2 conexões aquecidas
+    idleTimeoutMillis: 60000, // 1 minuto
+    connectionTimeoutMillis: 30000, // 30s timeout para conexões
+    statement_timeout: 15000, // 15s timeout para queries (falha rápido se houver problema)
   });
 
   evolutionDbInstance = drizzle(evolutionPoolInstance, { schema: evolutionSchema });
