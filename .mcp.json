@@ -13,11 +13,10 @@
         },
         "supabase": {
             "type": "http",
-            "url": "https://mcp.supabase.com/mcp?project_ref=svfucusuhnwmwyojmxgr&api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZnVjdXN1aG53bXd5b2pteGdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUyNDMxOCwiZXhwIjoyMDYxMTAwMzE4fQ.d9vxS_ZZnIrWlmxxY6niwe8Bb7Ku1dmpApQWF3XGstQ&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage",
-            "headers": {
-                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZnVjdXN1aG53bXd5b2pteGdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUyNDMxOCwiZXhwIjoyMDYxMTAwMzE4fQ.d9vxS_ZZnIrWlmxxY6niwe8Bb7Ku1dmpApQWF3XGstQ",
-                "x-api-key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZnVjdXN1aG53bXd5b2pteGdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUyNDMxOCwiZXhwIjoyMDYxMTAwMzE4fQ.d9vxS_ZZnIrWlmxxY6niwe8Bb7Ku1dmpApQWF3XGstQ",
-                "Content-Type": "application/json"
+            "url": "https://mcp.supabase.com/mcp?project_ref=svfucusuhnwmwyojmxgr&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage",
+            "auth": {
+                "type": "bearer",
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZnVjdXN1aG53bXd5b2pteGdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTUyNDMxOCwiZXhwIjoyMDYxMTAwMzE4fQ.d9vxS_ZZnIrWlmxxY6niwe8Bb7Ku1dmpApQWF3XGstQ"
             }
         }
     }
