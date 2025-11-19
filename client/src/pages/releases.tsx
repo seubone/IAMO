@@ -1,5 +1,12 @@
 import { releases } from "@/data/releases";
 
+const typeLabels: Record<string, string> = {
+  feature: "Nova Funcionalidade",
+  fix: "Correção",
+  perf: "Performance",
+  docs: "Documentação",
+};
+
 export default function Releases() {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -9,10 +16,10 @@ export default function Releases() {
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
               Atualizações do Simonia
             </p>
-            <h1 className="text-4xl font-semibold tracking-tight">Release Notes</h1>
+            <h1 className="text-4xl font-semibold tracking-tight">Notas de Lançamento</h1>
             <p className="max-w-xl text-base text-muted-foreground">
-              Página pública e independente para acompanhar rapidamente tudo o que saiu
-              recentemente.
+              Acompanhe rapidamente tudo o que foi lançado recentemente na plataforma.
+              Aqui você encontra todas as novas funcionalidades, correções e melhorias.
             </p>
           </div>
           <div>
@@ -33,7 +40,7 @@ export default function Releases() {
             >
               <div className="flex items-baseline gap-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 <span>{new Date(release.date).toLocaleDateString("pt-BR")}</span>
-                <span className="text-primary">{release.type}</span>
+                <span className="text-primary">{typeLabels[release.type]}</span>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -42,14 +49,17 @@ export default function Releases() {
                 <p className="text-base text-muted-foreground">{release.description}</p>
               </div>
 
-              <ul className="flex flex-col gap-2 text-sm text-foreground/90">
-                {release.changes.map((change, idx) => (
-                  <li key={idx} className="flex gap-2 leading-relaxed">
-                    <span aria-hidden="true">•</span>
-                    <span>{change}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-semibold text-foreground">O que mudou:</p>
+                <ul className="flex flex-col gap-2 text-sm text-foreground/90">
+                  {release.changes.map((change, idx) => (
+                    <li key={idx} className="flex gap-2 leading-relaxed">
+                      <span aria-hidden="true">•</span>
+                      <span>{change}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </article>
           ))}
         </section>
