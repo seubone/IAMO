@@ -1063,12 +1063,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT
           id,
           name,
-          COALESCE(
-            NULLIF(number, ''),
-            NULLIF(regexp_replace("ownerJid", '@.*$', ''), ''),
-            NULLIF(regexp_replace(regexp_replace(id, '@.*$', ''), '\\D', '', 'g'), ''),
-            NULLIF(regexp_replace(name, '\\D', '', 'g'), '')
-          ) AS number,
+          number,
+          "ownerJid",
           "profilePicUrl",
           "profileName",
           "connectionStatus"
