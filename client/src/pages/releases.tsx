@@ -11,9 +11,6 @@ const typeLabels: Record<string, string> = {
 export default function Releases() {
   const { isAuthenticated } = useAuth();
 
-  // Force render check - timestamp: 2025-11-19T12:50:00Z
-  console.log('Releases page loaded with', releases.length, 'releases - Portuguese version');
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-12 sm:px-6 lg:px-0">
