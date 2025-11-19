@@ -11,8 +11,10 @@ interface User {
 
 interface AuthState {
   user: User | null;
+  profile: { name?: string; avatar_url?: string } | null;
   token: string | null;
   setAuth: (user: User, token: string) => void;
+  setProfile: (profile: { name?: string; avatar_url?: string }) => void;
   logout: () => void;
   isAuthenticated: boolean;
   hasHydrated: boolean;
@@ -22,18 +24,22 @@ export const useAuth = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      profile: null,
       token: null,
       isAuthenticated: false,
       hasHydrated: false,
       setAuth: (user, token) => {
         console.log("✅ Setting authentication for user:", user.email);
         localStorage.setItem("auth_token", token);
-        set({ user, token, isAuthenticated: true });
+        set({ user, token, isAuthenticated: true, profile: { name: user.name } });
+      },
+      setProfile: (profile) => {
+        set({ profile });
       },
       logout: () => {
         console.log("🚪 Logging out user");
         localStorage.removeItem("auth_token");
-        set({ user: null, token: null, isAuthenticated: false });
+        set({ user: null, token: null, isAuthenticated: false, profile: null });
       },
     }),
     {
