@@ -21,6 +21,21 @@ export interface DocumentationSection {
 
 export const releases: ReleaseItem[] = [
   {
+    version: "v1.0.33",
+    date: "2025-11-20",
+    title: "Melhorias de Confiabilidade no Carregamento de Instâncias",
+    description: "Corrige travamentos e melhora a performance ao carregar instâncias com otimizações no pool de conexão do banco Evolution.",
+    type: 'perf',
+    changes: [
+      "Aumentado timeout de query de 5s para 10s para melhor tolerância a conexões lentas",
+      "Pool de conexão otimizado: máximo de 10 conexões (de 5) com 2 conexões aquecidas",
+      "Cleanup adequado de timers para evitar memory leaks",
+      "Validação de tipo para respostas do DB e API",
+      "Logging detalhado com contexto de erro para melhor debug",
+      "Status HTTP 503 para erros de serviço (ao invés de 500)"
+    ]
+  },
+  {
     version: "v1.0.32",
     date: "2025-11-19",
     title: "Envio de Mensagens Restaurado & Fallback de Instâncias",
