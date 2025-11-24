@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ArrowLeft, Loader2, Check, Plus, HelpCircle, Key } from "lucide-react";
+import { N8NWorkflowDialog } from "@/components/N8NWorkflowDialog";
 import type { EvolutionInstance } from "@/types/whatsapp";
 
 export function InstanceSettingsPage() {
@@ -505,9 +506,17 @@ export function InstanceSettingsPage() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <h2 className="text-xl font-semibold">Integrações Externas</h2>
-                    <p className="text-sm text-muted-foreground">Configure APIs e serviços externos</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold">Integrações Externas</h2>
+                      <p className="text-sm text-muted-foreground">Configure APIs e serviços externos</p>
+                    </div>
+                    {instanceInfo && (
+                      <N8NWorkflowDialog
+                        instanceNumber={instanceInfo.number}
+                        instanceId={instanceId}
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-4">
