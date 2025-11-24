@@ -93,7 +93,7 @@ export function useUserProfile() {
     }
   }
 
-  // Upload avatar via Supabase Storage (MCP optimized)
+  // Upload avatar via backend (MCP optimized with RLS support)
   async function uploadAvatar(file: File): Promise<string> {
     if (!user) throw new Error("User not authenticated");
 
@@ -111,43 +111,39 @@ export function useUserProfile() {
         throw new Error("Only JPEG, PNG, WebP and GIF images are allowed");
       }
 
-      // Generate unique path with timestamp + random string
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substring(2, 10);
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filename = `${timestamp}-${randomStr}.${ext}`;
-      const filepath = `avatars/${user.id}/${filename}`;
+      console.log("📤 Uploading avatar via backend API:", { name: file.name, size: file.size, type: file.type });
 
-      console.log("📤 Uploading avatar to Supabase Storage:", filepath);
-      console.log("📊 File info:", { name: file.name, size: file.size, type: file.type });
-
-      // Upload directly to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('user-avatars')
-        .upload(filepath, file, {
-          upsert: false, // Don't overwrite, create new versions
-          contentType: file.type
-        });
-
-      if (uploadError) {
-        console.error("❌ Upload to storage failed:", uploadError);
-        throw new Error(`Upload failed: ${uploadError.message}`);
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("User session not found");
       }
 
-      console.log("✅ File uploaded to storage:", uploadData);
+      // Upload via backend endpoint (uses service role key for RLS bypass)
+      const formData = new FormData();
+      formData.append('file', file);
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('user-avatars')
-        .getPublicUrl(filepath);
+      const apiUrl = getApiUrl();
+      const uploadResponse = await fetch(`${apiUrl}/api/upload-avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      });
 
-      console.log("🔗 Public URL generated:", publicUrl);
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed: ${uploadResponse.statusText}`);
+      }
 
-      // Update profile with new avatar URL
-      await updateProfile({ avatar_url: publicUrl });
+      const { avatarUrl } = await uploadResponse.json();
+      console.log("✅ Avatar uploaded and profile updated via backend:", avatarUrl);
 
-      console.log("✅ Avatar uploaded and profile updated successfully");
-      return publicUrl;
+      // Fetch updated profile
+      await fetchProfile();
+
+      return avatarUrl;
     } catch (err: any) {
       console.error("Error uploading avatar:", err.message);
       setError(err.message);

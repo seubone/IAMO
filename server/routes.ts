@@ -2827,12 +2827,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Usuário não autenticado" });
       }
 
-      console.log("⚠️  Deprecated endpoint /api/upload-avatar called. Please use direct Supabase upload from frontend.");
+      console.log("📤 /api/upload-avatar endpoint called");
 
-      // Get file from request body (base64 encoded) - for backwards compatibility
+      // Handle multipart/form-data (new method)
+      const file = (req as any).file;
+      if (file) {
+        console.log("📁 Processing FormData upload:", {
+          filename: file.originalname,
+          size: file.size,
+          mimetype: file.mimetype
+        });
+
+        // Validate file
+        const maxSizeMB = 5;
+        if (file.size > maxSizeMB * 1024 * 1024) {
+          return res.status(400).json({
+            message: `File size must be less than ${maxSizeMB}MB`
+          });
+        }
+
+        const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!validMimes.includes(file.mimetype)) {
+          return res.status(400).json({
+            message: "Only JPEG, PNG, WebP and GIF images are allowed"
+          });
+        }
+
+        // Generate unique path
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 10);
+        const ext = file.originalname.split('.').pop() || 'jpg';
+        const filename = `${timestamp}-${randomStr}.${ext}`;
+        const filepath = `avatars/${req.user.id}/${filename}`;
+
+        console.log("📤 Uploading to Supabase Storage:", filepath);
+
+        // Upload to Supabase Storage (using service role key with full permissions)
+        const { error: uploadError } = await supabase.storage
+          .from('user-avatars')
+          .upload(filepath, file.buffer, {
+            upsert: false,
+            contentType: file.mimetype
+          });
+
+        if (uploadError) {
+          console.error("❌ Error uploading to Supabase:", uploadError.message);
+          return res.status(500).json({
+            message: `Upload failed: ${uploadError.message}`
+          });
+        }
+
+        console.log("✅ File uploaded to storage");
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('user-avatars')
+          .getPublicUrl(filepath);
+
+        console.log("🔗 Public URL:", publicUrl);
+
+        // Update profile with service role key (bypasses RLS)
+        const { error: dbError } = await supabase
+          .from('user_profiles_simonia')
+          .upsert({
+            user_id: req.user.id,
+            name: req.user?.name || null,
+            avatar_url: publicUrl,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+
+        if (dbError) {
+          console.error("❌ Error updating profile:", dbError.message);
+          return res.status(500).json({
+            message: `Failed to save avatar: ${dbError.message}`
+          });
+        }
+
+        console.log("✅ Profile updated with avatar URL");
+
+        return res.json({
+          success: true,
+          avatarUrl: publicUrl,
+          message: "Avatar uploaded successfully"
+        });
+      }
+
+      // Handle JSON body (base64 or URL) - for backwards compatibility
       const { fileName, fileBase64, avatarUrl } = req.body;
 
-      // If avatar URL provided, just update profile (frontend already uploaded)
+      // If avatar URL provided, just update profile
       if (avatarUrl) {
         console.log("📝 Updating profile with pre-uploaded avatar:", {
           user_id: req.user.id,
@@ -2851,20 +2934,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (dbError) {
           console.error("❌ Error updating profile:", dbError.message);
           return res.status(500).json({
-            error: `Erro ao salvar URL da foto: ${dbError.message}`
+            message: `Failed to save avatar: ${dbError.message}`
           });
         }
 
         return res.json({
           success: true,
           avatarUrl,
-          message: "Avatar atualizado com sucesso"
+          message: "Avatar updated successfully"
         });
       }
 
-      // Fallback: Handle base64 upload (for backwards compatibility)
+      // Fallback: Handle base64 upload
       if (!fileName || !fileBase64) {
-        return res.status(400).json({ error: "fileName e fileBase64 são obrigatórios ou avatarUrl" });
+        return res.status(400).json({
+          message: "Please provide file, avatarUrl, or base64 encoded data"
+        });
       }
 
       // Convert base64 to buffer
@@ -2877,11 +2962,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (uploadError) {
         console.error("❌ Error uploading to Supabase:", uploadError);
-        return res.status(500).json({ error: "Erro ao fazer upload do arquivo" });
+        return res.status(500).json({ message: "Upload failed" });
       }
 
       // Get public URL
-      const { data: publicUrl } = supabase.storage
+      const { data: { publicUrl } } = supabase.storage
         .from('user-avatars')
         .getPublicUrl(filepath);
 
@@ -2891,14 +2976,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .upsert({
           user_id: req.user.id,
           name: req.user?.name || null,
-          avatar_url: publicUrl.publicUrl,
+          avatar_url: publicUrl,
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
 
       if (dbError) {
         console.error("❌ Error updating profile:", dbError.message);
         return res.status(500).json({
-          error: `Erro ao salvar URL da foto: ${dbError.message}`
+          message: `Failed to save avatar: ${dbError.message}`
         });
       }
 
@@ -2906,12 +2991,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        avatarUrl: publicUrl.publicUrl,
-        message: "Avatar enviado com sucesso"
+        avatarUrl: publicUrl,
+        message: "Avatar uploaded successfully"
       });
     } catch (error: any) {
       console.error("Error in upload-avatar endpoint:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
+      res.status(500).json({ message: error.message || "Internal server error" });
     }
   });
 

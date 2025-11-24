@@ -20,6 +20,7 @@ dotenv.config({ path: envFile });
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { createServer } from "http";
+import multer from "multer";
 import { validateEnv } from "./config/env";
 import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
@@ -63,6 +64,25 @@ app.use(cors({
 // Security: Add request size limits
 app.use(express.json({ limit: "10mb" })); // Limit JSON payload size
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+
+// Configure multer for file uploads (in-memory storage for avatar uploads)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, WebP and GIF images are allowed'));
+    }
+  }
+});
+
+// Add multer middleware for single file upload on /api/upload-avatar
+app.post('/api/upload-avatar', upload.single('file'), (req, res, next) => next());
 
 app.use((req, res, next) => {
   const start = Date.now();
