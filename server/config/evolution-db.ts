@@ -23,14 +23,39 @@ function initializeEvolutionDb() {
   evolutionPoolInstance = new Pool({
     connectionString: evolutionDbUrl,
     // Read-only connection settings - otimizado para leitura
-    max: 10, // Aumentado para 10 para melhor paralelismo
-    min: 2, // Manter 2 conexões aquecidas
-    idleTimeoutMillis: 60000, // 1 minuto
-    connectionTimeoutMillis: 30000, // 30s timeout para conexões
-    statement_timeout: 15000, // 15s timeout para queries (falha rápido se houver problema)
+    max: 25, // Aumentado para 25 para suportar múltiplas requisições simultâneas
+    min: 3, // Manter 3 conexões aquecidas
+    idleTimeoutMillis: 30000, // 30 segundos para descartar conexões ociosas
+    connectionTimeoutMillis: 10000, // 10s timeout para obter conexão da pool
+    statement_timeout: 20000, // 20s timeout para queries
+    maxUses: 2000, // Reciclar conexões após 2000 usos (evita memory leak)
+    acquireTimeoutMillis: 20000, // 20s timeout para adquirir conexão
   });
 
   evolutionDbInstance = drizzle(evolutionPoolInstance, { schema: evolutionSchema });
+
+  // Monitorar saúde da pool
+  evolutionPoolInstance.on('error', (err: any) => {
+    console.error('❌ Evolution Pool Error:', err.message);
+  });
+
+  evolutionPoolInstance.on('connect', () => {
+    console.log('📊 Evolution Pool: Nova conexão estabelecida');
+  });
+
+  // Log de saúde da pool a cada 30 segundos
+  const poolHealthInterval = setInterval(() => {
+    const poolSize = (evolutionPoolInstance as any).totalCount || 0;
+    const idleCount = (evolutionPoolInstance as any).idleCount || 0;
+    const waitingCount = (evolutionPoolInstance as any).waitingCount || 0;
+
+    console.log(`📊 Evolution Pool Status: total=${poolSize}, idle=${idleCount}, waiting=${waitingCount}`);
+
+    // Alertar se há muitas conexões aguardando
+    if (waitingCount > 5) {
+      console.warn('⚠️  Evolution Pool: Muitas requisições aguardando conexão! Considere aumentar max connections.');
+    }
+  }, 30000);
 
   // Testar conexão na inicialização (async, não bloqueia startup)
   // Isso é feito de forma assíncrona para não impedir o início da aplicação

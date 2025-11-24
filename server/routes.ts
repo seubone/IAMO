@@ -1174,24 +1174,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT 1000
       `;
 
-      const timeoutMs = 10000; // 10 seconds timeout (increased from 5s)
-      let timeoutHandle: NodeJS.Timeout | null = null;
+      const timeoutMs = 15000; // 15 segundos - dá tempo suficiente para a query completar
 
       try {
-        const result = await Promise.race([
-          evolutionPool.query(query),
-          new Promise<{ rows: any[] }>((_, reject) => {
-            timeoutHandle = setTimeout(() => {
-              reject(new Error(`Evolution DB query timeout after ${timeoutMs}ms`));
-            }, timeoutMs);
-          }),
-        ]);
-
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        console.log(`[instances] Loaded ${result.rows.length} instances from Evolution DB`);
-        return result.rows;
-      } catch (err) {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
+        // Usar queryTimeout no pool diretamente (mais seguro)
+        const client = await evolutionPool.connect();
+        try {
+          // Set query timeout on the client
+          await client.query(`SET statement_timeout = '${timeoutMs}ms'`);
+          const result = await client.query(query);
+          console.log(`[instances] Loaded ${result.rows.length} instances from Evolution DB`);
+          return result.rows;
+        } finally {
+          // Sempre liberar a conexão, mesmo se houver erro
+          client.release();
+        }
+      } catch (err: any) {
+        console.error("[instances] Evolution DB error:", {
+          message: err.message,
+          code: err.code,
+        });
         throw err;
       }
     };
