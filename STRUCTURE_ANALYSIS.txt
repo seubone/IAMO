@@ -1,7 +1,0 @@
-# ANALISE DA ESTRUTURA - Monitoramento de IA
-
-## 1. ARQUITETURA GERAL
-- Frontend: React/TypeScript + Vite + TanStack React Query
-- Backend: Node.js/Express + WebSocket (ws)
-- Bancos: PostgreSQL (Drizzle ORM) + Supabase + Evolution DB
-
