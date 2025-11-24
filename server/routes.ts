@@ -445,15 +445,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // The server polls only active instances (those with connected clients)
   // so the performance impact is minimal
-  setInterval(async () => {
+  // Self-rescheduling polling to prevent queue buildup
+  // If polling takes longer than 2s, intervals don't queue up
+  async function scheduleNextPoll() {
     try {
       await pollNewMessages();
     } catch (error) {
       // Silently catch polling errors to prevent crashing
       // Errors are already logged inside pollNewMessages
+    } finally {
+      // Schedule next poll regardless of success/failure
+      setTimeout(scheduleNextPoll, 2000);
     }
-  }, 2000);
+  }
+
+  // Start polling
+  scheduleNextPoll();
   console.log("📱 ✅ Server-side polling enabled (2s interval) for real-time message updates");
+
+  // ============ INSTANCE POLLING ============
+  // Poll for instance changes and broadcast to clients
+  // This ensures new instances are visible to all connected clients
+  let lastInstancePollTime = 0;
+  let cachedInstanceCount = 0;
+
+  async function pollInstanceChanges() {
+    try {
+      const { data, error } = await supabase
+        .from("Instance")
+        .select("id, name, connectionStatus, createdAt")
+        .order("createdAt", { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        console.warn("⚠️ Instance polling error:", error.message);
+        return;
+      }
+
+      const currentInstanceCount = data?.length || 0;
+
+      // If instance count changed, broadcast to all connected clients
+      if (currentInstanceCount !== cachedInstanceCount) {
+        console.log(
+          `🔄 Instance count changed: ${cachedInstanceCount} → ${currentInstanceCount}`
+        );
+        cachedInstanceCount = currentInstanceCount;
+
+        // Broadcast invalidation to all WebSocket clients
+        wsClients.forEach((client) => {
+          if (client.readyState === 1) { // WebSocket.OPEN
+            client.send(
+              JSON.stringify({
+                type: "instances_changed",
+                data: {
+                  count: currentInstanceCount,
+                  timestamp: Date.now(),
+                },
+              })
+            );
+          }
+        });
+      }
+
+      lastInstancePollTime = Date.now();
+    } catch (error: any) {
+      console.warn("❌ Instance polling exception:", error.message);
+    }
+  }
+
+  // Self-rescheduling instance polling (every 30 seconds)
+  async function scheduleInstancePoll() {
+    try {
+      await pollInstanceChanges();
+    } catch (error) {
+      // Error already logged in pollInstanceChanges
+    } finally {
+      setTimeout(scheduleInstancePoll, 30000); // 30 seconds
+    }
+  }
+
+  scheduleInstancePoll();
+  console.log("🔄 ✅ Instance polling enabled (30s interval) for automatic reload");
 
   // ============ PUBLIC CONFIG ROUTES ============
 

@@ -485,8 +485,10 @@ export default function WhatsApp() {
   // Fetch instances
   const { data: allInstances } = useQuery<EvolutionInstance[]>({
     queryKey: ["/api/whatsapp/instances"],
-    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 30 * 1000, // Mark as stale after 30 seconds
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds while mounted
+    refetchIntervalInBackground: false, // Don't refetch when window not focused
   });
 
   // Fetch AI data for the selected instance

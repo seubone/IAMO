@@ -211,6 +211,15 @@ export function useWebSocket(options?: UseWebSocketOptions) {
                 }
               );
               break;
+
+            case "instances_changed":
+              // Handle instance count changes - invalidate instances list to trigger refresh
+              console.log(`🔄 Instance count changed to: ${message.data.count}`);
+              queryClient.invalidateQueries({
+                queryKey: ["/api/whatsapp/instances"],
+                exact: true
+              });
+              break;
           }
         } catch (handlerError) {
           console.error("Error handling WebSocket message type:", message.type, handlerError);

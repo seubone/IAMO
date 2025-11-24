@@ -44,16 +44,20 @@ export function InstanceSettingsPage() {
   const { data: evolutionInstance } = useQuery<EvolutionInstance>({
     queryKey: [`/api/whatsapp/instances/${instanceId}`],
     enabled: !!instanceId,
-    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 30 * 1000, // Mark as stale after 30 seconds
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds while mounted
+    refetchIntervalInBackground: false, // Don't refetch when window not focused
   });
 
   // Buscar dados da instância
   const { data: instanceData } = useQuery({
     queryKey: [`/api/ai-data/instance/${instanceId}`],
     enabled: !!instanceId,
-    staleTime: 5 * 60 * 1000, // Keep data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    staleTime: 30 * 1000, // Mark as stale after 30 seconds
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds while mounted
+    refetchIntervalInBackground: false, // Don't refetch when window not focused
   });
 
   // Armazenar dados da instância Evolution
