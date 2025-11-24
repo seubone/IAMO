@@ -93,68 +93,61 @@ export function useUserProfile() {
     }
   }
 
-  // Upload avatar via backend endpoint
+  // Upload avatar via Supabase Storage (MCP optimized)
   async function uploadAvatar(file: File): Promise<string> {
     if (!user) throw new Error("User not authenticated");
 
     try {
       setError(null);
 
-      // Get token from Zustand store
-      const { token: authToken } = useAuth.getState();
-      if (!authToken) {
-        throw new Error("No auth token found");
+      // Validate file
+      const maxSizeMB = 5;
+      if (file.size > maxSizeMB * 1024 * 1024) {
+        throw new Error(`File size must be less than ${maxSizeMB}MB`);
       }
 
-      // Convert file to base64
-      const reader = new FileReader();
+      const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validMimes.includes(file.type)) {
+        throw new Error("Only JPEG, PNG, WebP and GIF images are allowed");
+      }
 
-      return new Promise((resolve, reject) => {
-        reader.onload = async (event) => {
-          try {
-            const base64String = (event.target?.result as string).split(',')[1];
-            const apiUrl = getApiUrl();
+      // Generate unique path with timestamp + random string
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 10);
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filename = `${timestamp}-${randomStr}.${ext}`;
+      const filepath = `avatars/${user.id}/${filename}`;
 
-            console.log("📤 Uploading avatar to:", `${apiUrl}/api/upload-avatar`);
-            console.log("🔑 Auth token present:", !!authToken);
+      console.log("📤 Uploading avatar to Supabase Storage:", filepath);
+      console.log("📊 File info:", { name: file.name, size: file.size, type: file.type });
 
-            const response = await fetch(`${apiUrl}/api/upload-avatar`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${authToken}`,
-              },
-              body: JSON.stringify({
-                fileName: file.name,
-                fileBase64: base64String,
-              }),
-            });
+      // Upload directly to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('user-avatars')
+        .upload(filepath, file, {
+          upsert: false, // Don't overwrite, create new versions
+          contentType: file.type
+        });
 
-            if (!response.ok) {
-              const errorData = await response.json();
-              console.error("❌ Upload failed:", errorData);
-              throw new Error(errorData.error || "Failed to upload avatar");
-            }
+      if (uploadError) {
+        console.error("❌ Upload to storage failed:", uploadError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
 
-            const data = await response.json();
-            console.log("✅ Avatar uploaded successfully");
-            resolve(data.avatarUrl);
-          } catch (err: any) {
-            console.error("Error uploading avatar:", err.message);
-            setError(err.message);
-            reject(err);
-          }
-        };
+      console.log("✅ File uploaded to storage:", uploadData);
 
-        reader.onerror = () => {
-          const error = new Error("Failed to read file");
-          console.error("Error reading file:", error.message);
-          setError(error.message);
-          reject(error);
-        };
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('user-avatars')
+        .getPublicUrl(filepath);
 
-        reader.readAsDataURL(file);
-      });
+      console.log("🔗 Public URL generated:", publicUrl);
+
+      // Update profile with new avatar URL
+      await updateProfile({ avatar_url: publicUrl });
+
+      console.log("✅ Avatar uploaded and profile updated successfully");
+      return publicUrl;
     } catch (err: any) {
       console.error("Error uploading avatar:", err.message);
       setError(err.message);
