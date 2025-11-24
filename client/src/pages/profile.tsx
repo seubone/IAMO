@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Key, Bell } from "lucide-react";
+import { User, Key, Bell, Upload, Camera } from "lucide-react";
 import { auth } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,12 +16,14 @@ export default function Profile() {
   const { user, setAuth } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+  const { profile, uploadAvatar, error: profileError } = useUserProfile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [name, setName] = useState(user?.name || "");
-  const [avatar, setAvatar] = useState(user?.avatar || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: { name: string; avatar?: string }) => auth.updateProfile(data),
@@ -62,6 +65,32 @@ export default function Profile() {
     },
   });
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      await uploadAvatar(file);
+      toast({
+        title: "Sucesso",
+        description: "Foto de perfil atualizada com sucesso",
+      });
+    } catch (err: any) {
+      console.error("Avatar upload error:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: err.message || "Erro ao fazer upload da foto",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleSaveProfile = () => {
     if (!name.trim()) {
       toast({
@@ -71,9 +100,8 @@ export default function Profile() {
       });
       return;
     }
-    updateProfileMutation.mutate({ 
-      name: name.trim(),
-      avatar: avatar.trim() || undefined
+    updateProfileMutation.mutate({
+      name: name.trim()
     });
   };
 
@@ -139,12 +167,51 @@ export default function Profile() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-6">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={avatar.trim() || user?.avatar || ""} alt={user?.name || "Avatar"} />
-                    <AvatarFallback className="text-2xl">
-                      {user?.name?.charAt(0) || "U"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={profile?.avatar_url || user?.avatar || ""} alt={user?.name || "Avatar"} />
+                      <AvatarFallback className="text-2xl">
+                        {user?.name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                      className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-2 hover:bg-primary/90 disabled:opacity-50 transition-all"
+                      title="Clique para mudar a foto de perfil"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm font-medium">Foto de Perfil</p>
+                    <p className="text-sm text-muted-foreground">
+                      Clique na câmera ou no botão abaixo para fazer upload
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleAvatarUpload}
+                      disabled={isUploadingAvatar}
+                      className="hidden"
+                      data-testid="input-avatar-file"
+                    />
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      data-testid="button-upload-avatar"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {isUploadingAvatar ? "Enviando..." : "Escolher Arquivo"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Máximo 5MB • JPEG, PNG, WebP ou GIF
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid gap-4">
@@ -156,20 +223,6 @@ export default function Profile() {
                       onChange={(e) => setName(e.target.value)}
                       data-testid="input-name"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="avatar">Avatar URL</Label>
-                    <Input
-                      id="avatar"
-                      type="url"
-                      placeholder="https://exemplo.com/avatar.jpg"
-                      value={avatar}
-                      onChange={(e) => setAvatar(e.target.value)}
-                      data-testid="input-avatar"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      URL da imagem do seu avatar
-                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
