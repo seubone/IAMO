@@ -21,6 +21,21 @@ export interface DocumentationSection {
 
 export const releases: ReleaseItem[] = [
   {
+    version: "v1.0.34",
+    date: "2025-11-24",
+    title: "Code Review Completo & Limpeza de Codebase",
+    description: "Análise profunda de instabilidade, documentação de problemas e propostas de solução. Codebase limpo removendo 80+ arquivos desnecessários.",
+    type: 'docs',
+    changes: [
+      "✅ Code Review completo identificando causa raiz de instâncias caindo",
+      "✅ 5 documentos de análise técnica gerados (2000+ linhas)",
+      "✅ Solução pronta para reconexão automática WebSocket (v1.0.34+)",
+      "✅ Proposta de reorganização de código (features pattern)",
+      "✅ Codebase limpo: removidos 80+ arquivos obsoletos e .env desnecessários",
+      "✅ Apenas documentação ÚTIL mantida no projeto"
+    ]
+  },
+  {
     version: "v1.0.33",
     date: "2025-11-20",
     title: "Melhorias de Confiabilidade no Carregamento de Instâncias",
