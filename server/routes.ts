@@ -22,6 +22,7 @@ import { registerBotConfigRoutes } from "./routes/bot-config.routes";
 import { registerIAConfigRoutes } from "./routes/ia-config.routes";
 import { registerAIDataRoutes } from "./routes/ai-data.routes";
 import { registerInstanceRoutes } from "./routes/instances.routes";
+import instanceWorkflowsRouter from "./routes/instance-workflows.routes";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -2895,6 +2896,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register Evolution API instance management routes
   registerInstanceRoutes(app);
+
+  // Register Instance N8N Workflows routes
+  app.use("/api/instances", instanceWorkflowsRouter);
 
   // User Profile Avatar Upload endpoint (DEPRECATED - Use direct Supabase upload from frontend)
   // Kept for backwards compatibility but frontend now uploads directly via MCP
