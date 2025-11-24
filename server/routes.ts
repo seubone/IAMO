@@ -770,32 +770,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/auth/profile", authMiddleware, async (req: AuthRequest, res) => {
     try {
       const { name, avatar, preferences, personalIntegrations } = req.body;
-      
+
       if (!name || typeof name !== "string") {
         return res.status(400).json({ error: "Nome inválido" });
       }
 
-      const user = await storage.updateUser(req.user!.id, {
-        name,
-        avatar,
-        preferences,
-        personalIntegrations,
-      });
+      // Update profile in Supabase user_profiles_simonia table
+      const { error: dbError } = await supabase
+        .from('user_profiles_simonia')
+        .upsert({
+          user_id: req.user!.id,
+          name: name.trim(),
+          avatar_url: avatar || null,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
 
-      if (!user) {
-        return res.status(404).json({ error: "Usuário não encontrado" });
+      if (dbError) {
+        console.error("❌ Error updating profile:", dbError.message);
+        return res.status(400).json({ error: `Erro ao atualizar perfil: ${dbError.message}` });
       }
 
       res.json({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        preferences: user.preferences,
+        id: req.user!.id,
+        name: name.trim(),
+        email: req.user!.email,
+        role: req.user!.role,
+        avatar: avatar || null,
+        preferences: preferences || {},
       });
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      console.error("Error in profile update:", error);
+      res.status(400).json({ error: error.message || "Erro ao atualizar perfil" });
     }
   });
 
