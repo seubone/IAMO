@@ -113,10 +113,10 @@ export function useUserProfile() {
 
       console.log("📤 Uploading avatar via backend API:", { name: file.name, size: file.size, type: file.type });
 
-      // Get auth token from Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("User session not found");
+      // Get auth token from localStorage (set during login)
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error("User not authenticated - please login again");
       }
 
       // Upload via backend endpoint (uses service role key for RLS bypass)
@@ -127,7 +127,7 @@ export function useUserProfile() {
       const uploadResponse = await fetch(`${apiUrl}/api/upload-avatar`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });
