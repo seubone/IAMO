@@ -39,6 +39,8 @@ export function useUserProfile() {
       setIsLoading(true);
       setError(null);
 
+      console.log("🔄 Fetching profile for user:", user?.id);
+
       const { data, error: fetchError } = await supabase
         .from("user_profiles_simonia")
         .select("*")
@@ -48,12 +50,15 @@ export function useUserProfile() {
       if (fetchError) {
         // Profile doesn't exist yet, return null
         if (fetchError.code === "PGRST116") {
+          console.log("ℹ️ Profile does not exist yet for user:", user?.id);
           setProfile(null);
           return;
         }
+        console.error("❌ Fetch error:", fetchError);
         throw fetchError;
       }
 
+      console.log("✅ Profile fetched:", data);
       setProfile(data);
     } catch (err: any) {
       console.error("Error fetching profile:", err.message);
