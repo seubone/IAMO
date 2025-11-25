@@ -67,15 +67,21 @@ async function syncMissingChatsBackground(instanceId: string) {
 
     console.log(`🔄 [ChatSync] Sincronizando ${missingChats.rows.length} chats faltando para ${instanceId}`);
 
+    // Batch fetch contact info for all missing chats (prevent N+1 query)
+    const remoteJids = missingChats.rows.map(r => r.remote_jid);
+    const contactsInfo = await evolutionPool.query(`
+      SELECT "remoteJid", "pushName" FROM "Contact"
+      WHERE "remoteJid" = ANY($1::text[])
+    `, [remoteJids]);
+
+    const contactsByJid = new Map(
+      contactsInfo.rows.map(c => [c.remoteJid, c.pushName])
+    );
+
     // Criar os chats faltando
     for (const missing of missingChats.rows) {
       try {
-        const contactInfo = await evolutionPool.query(`
-          SELECT "pushName" FROM "Contact"
-          WHERE "remoteJid" = $1 LIMIT 1
-        `, [missing.remote_jid]);
-
-        const chatName = contactInfo.rows[0]?.pushName || missing.remote_jid;
+        const chatName = contactsByJid.get(missing.remote_jid) || missing.remote_jid;
         const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         await evolutionPool.query(`

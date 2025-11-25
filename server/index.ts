@@ -17,6 +17,22 @@ const envFile = process.env.NODE_ENV === "production"
 
 dotenv.config({ path: envFile });
 
+// Configure production-aware logging - suppress verbose logs in production
+const isProduction = process.env.NODE_ENV === "production";
+if (isProduction) {
+  // In production, suppress console.log calls (keep only error and warn)
+  const originalLog = console.log;
+  console.log = function(...args: any[]) {
+    // Only log if it contains ERROR or WARN keywords
+    const message = args[0]?.toString?.() || "";
+    if (message.includes("ERROR") || message.includes("WARN") ||
+        message.includes("❌") || message.includes("⚠️") ||
+        message.includes("✅") || message.includes("error")) {
+      originalLog.apply(console, args);
+    }
+  };
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { createServer } from "http";
@@ -43,24 +59,33 @@ const app = express();
 
 // Security: Configure CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5000', 'http://localhost:5173']; // Default for development
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5000', 'http://localhost:5173', 'http://localhost:5051']; // Default for development
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
+    // In production, reject requests without origin (security hardening)
+    // In development, allow missing origin for testing tools like curl
+    if (!origin) {
+      if (process.env.NODE_ENV === "production") {
+        return callback(new Error('CORS policy: Missing origin header'));
+      }
+      // Allow in development only
+      return callback(null, true);
+    }
 
     // Check if origin is in the allowed list (works for both dev and production)
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`CORS policy: Origin '${origin}' is not allowed`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 3600, // Cache preflight requests for 1 hour
+  optionsSuccessStatus: 200, // For legacy browser support
 }));
 
 // Security: Add request size limits

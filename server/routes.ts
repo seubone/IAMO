@@ -32,12 +32,32 @@ const authLimiter = rateLimit({
   windowMs: process.env.NODE_ENV === "production" ? 15 * 60 * 1000 : 60 * 1000, // 15 min (prod) or 1 min (dev)
   max: process.env.NODE_ENV === "production" ? 5 : 100, // 5 (prod) or 100 (dev) requests per window
   message: "Muitas tentativas de login. Tente novamente mais tarde.",
+  skip: (req) => req.path === "/health", // Skip health checks
 });
 
 const webhookLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 100, // 100 requests per minute
   message: "Limite de requisições excedido",
+});
+
+// General API rate limiter (applies to all routes)
+const apiLimiter = rateLimit({
+  windowMs: process.env.NODE_ENV === "production" ? 1 * 60 * 1000 : 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === "production" ? 100 : 1000, // 100 (prod) or 1000 (dev) requests per minute
+  message: { error: "Muitas requisições. Tente novamente em alguns minutos." },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Skip rate limiting for health checks and static assets
+    return req.path === "/health" || req.path.startsWith("/assets") || req.path.endsWith(".js") || req.path.endsWith(".css");
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      error: "Too many requests",
+      retryAfter: req.rateLimit?.resetTime,
+    });
+  },
 });
 
 // WebSocket clients and active instances tracking
@@ -72,6 +92,9 @@ async function getRelatedInstanceIds(instanceId: string): Promise<string[]> {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // Apply general API rate limiter to all API routes
+  app.use("/api/", apiLimiter);
 
   // Health check endpoint (no auth required)
   app.get("/health", (req, res) => {

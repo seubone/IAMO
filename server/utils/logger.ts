@@ -10,10 +10,19 @@ interface LogOptions {
   userAgent?: string;
 }
 
+// Environment-aware logging: suppress DEBUG logs in production
+const isDevelopment = process.env.NODE_ENV === "development";
+
 /**
  * Log helper para registrar eventos no console
+ * Respects NODE_ENV to suppress verbose logging in production
  */
 export async function log(options: LogOptions): Promise<void> {
+  // Suppress DEBUG logs in production
+  if (!isDevelopment && options.level === "debug") {
+    return;
+  }
+
   // Logar no console para desenvolvimento
   const emoji = {
     info: "ℹ️",
