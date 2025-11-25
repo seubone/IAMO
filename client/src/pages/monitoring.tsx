@@ -4,10 +4,11 @@ import { IAStatusTicker, type IATickerItem } from "@/components/IAStatusTicker";
 import { TicketCard, type Ticket as TicketCardType } from "@/components/TicketCard";
 import { IADetailPanel, type IAAction } from "@/components/IADetailPanel";
 import { IAStatusDialog } from "@/components/IAStatusDialog";
+import { ContactManagementModal } from "@/components/ContactManagementModal";
 import { TicketListSkeleton, IADetailSkeleton } from "@/components/MonitoringSkeletons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, Users } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,11 @@ const mapStatus = (ia: BotInstanceConfig): "active" | "paused" | "inactive" => {
 export default function Monitoring() {
   const [selectedTicket, setSelectedTicket] = useState<TicketCardType | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedInstanceForContacts, setSelectedInstanceForContacts] = useState<{
+    number: string;
+    name: string;
+  } | null>(null);
   const [pendingAction, setPendingAction] = useState<"activate" | "pause" | "deactivate" | null>(null);
   const { toast } = useToast();
 
@@ -209,6 +215,13 @@ export default function Monitoring() {
                 onActivate={() => handleStatusAction("activate")}
                 onPause={() => handleStatusAction("pause")}
                 onDeactivate={() => handleStatusAction("deactivate")}
+                onManageContacts={() => {
+                  setSelectedInstanceForContacts({
+                    number: selectedIA.instance_number,
+                    name: selectedIA.bot_name || `Instância ${selectedIA.instance_number}`,
+                  });
+                  setContactModalOpen(true);
+                }}
                 actions={selectedIAActions}
               />
             )}
@@ -227,6 +240,15 @@ export default function Monitoring() {
           iaName={selectedIA.bot_name || "IA Desconhecida"}
           action={pendingAction || "activate"}
           isLoading={updateIAStatusMutation.isPending}
+        />
+      )}
+
+      {selectedInstanceForContacts && (
+        <ContactManagementModal
+          open={contactModalOpen}
+          onOpenChange={setContactModalOpen}
+          instanceNumber={selectedInstanceForContacts.number}
+          instanceName={selectedInstanceForContacts.name}
         />
       )}
     </div>

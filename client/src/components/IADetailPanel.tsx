@@ -2,7 +2,7 @@ import { IAConversationStatusBadge } from "@/components/IAConversationStatusBadg
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Play, Pause, XCircle, Clock, User } from "lucide-react";
+import { Play, Pause, XCircle, Clock, User, Users } from "lucide-react";
 import type { IAStatus } from "./IAStatusTicker";
 import { getIAStatusConfig } from "@/lib/configs";
 
@@ -20,15 +20,17 @@ interface IADetailPanelProps {
   onActivate?: () => void;
   onPause?: () => void;
   onDeactivate?: () => void;
+  onManageContacts?: () => void;
   actions?: IAAction[];
 }
 
-export function IADetailPanel({ 
-  iaName, 
-  status, 
-  onActivate, 
-  onPause, 
+export function IADetailPanel({
+  iaName,
+  status,
+  onActivate,
+  onPause,
   onDeactivate,
+  onManageContacts,
   actions = []
 }: IADetailPanelProps) {
   const statusConfig = getIAStatusConfig(status);
@@ -75,6 +77,18 @@ export function IADetailPanel({
           >
             <XCircle className="h-4 w-4 mr-2" />
             Inativar IA
+          </Button>
+
+          <Separator className="my-2" />
+
+          <Button
+            className="w-full justify-start"
+            variant="outline"
+            onClick={onManageContacts}
+            data-testid="button-manage-contacts"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Gerenciar Contatos
           </Button>
         </div>
       </div>

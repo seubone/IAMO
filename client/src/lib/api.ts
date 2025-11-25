@@ -294,3 +294,54 @@ export const whatsappAPI = {
       headers: getAuthHeaders(),
     }),
 };
+
+// Contact Status API
+export const contactStatusAPI = {
+  // Get all contacts for an instance
+  getContacts: (instanceNumber: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts`, {
+      headers: getAuthHeaders(),
+    }),
+
+  // Get contact statistics
+  getStats: (instanceNumber: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts/stats`, {
+      headers: getAuthHeaders(),
+    }),
+
+  // Get contacts by status
+  getByStatus: (instanceNumber: string, status: 'active' | 'paused' | 'inactive') =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts/${status}`, {
+      headers: getAuthHeaders(),
+    }),
+
+  // Pause a contact
+  pauseContact: (instanceNumber: string, contactJid: string, data: { duration?: number; reason?: string }) =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts/${encodeURIComponent(contactJid)}/pause`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  // Resume a contact
+  resumeContact: (instanceNumber: string, contactJid: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts/${encodeURIComponent(contactJid)}/resume`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    }),
+
+  // Deactivate a contact
+  deactivateContact: (instanceNumber: string, contactJid: string, data?: { duration?: number; reason?: string }) =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts/${encodeURIComponent(contactJid)}/deactivate`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data || {}),
+    }),
+
+  // Activate a contact
+  activateContact: (instanceNumber: string, contactJid: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/contacts/${encodeURIComponent(contactJid)}/activate`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    }),
+};
