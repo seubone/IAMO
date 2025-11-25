@@ -24,6 +24,7 @@ import multer from "multer";
 import { validateEnv } from "./config/env";
 import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
+import { startMaintenanceJob } from "./jobs/bot-status-maintenance"; // Bot status maintenance
 
 // Lazy load routes to avoid issues with missing Evolution DB
 let registerRoutes: any = null;
@@ -203,6 +204,15 @@ app.use((req, res, next) => {
     const port = parseInt(process.env.PORT || '5000', 10);
     server.listen(port, "0.0.0.0", () => {
       log(`serving on port ${port}`);
+
+      // Start bot status maintenance job (auto-resume expired pauses)
+      const maintenanceIntervalSeconds = parseInt(process.env.MAINTENANCE_INTERVAL_SECONDS || '60', 10);
+      try {
+        startMaintenanceJob(maintenanceIntervalSeconds);
+        console.log(`✅ Bot status maintenance job started (every ${maintenanceIntervalSeconds}s)`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to start maintenance job:`, error instanceof Error ? error.message : error);
+      }
     });
   } catch (error) {
     console.warn("⚠️ Erro ao iniciar servidor:", error instanceof Error ? error.message : error);

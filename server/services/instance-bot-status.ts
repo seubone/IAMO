@@ -321,4 +321,174 @@ export class InstanceBotStatusService {
       return true; // Default to active on error
     }
   }
+
+  /**
+   * Auto-resume all expired pauses
+   */
+  static async autoResumeExpiredPauses(): Promise<InstanceBotStatusData[]> {
+    try {
+      const result = await db.execute(sql`
+        UPDATE instance_bot_status
+        SET
+          status = 'active',
+          pause_reason = NULL,
+          paused_at = NULL,
+          paused_until = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'paused'
+          AND paused_until IS NOT NULL
+          AND paused_until <= CURRENT_TIMESTAMP
+        RETURNING *
+      `);
+
+      if (result.rows.length > 0) {
+        console.log(`[bot-status] Auto-resumed ${result.rows.length} expired pauses`);
+      }
+
+      return result.rows as InstanceBotStatusData[];
+    } catch (error: any) {
+      console.error(`[bot-status] Failed to auto-resume expired pauses:`, error.message);
+      throw new Error(`Failed to auto-resume expired pauses: ${error.message}`);
+    }
+  }
+
+  /**
+   * Auto-activate all expired inactivations
+   */
+  static async autoActivateExpiredInactivations(): Promise<InstanceBotStatusData[]> {
+    try {
+      const result = await db.execute(sql`
+        UPDATE instance_bot_status
+        SET
+          status = 'active',
+          inactive_reason = NULL,
+          inactive_at = NULL,
+          inactive_until = NULL,
+          pause_reason = NULL,
+          paused_at = NULL,
+          paused_until = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'inactive'
+          AND inactive_until IS NOT NULL
+          AND inactive_until <= CURRENT_TIMESTAMP
+        RETURNING *
+      `);
+
+      if (result.rows.length > 0) {
+        console.log(`[bot-status] Auto-activated ${result.rows.length} expired inactivations`);
+      }
+
+      return result.rows as InstanceBotStatusData[];
+    } catch (error: any) {
+      console.error(`[bot-status] Failed to auto-activate expired inactivations:`, error.message);
+      throw new Error(`Failed to auto-activate expired inactivations: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get bot effective status (considering expiration)
+   * Returns the actual status after checking if pause/inactive has expired
+   */
+  static async getEffectiveStatus(instanceNumber: string): Promise<BotStatus> {
+    try {
+      const status = await this.getStatus(instanceNumber);
+
+      if (!status) {
+        return "active"; // Default to active if not found
+      }
+
+      // Check if paused_until has expired
+      if (status.status === "paused" && status.paused_until) {
+        if (new Date(status.paused_until) <= new Date()) {
+          // Automatically resume
+          await this.resumeBot(instanceNumber);
+          return "active";
+        }
+      }
+
+      // Check if inactive_until has expired
+      if (status.status === "inactive" && status.inactive_until) {
+        if (new Date(status.inactive_until) <= new Date()) {
+          // Automatically activate
+          await this.activateBot(instanceNumber);
+          return "active";
+        }
+      }
+
+      return status.status;
+    } catch (error: any) {
+      console.error(`[bot-status] Failed to get effective status:`, error.message);
+      return "active"; // Default to active on error
+    }
+  }
+
+  /**
+   * Get pause remaining time in milliseconds
+   * Returns null if not paused or if indefinite
+   */
+  static async getPauseRemainingTime(instanceNumber: string): Promise<number | null> {
+    try {
+      const status = await this.getStatus(instanceNumber);
+
+      if (!status || status.status !== "paused") {
+        return null;
+      }
+
+      if (!status.paused_until) {
+        return null; // Indefinite pause
+      }
+
+      const remaining = new Date(status.paused_until).getTime() - Date.now();
+      return remaining > 0 ? remaining : 0; // Return 0 if already expired
+    } catch (error: any) {
+      console.error(`[bot-status] Failed to get pause remaining time:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get inactive remaining time in milliseconds
+   * Returns null if not inactive or if indefinite
+   */
+  static async getInactiveRemainingTime(instanceNumber: string): Promise<number | null> {
+    try {
+      const status = await this.getStatus(instanceNumber);
+
+      if (!status || status.status !== "inactive") {
+        return null;
+      }
+
+      if (!status.inactive_until) {
+        return null; // Indefinite inactive
+      }
+
+      const remaining = new Date(status.inactive_until).getTime() - Date.now();
+      return remaining > 0 ? remaining : 0; // Return 0 if already expired
+    } catch (error: any) {
+      console.error(`[bot-status] Failed to get inactive remaining time:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Force check and cleanup all statuses
+   * Should be called periodically (e.g., every minute) via a cron job
+   */
+  static async performMaintenanceCleanup(): Promise<{
+    resumed: number;
+    activated: number;
+  }> {
+    try {
+      const resumed = await this.autoResumeExpiredPauses();
+      const activated = await this.autoActivateExpiredInactivations();
+
+      return {
+        resumed: resumed.length,
+        activated: activated.length,
+      };
+    } catch (error: any) {
+      console.error(`[bot-status] Maintenance cleanup failed:`, error.message);
+      throw error;
+    }
+  }
 }

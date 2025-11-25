@@ -252,4 +252,107 @@ router.get("/bot-status/inactive", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/instances/:instanceNumber/bot-status/effective
+ * Get effective bot status (considering time-based expiration)
+ */
+router.get("/:instanceNumber/bot-status/effective", authMiddleware, async (req, res) => {
+  try {
+    const { instanceNumber } = req.params;
+
+    if (!instanceNumber) {
+      return res.status(400).json({
+        error: "Missing required parameter: instanceNumber",
+      });
+    }
+
+    const effectiveStatus = await InstanceBotStatusService.getEffectiveStatus(
+      instanceNumber
+    );
+
+    return res.json({
+      data: { status: effectiveStatus },
+      message: "Effective bot status retrieved",
+    });
+  } catch (error: any) {
+    console.error("[bot-status-routes] Error getting effective status:", error);
+    return res.status(500).json({
+      error: "Failed to get effective status",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/instances/:instanceNumber/bot-status/remaining-time
+ * Get remaining pause/inactive time in milliseconds
+ */
+router.get(
+  "/:instanceNumber/bot-status/remaining-time",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { instanceNumber } = req.params;
+
+      if (!instanceNumber) {
+        return res.status(400).json({
+          error: "Missing required parameter: instanceNumber",
+        });
+      }
+
+      const pauseTime = await InstanceBotStatusService.getPauseRemainingTime(
+        instanceNumber
+      );
+      const inactiveTime =
+        await InstanceBotStatusService.getInactiveRemainingTime(instanceNumber);
+
+      return res.json({
+        data: {
+          pauseRemainingMs: pauseTime,
+          inactiveRemainingMs: inactiveTime,
+          pauseRemainingSeconds: pauseTime !== null ? pauseTime / 1000 : null,
+          inactiveRemainingSeconds:
+            inactiveTime !== null ? inactiveTime / 1000 : null,
+        },
+        message: "Remaining time retrieved",
+      });
+    } catch (error: any) {
+      console.error(
+        "[bot-status-routes] Error getting remaining time:",
+        error
+      );
+      return res.status(500).json({
+        error: "Failed to get remaining time",
+        details: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/instances/bot-status/maintenance
+ * Force cleanup of expired pauses and inactivations
+ * Call this periodically via cron job
+ */
+router.post("/bot-status/maintenance", authMiddleware, async (req, res) => {
+  try {
+    const result = await InstanceBotStatusService.performMaintenanceCleanup();
+
+    return res.json({
+      message: "Maintenance cleanup completed",
+      data: {
+        resumedCount: result.resumed,
+        activatedCount: result.activated,
+        totalCleaned: result.resumed + result.activated,
+      },
+    });
+  } catch (error: any) {
+    console.error("[bot-status-routes] Error during maintenance:", error);
+    return res.status(500).json({
+      error: "Failed to perform maintenance cleanup",
+      details: error.message,
+    });
+  }
+});
+
 export default router;
