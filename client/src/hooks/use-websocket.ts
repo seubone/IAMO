@@ -63,7 +63,7 @@ export function useWebSocket(options?: UseWebSocketOptions) {
     const host = window.location.host;
     // Build WebSocket URL - ensure token is properly encoded
     const encodedToken = encodeURIComponent(token);
-    const wsUrl = `${protocol}//${host}/?token=${encodedToken}`;
+    const wsUrl = `${protocol}//${host}/ws?token=${encodedToken}`;
 
     console.log("🔌 Connecting to WebSocket...", wsUrl.replace(token, "[TOKEN]"));
     const ws = new WebSocket(wsUrl);

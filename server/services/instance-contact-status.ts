@@ -461,7 +461,12 @@ export class InstanceContactStatusService {
 
       const instanceId = (instanceResult.rows[0] as any).id;
 
-      // Insert or ignore duplicates
+      // Insert or ignore duplicates using parameterized inserts
+      // Build multiple insert statements with proper parameterization
+      if (contacts.length === 0) {
+        return [];
+      }
+
       const result = await db.execute(sql`
         INSERT INTO instance_contact_status (
           instance_id,
@@ -472,13 +477,19 @@ export class InstanceContactStatusService {
           created_at,
           updated_at
         )
-        VALUES ${sql.raw(
-          contacts
-            .map(
-              (c) =>
-                `('${instanceId}', '${instanceNumber}', '${c.jid}', '${c.name || null}', 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
-            )
-            .join(",")
+        VALUES ${sql.join(
+          contacts.map((c) =>
+            sql`(
+              ${instanceId},
+              ${instanceNumber},
+              ${c.jid},
+              ${c.name || null},
+              'active',
+              CURRENT_TIMESTAMP,
+              CURRENT_TIMESTAMP
+            )`
+          ),
+          sql`,`
         )}
         ON CONFLICT (instance_number, contact_jid) DO NOTHING
         RETURNING *

@@ -27,6 +27,11 @@ export const viteConfigData = {
         ws: true,
         rewrite: (path: string) => path,
       },
+      "/ws": {
+        target: "ws://localhost:5051",
+        changeOrigin: true,
+        ws: true,
+      },
     },
     fs: {
       strict: true,

@@ -36,9 +36,18 @@ export async function seedData() {
 
     console.log("✅ Usuários criados");
 
+    // Create sample IA
+    const sampleIa = await storage.createIa({
+      name: "IA Vendas",
+      description: "IA especializada em vendas e atendimento ao cliente",
+      status: "active",
+    });
+
+    console.log("✅ IA criada");
+
     // Create sample tickets
     await storage.createTicket({
-      iaId: "ia-sample-1",
+      iaId: sampleIa.id,
       attendanceId: "ATD-12345",
       errorType: "prompt",
       severity: "high",
@@ -52,7 +61,7 @@ export async function seedData() {
 
     // Create sample action
     await storage.createAction({
-      iaId: "ia-sample-1",
+      iaId: sampleIa.id,
       userId: operatorUser.id,
       action: "IA Pausada",
       reason: "Taxa de conversão abaixo de 20% nas últimas 24h",
@@ -62,7 +71,7 @@ export async function seedData() {
 
     // Create sample conversation
     const conversation = await storage.createConversation({
-      iaId: "ia-sample-1",
+      iaId: sampleIa.id,
       attendanceId: "ATD-12345",
       leadName: "João Silva",
       iaEnabled: 1,
@@ -80,7 +89,7 @@ export async function seedData() {
 
     // Create sample metric
     await storage.createMetric({
-      iaId: "ia-sample-1",
+      iaId: sampleIa.id,
       date: new Date(),
       firstResponseRate: "94.2%",
       salesConversion: "23.8%",

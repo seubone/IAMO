@@ -25,6 +25,7 @@ import { validateEnv } from "./config/env";
 import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
 import { startMaintenanceJob } from "./jobs/bot-status-maintenance"; // Bot status maintenance
+import { errorHandler } from "./middleware/error-handler";
 
 // Lazy load routes to avoid issues with missing Evolution DB
 let registerRoutes: any = null;
@@ -176,17 +177,8 @@ app.use((req, res, next) => {
       server = createServer(app);
     }
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      // Don't expose detailed error messages in production
-      const message = process.env.NODE_ENV === 'production'
-        ? (status === 500 ? "Internal Server Error" : err.message)
-        : (err.message || "Internal Server Error");
-
-      console.error("Error:", err);
-      res.status(status).json({ message });
-      // Don't throw - we already responded to the client
-    });
+    // Use centralized error handler middleware
+    app.use(errorHandler);
 
     // importantly only setup vite in development and after
     // setting up all the other routes so the catch-all route

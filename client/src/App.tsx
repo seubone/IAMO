@@ -22,7 +22,6 @@ import Audit from "@/pages/audit";
 import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 import UazapiTest from "@/pages/uazapi-test";
-import JWTDebug from "@/pages/jwt-debug";
 import Login from "@/pages/login";
 import Logout from "@/pages/logout";
 import AuthCallback from "@/pages/auth-callback";
@@ -73,7 +72,6 @@ function ProtectedRoutes() {
               <Route path="/profile" component={Profile} />
               <Route path="/settings" component={Settings} />
               <Route path="/uazapi-test" component={UazapiTest} />
-              <Route path="/jwt-debug" component={JWTDebug} />
               <Route component={NotFound} />
             </Switch>
           </main>

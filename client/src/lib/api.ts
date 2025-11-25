@@ -79,10 +79,13 @@ export const aiDataAPI = {
       headers: getAuthHeaders(),
     }),
 
-  getByInstance: (instanceNumber: string) =>
-    apiRequest(`/api/ai-data/instance/${instanceNumber}`, {
+  getByInstance: (instanceNumber: string) => {
+    // Normalize instance ID - strip :1 suffix if present (Evolution API format)
+    const normalizedId = instanceNumber.replace(/:1$/, '');
+    return apiRequest(`/api/ai-data/instance/${normalizedId}`, {
       headers: getAuthHeaders(),
-    }),
+    });
+  },
 
   create: (data: Partial<BotInstanceConfig>) =>
     apiRequest("/api/ai-data", {

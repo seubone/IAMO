@@ -1,6 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./use-auth";
+
+// Global flag to prevent simultaneous token refresh from multiple instances
+let isRefreshingToken = false;
 
 /**
  * Hook to automatically refresh Supabase session token before expiration
@@ -8,10 +11,9 @@ import { useAuth } from "./use-auth";
  */
 export function useTokenRefresh() {
   const { setAuth } = useAuth();
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    let refreshInterval: NodeJS.Timeout;
-
     const startTokenRefresh = async () => {
       try {
         // Get current session
@@ -37,8 +39,15 @@ export function useTokenRefresh() {
 
         console.log(`🔄 Token refresh scheduled in ${(refreshTime / 1000 / 60).toFixed(1)} minutes`);
 
-        refreshInterval = setTimeout(async () => {
+        refreshIntervalRef.current = setTimeout(async () => {
+          // Prevent simultaneous refresh attempts from multiple instances
+          if (isRefreshingToken) {
+            console.log("⏳ Token refresh already in progress, skipping...");
+            return;
+          }
+
           try {
+            isRefreshingToken = true;
             console.log("🔄 Attempting to refresh token...");
 
             const { data, error } = await supabase.auth.refreshSession();
@@ -68,6 +77,8 @@ export function useTokenRefresh() {
             }
           } catch (err) {
             console.error("❌ Error during token refresh:", err);
+          } finally {
+            isRefreshingToken = false;
           }
         }, refreshTime);
       } catch (error) {
@@ -79,8 +90,8 @@ export function useTokenRefresh() {
 
     // Cleanup
     return () => {
-      if (refreshInterval) {
-        clearTimeout(refreshInterval);
+      if (refreshIntervalRef.current) {
+        clearTimeout(refreshIntervalRef.current);
       }
     };
   }, [setAuth]);

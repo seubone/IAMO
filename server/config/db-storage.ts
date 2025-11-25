@@ -21,6 +21,8 @@ import {
   type InsertConversation,
   type InsertMessage,
   type InsertMetric,
+  type Ia,
+  type InsertIa,
 } from "../../shared/schema";
 import type { IStorage } from "../utils/storage";
 
@@ -54,6 +56,29 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  // IAs
+  async getIas(): Promise<Ia[]> {
+    return await db.select().from(ias);
+  }
+
+  async getIa(id: string): Promise<Ia | undefined> {
+    const result = await db.select().from(ias).where(eq(ias.id, id));
+    return result[0];
+  }
+
+  async createIa(data: InsertIa): Promise<Ia> {
+    const result = await db.insert(ias).values(data).returning();
+    return result[0];
+  }
+
+  async updateIa(id: string, data: Partial<InsertIa>): Promise<Ia | undefined> {
+    const result = await db
+      .update(ias)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(ias.id, id))
+      .returning();
+    return result[0];
+  }
 
   // Tickets
   async getAllTickets(): Promise<Ticket[]> {

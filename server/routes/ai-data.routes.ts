@@ -38,14 +38,29 @@ export function registerAIDataRoutes(app: Express) {
    */
   app.get("/api/ai-data/instance/:instanceNumber", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      const { instanceNumber } = req.params;
+      let { instanceNumber } = req.params;
+
+      // Strip :1 suffix if present (Evolution API format)
+      instanceNumber = instanceNumber.replace(/:1$/, '');
 
       // Primeiro tenta buscar pelo instance_id (UUID), depois por instance_number
-      const { data, error } = await supabase
+      // Use eq() for safe parameterized queries
+      let { data, error } = await supabase
         .from("bot_instances")
         .select("*")
-        .or(`instance_id.eq.${instanceNumber},instance_number.eq.${instanceNumber}`)
+        .eq("instance_id", instanceNumber)
         .maybeSingle();
+
+      // If not found by instance_id, try instance_number
+      if (!data) {
+        const result = await supabase
+          .from("bot_instances")
+          .select("*")
+          .eq("instance_number", instanceNumber)
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error("Erro na busca:", error);
@@ -53,7 +68,10 @@ export function registerAIDataRoutes(app: Express) {
       }
 
       if (!data) {
-        return res.status(404).json({ error: "IA não configurada para esta instância" });
+        return res.status(404).json({
+          error: "IA não configurada para esta instância",
+          hint: "Use Instance Settings to create AI configuration"
+        });
       }
 
       res.json(data);

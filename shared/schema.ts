@@ -17,7 +17,15 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-
+// IAs (AI Instances)
+export const ias = pgTable("ias", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("active"), // active, inactive, paused
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 // Tickets
 export const tickets = pgTable("tickets", {
@@ -121,6 +129,7 @@ export const contactMetadata = pgTable("contact_metadata", {
 
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertIaSchema = createInsertSchema(ias).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true });
 export const insertActionSchema = createInsertSchema(actions).omit({ id: true, createdAt: true });
@@ -134,6 +143,10 @@ export const insertContactMetadataSchema = createInsertSchema(contactMetadata).o
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type InsertIa = z.infer<typeof insertIaSchema>;
+export type Ia = typeof ias.$inferSelect;
+
 export type InsertContactMetadata = z.infer<typeof insertContactMetadataSchema>;
 export type ContactMetadata = typeof contactMetadata.$inferSelect;
 

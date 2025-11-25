@@ -57,6 +57,15 @@ function initializeEvolutionDb() {
     }
   }, 30000);
 
+  // Cleanup on process termination to prevent memory leak
+  const cleanup = () => {
+    clearInterval(poolHealthInterval);
+    evolutionPoolInstance?.end();
+  };
+
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
+
   // Testar conexão na inicialização (async, não bloqueia startup)
   // Isso é feito de forma assíncrona para não impedir o início da aplicação
   setImmediate(() => {

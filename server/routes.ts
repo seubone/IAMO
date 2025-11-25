@@ -89,6 +89,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     path: "/ws"
   });
 
+  // WebSocket health check: Remove dead connections every 30 seconds
+  const wsHealthCheckInterval = setInterval(() => {
+    let deadConnections = 0;
+    wsClients.forEach((ws) => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        wsClients.delete(ws);
+        deadConnections++;
+      }
+    });
+
+    if (deadConnections > 0) {
+      console.log(`🧹 Cleaned up ${deadConnections} dead WebSocket connections. Active: ${wsClients.size}`);
+    }
+  }, 30000);
+
+  // Cleanup on process termination
+  const cleanupWS = () => {
+    clearInterval(wsHealthCheckInterval);
+    wss.clients.forEach((ws) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close(1001, "Server shutting down");
+      }
+    });
+  };
+
+  process.on('SIGTERM', cleanupWS);
+  process.on('SIGINT', cleanupWS);
+
   wss.on("connection", (ws, req) => {
     // Extract token from query string or header
     const url = new URL(req.url || "", `http://${req.headers.host}`);
@@ -258,11 +286,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function getBotConfig(instanceIdOrNumber: string) {
     try {
       // Tentar buscar primeiro pelo instance_id (UUID), depois por instance_number (número WhatsApp)
-      const { data: botConfig, error } = await supabase
+      // Use parameterized queries to prevent SQL injection
+      let { data: botConfig, error } = await supabase
         .from('bot_instances')
         .select('has_bot_enabled, consultant_name, bot_name, use_prefix_for_consultant, use_prefix_for_bot, message_prefix_template')
-        .or(`instance_id.eq.${instanceIdOrNumber},instance_number.eq.${instanceIdOrNumber}`)
+        .eq('instance_id', instanceIdOrNumber)
         .maybeSingle();
+
+      // If not found by instance_id, try instance_number
+      if (!botConfig && !error) {
+        const result = await supabase
+          .from('bot_instances')
+          .select('has_bot_enabled, consultant_name, bot_name, use_prefix_for_consultant, use_prefix_for_bot, message_prefix_template')
+          .eq('instance_number', instanceIdOrNumber)
+          .maybeSingle();
+        botConfig = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.warn(`⚠️  Erro ao buscar config de bot: ${error.message}`);
@@ -1167,6 +1207,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Get a specific instance by ID
+  app.get("/api/whatsapp/instances/:instanceId", authMiddleware, async (req, res) => {
+    try {
+      const { instanceId } = req.params;
+
+      console.log("[instance] Fetching instance:", {
+        instanceId,
+        user: (req as any).user?.email,
+      });
+
+      const { getInstances } = await import("./services/instances-cache");
+      const instances = await getInstances();
+
+      const instance = instances.find(i => i.id === instanceId);
+
+      if (!instance) {
+        console.warn(`[instance] Instance not found: ${instanceId}`);
+        return res.status(404).json({
+          error: "Instance not found",
+          instanceId
+        });
+      }
+
+      console.log("[instance] Instance fetched successfully:", {
+        instanceId,
+        instanceNumber: instance.instanceName,
+      });
+
+      return res.json(instance);
+    } catch (error: any) {
+      console.error("[instance] Failed to fetch instance:", {
+        message: error.message,
+        stack: error.stack,
+      });
+
+      return res.status(500).json({
+        error: "Failed to fetch instance",
+        details: error.message,
+      });
+    }
+  });
+
   // Get chats for a specific instance
   app.get("/api/whatsapp/instances/:instanceId/chats", authMiddleware, async (req, res) => {
     try {
