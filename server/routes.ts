@@ -24,6 +24,7 @@ import { registerAIDataRoutes } from "./routes/ai-data.routes";
 import { registerInstanceRoutes } from "./routes/instances.routes";
 import instanceWorkflowsRouter from "./routes/instance-workflows.routes";
 import instanceBotStatusRouter from "./routes/instance-bot-status.routes";
+import instanceContactStatusRouter from "./routes/instance-contact-status.routes";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -2823,6 +2824,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register Instance Bot Status routes (pause/inactive management)
   app.use("/api/instances", instanceBotStatusRouter);
+
+  // Register Instance Contact Status routes (contact pause/inactive management)
+  app.use("/api/instances", instanceContactStatusRouter);
 
   // User Profile Avatar Upload endpoint (DEPRECATED - Use direct Supabase upload from frontend)
   // Kept for backwards compatibility but frontend now uploads directly via MCP

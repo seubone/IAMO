@@ -4,14 +4,14 @@
  */
 
 import { Router, Request, Response } from "express";
-import { authMiddleware, type AuthRequest } from "@/server/middleware/auth";
-import { InstanceWorkflowsService } from "@/server/services/instance-workflows";
+import { authMiddleware, type AuthRequest } from "../middleware/auth";
+import { InstanceWorkflowsService } from "../services/instance-workflows";
 import type {
   CreateInstanceN8NWorkflowRequest,
   UpdateInstanceN8NWorkflowRequest,
   InstanceWorkflowResponse,
   InstanceWorkflowListResponse,
-} from "@shared/instance-workflow.types";
+} from "../../shared/instance-workflow.types";
 
 const router = Router();
 
