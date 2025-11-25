@@ -516,8 +516,9 @@ export default function WhatsApp() {
     return (a.name || a.number).localeCompare(b.name || b.number);
   });
 
-  // Get the current Evolution instance that's selected in the chat (not from Zustand)
-  const currentInstance = allInstances?.find(inst => inst.id === selectedInstanceId);
+  // Get the current Evolution instance that's selected in the chat
+  // Use allInstances first (from API), fallback to selectedInstance (from Zustand store)
+  const currentInstance = allInstances?.find(inst => inst.id === selectedInstanceId) || selectedInstance;
 
   // Sincronizar selectedInstance com storage.ts quando mudar
   useEffect(() => {
