@@ -2,9 +2,11 @@ import { IAConversationStatusBadge } from "@/components/IAConversationStatusBadg
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Play, Pause, XCircle, Clock, User, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Play, Pause, XCircle, Clock, User, Users, Zap } from "lucide-react";
 import type { IAStatus } from "./IAStatusTicker";
 import { getIAStatusConfig } from "@/lib/configs";
+import { N8NWorkflowForm } from "@/components/N8NWorkflowForm";
 
 export interface IAAction {
   id: string;
@@ -17,6 +19,8 @@ export interface IAAction {
 interface IADetailPanelProps {
   iaName: string;
   status: IAStatus;
+  instanceNumber?: string;
+  instanceId?: string;
   onActivate?: () => void;
   onPause?: () => void;
   onDeactivate?: () => void;
@@ -27,6 +31,8 @@ interface IADetailPanelProps {
 export function IADetailPanel({
   iaName,
   status,
+  instanceNumber,
+  instanceId,
   onActivate,
   onPause,
   onDeactivate,
@@ -90,6 +96,10 @@ export function IADetailPanel({
             <Users className="h-4 w-4 mr-2" />
             Gerenciar Contatos
           </Button>
+
+          {instanceNumber && instanceId && (
+            <N8NWorkflowForm instanceNumber={instanceNumber} instanceId={instanceId} />
+          )}
         </div>
       </div>
 

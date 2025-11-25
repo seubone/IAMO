@@ -212,6 +212,8 @@ export default function Monitoring() {
               <IADetailPanel
                 iaName={selectedIA.bot_name || "IA Desconhecida"}
                 status={mapStatus(selectedIA)}
+                instanceNumber={selectedIA.instance_number}
+                instanceId={String(selectedIA.id)}
                 onActivate={() => handleStatusAction("activate")}
                 onPause={() => handleStatusAction("pause")}
                 onDeactivate={() => handleStatusAction("deactivate")}

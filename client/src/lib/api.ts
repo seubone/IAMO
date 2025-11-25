@@ -345,3 +345,62 @@ export const contactStatusAPI = {
       headers: getAuthHeaders(),
     }),
 };
+
+// N8N Workflows API
+export const n8nWorkflowsAPI = {
+  // Get all workflows for an instance
+  getWorkflows: (instanceNumber: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows`, {
+      headers: getAuthHeaders(),
+    }),
+
+  // Get only active workflows
+  getActiveWorkflows: (instanceNumber: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows/active`, {
+      headers: getAuthHeaders(),
+    }),
+
+  // Get a specific workflow
+  getWorkflow: (instanceNumber: string, workflowId: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows/${workflowId}`, {
+      headers: getAuthHeaders(),
+    }),
+
+  // Create a new workflow association
+  createWorkflow: (instanceNumber: string, data: any) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  // Update a workflow
+  updateWorkflow: (instanceNumber: string, workflowId: string, data: any) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows/${workflowId}`, {
+      method: "PATCH",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  // Delete a workflow
+  deleteWorkflow: (instanceNumber: string, workflowId: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows/${workflowId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    }),
+
+  // Toggle workflow active/inactive status
+  toggleWorkflow: (instanceNumber: string, workflowId: string) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows/${workflowId}/toggle`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    }),
+
+  // Manually trigger a workflow
+  triggerWorkflow: (instanceNumber: string, workflowId: string, payload?: any) =>
+    apiRequest(`/api/instances/${instanceNumber}/workflows/${workflowId}/trigger`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ payload: payload || {} }),
+    }),
+};
