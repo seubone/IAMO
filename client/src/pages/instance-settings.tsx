@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ArrowLeft, Loader2, Check, Plus, HelpCircle, Key } from "lucide-react";
 import { N8NWorkflowDialog } from "@/components/N8NWorkflowDialog";
+import { InstanceBotStatusManager } from "@/components/InstanceBotStatusManager";
 import type { EvolutionInstance } from "@/types/whatsapp";
 
 export function InstanceSettingsPage() {
@@ -352,9 +353,10 @@ export function InstanceSettingsPage() {
         <div className="max-w-4xl mx-auto px-4 py-8">
           {/* Abas */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6 border-b-0">
+            <TabsList className="grid w-full grid-cols-4 mb-6 border-b-0">
               <TabsTrigger value="general">Ajustes da IA</TabsTrigger>
               <TabsTrigger value="integrations">Integrações</TabsTrigger>
+              <TabsTrigger value="configuration">Configurações</TabsTrigger>
               <TabsTrigger value="credentials">Credenciais Uazapi</TabsTrigger>
             </TabsList>
 
@@ -543,6 +545,55 @@ export function InstanceSettingsPage() {
                         className="border-0 bg-muted/50 dark:bg-muted/30"
                       />
                       <p className="text-xs text-muted-foreground">Opcional - Pode ser adicionado/atualizado depois</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            {/* Aba: Configurações (Status do Bot e Workflows) */}
+            <TabsContent value="configuration" className="space-y-4">
+              {!recordExists ? (
+                <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold">IA Não Criada</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Crie uma IA na aba "Ajustes da IA" para configurar operações
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <h2 className="text-xl font-semibold">Configurações de Operação</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Gerencie status do bot e configure workflows
+                    </p>
+                  </div>
+
+                  {/* Bot Status Manager */}
+                  {instanceInfo && (
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-4">Status do Bot/IA</h3>
+                      <InstanceBotStatusManager instanceNumber={instanceInfo.number} />
+                    </div>
+                  )}
+
+                  {/* Workflows */}
+                  <div className="mt-8 pt-8 border-t">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">N8N Workflows</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Configure workflows automáticos para esta instância
+                        </p>
+                      </div>
+                      {instanceInfo && (
+                        <N8NWorkflowDialog
+                          instanceNumber={instanceInfo.number}
+                          instanceId={instanceId}
+                        />
+                      )}
                     </div>
                   </div>
                 </>

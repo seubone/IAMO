@@ -23,6 +23,7 @@ import { registerIAConfigRoutes } from "./routes/ia-config.routes";
 import { registerAIDataRoutes } from "./routes/ai-data.routes";
 import { registerInstanceRoutes } from "./routes/instances.routes";
 import instanceWorkflowsRouter from "./routes/instance-workflows.routes";
+import instanceBotStatusRouter from "./routes/instance-bot-status.routes";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -1130,121 +1131,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get all instances (numeros/contas do WhatsApp)
   app.get("/api/whatsapp/instances", authMiddleware, async (req, res) => {
-    console.log("[instances] Fetching WhatsApp instances", {
-      user: (req as any).user?.email,
-      authenticated: !!(req as any).user,
-    });
-
-    const normalizeInstanceStatus = (status?: string | null) => {
-      switch (status) {
-        case "connected":
-          return "open";
-        case "connecting":
-          return "connecting";
-        default:
-          return "close";
-      }
-    };
-
-    const normalizeEvolutionApiInstances = (instances: EvolutionInstance[]) =>
-      instances.map(({ instance }) => ({
-        id: instance.instanceId,
-        name: instance.instanceName,
-        number: instance.instanceNumber || null,
-        ownerJid: instance.instanceId || instance.instanceNumber || null,
-        profilePicUrl: instance.profilePictureUrl || null,
-        profileName: instance.profileName || instance.instanceName,
-        connectionStatus: normalizeInstanceStatus(instance.status),
-      }));
-
-    const fetchFromEvolutionDb = async () => {
-      const { evolutionPool } = await import("./config/evolution-db");
-
-      const query = `
-        SELECT
-          id,
-          name,
-          number,
-          "ownerJid",
-          "profilePicUrl",
-          "profileName",
-          "connectionStatus"
-        FROM "Instance"
-        ORDER BY "createdAt" DESC
-        LIMIT 1000
-      `;
-
-      const timeoutMs = 15000; // 15 segundos - dá tempo suficiente para a query completar
-
-      try {
-        // Usar queryTimeout no pool diretamente (mais seguro)
-        const client = await evolutionPool.connect();
-        try {
-          // Set query timeout on the client
-          await client.query(`SET statement_timeout = '${timeoutMs}ms'`);
-          const result = await client.query(query);
-          console.log(`[instances] Loaded ${result.rows.length} instances from Evolution DB`);
-          return result.rows;
-        } finally {
-          // Sempre liberar a conexão, mesmo se houver erro
-          client.release();
-        }
-      } catch (err: any) {
-        console.error("[instances] Evolution DB error:", {
-          message: err.message,
-          code: err.code,
-        });
-        throw err;
-      }
-    };
-
     try {
-      const rows = await fetchFromEvolutionDb();
+      const { getInstances, getCacheStatus } = await import("./services/instances-cache");
 
-      if (!Array.isArray(rows)) {
-        throw new Error("Invalid response from Evolution DB");
-      }
-
-      return res.json(rows);
-    } catch (dbError: any) {
-      console.warn("[instances] Evolution DB fetch failed", {
-        message: dbError?.message,
-        code: dbError?.code,
-        isTimeout: dbError?.message?.includes("timeout"),
+      console.log("[instances] Fetching WhatsApp instances", {
+        user: (req as any).user?.email,
+        authenticated: !!(req as any).user,
       });
 
-      // Fallback to Evolution API
-      if (!isEvolutionApiConfigured()) {
-        console.error("[instances] Both Evolution DB and API unavailable");
-        return res.status(503).json({
-          error: "Serviço temporariamente indisponível",
-          details: "Evolution DB e API não acessíveis",
-        });
-      }
+      // Get instances using optimized cache service
+      const instances = await getInstances();
+      const cacheStatus = getCacheStatus();
 
-      try {
-        console.log("[instances] Attempting Evolution API fallback...");
-        const apiInstances = await fetchEvolutionInstances();
+      console.log("[instances] Instances fetched successfully", {
+        count: instances.length,
+        cacheStatus,
+      });
 
-        if (!Array.isArray(apiInstances)) {
-          throw new Error("Invalid response from Evolution API");
-        }
+      // Add cache headers
+      res.set("X-Cache-Status", cacheStatus.isValid ? "HIT" : "MISS");
+      res.set("X-Cache-Age", cacheStatus.age?.toString() || "0");
+      res.set("X-Cache-Source", cacheStatus.source || "unknown");
 
-        const normalized = normalizeEvolutionApiInstances(apiInstances);
-        console.log(`[instances] Loaded ${normalized.length} instances from Evolution API fallback`);
-        return res.json(normalized);
-      } catch (apiError: any) {
-        console.error("[instances] Evolution API fallback also failed", {
-          message: apiError?.message,
-          dbError: dbError?.message,
-        });
+      return res.json(instances);
+    } catch (error: any) {
+      console.error("[instances] Failed to fetch instances:", {
+        message: error.message,
+        stack: error.stack,
+      });
 
-        return res.status(503).json({
-          error: "Serviço temporariamente indisponível",
-          details: "Não foi possível buscar instâncias",
-          source: "db_and_api_failed",
-        });
-      }
+      return res.status(503).json({
+        error: "Serviço temporariamente indisponível",
+        details: error.message || "Não foi possível buscar instâncias",
+      });
     }
   });
   // Get chats for a specific instance
@@ -2901,6 +2820,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register Instance N8N Workflows routes
   app.use("/api/instances", instanceWorkflowsRouter);
+
+  // Register Instance Bot Status routes (pause/inactive management)
+  app.use("/api/instances", instanceBotStatusRouter);
 
   // User Profile Avatar Upload endpoint (DEPRECATED - Use direct Supabase upload from frontend)
   // Kept for backwards compatibility but frontend now uploads directly via MCP

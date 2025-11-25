@@ -3,13 +3,13 @@
  * Manages associations between Evolution instances and N8N workflows
  */
 
-import { db } from "@/server/config/db";
+import { db } from "../config/db";
 import { sql } from "drizzle-orm";
 import type {
   InstanceN8NWorkflow,
   CreateInstanceN8NWorkflowRequest,
   UpdateInstanceN8NWorkflowRequest,
-} from "@shared/instance-workflow.types";
+} from "../../shared/instance-workflow.types";
 
 export class InstanceWorkflowsService {
   /**
