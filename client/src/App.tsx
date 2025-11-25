@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useLoadSupabaseConfig } from "@/hooks/use-supabase-config";
+import { useTokenRefresh } from "@/hooks/use-token-refresh";
 import { useSidebarCollapse } from "@/hooks/use-sidebar-collapse";
 import Monitoring from "@/pages/monitoring";
 import WhatsApp from "@/pages/whatsapp";
@@ -35,6 +36,7 @@ function ProtectedRoutes() {
   const { isCollapsed } = useSidebarCollapse();
 
   useWebSocket();
+  useTokenRefresh(); // Automatically refresh token before expiration
 
   useEffect(() => {
     if (hasHydrated && !isAuthenticated) {
