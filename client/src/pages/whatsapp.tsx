@@ -58,6 +58,7 @@ import {
   getMessageDraft,
   deleteMessageDraft,
 } from "@/lib/storage";
+import { contactStatusAPI } from "@/lib/api";
 
 import { IAConversationStatusBadge } from "@/components/IAConversationStatusBadge";
 import { IAConversationActions } from "@/components/IAConversationActions";
@@ -1349,20 +1350,70 @@ export default function WhatsApp() {
                         </p>
                       </div>
                       <div className="ml-auto flex items-center gap-2">
-                        <IAConversationStatusBadge status={iaStatusForChat} />
-                        <IAConversationActions 
+                        <IAConversationActions
                           status={iaStatusForChat}
                           onActivate={() => {
-                            setIaStatusForChat('active');
-                            toast({ title: "IA Ativada para esta conversa." });
+                            if (selectedChat?.remoteJid && selectedInstance?.number) {
+                              contactStatusAPI.activateContact(selectedInstance.number, selectedChat.remoteJid)
+                                .then(() => {
+                                  setIaStatusForChat('active');
+                                  toast({ title: "IA Ativada para esta conversa." });
+                                })
+                                .catch(() => {
+                                  toast({
+                                    variant: "destructive",
+                                    title: "Erro ao ativar IA",
+                                    description: "Não foi possível ativar a IA para este contato."
+                                  });
+                                });
+                            }
                           }}
-                          onPause={() => {
-                            setIaStatusForChat('paused');
-                            toast({ title: "IA Pausada para esta conversa." });
+                          onPause={(duration) => {
+                            if (duration && selectedChat?.remoteJid && selectedInstance?.number) {
+                              const durationLabels: Record<number, string> = {
+                                300000: "5 minutos",
+                                900000: "15 minutos",
+                                1800000: "30 minutos",
+                                3600000: "1 hora",
+                                7200000: "2 horas",
+                              };
+
+                              contactStatusAPI.pauseContact(
+                                selectedInstance.number,
+                                selectedChat.remoteJid,
+                                { duration, reason: "Pausado via dashboard" }
+                              ).then(() => {
+                                setIaStatusForChat('paused');
+                                toast({
+                                  title: "IA Pausada",
+                                  description: `Contato pausado por ${durationLabels[duration] || `${duration/60000} minutos`}.`
+                                });
+                              }).catch(() => {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Erro ao pausar IA",
+                                  description: "Não foi possível pausar a IA para este contato."
+                                });
+                              });
+                            }
                           }}
                           onDeactivate={() => {
-                            setIaStatusForChat('inactive');
-                            toast({ title: "IA Desativada para esta conversa.", variant: "destructive" });
+                            if (selectedChat?.remoteJid && selectedInstance?.number) {
+                              contactStatusAPI.deactivateContact(
+                                selectedInstance.number,
+                                selectedChat.remoteJid,
+                                { reason: "Desativado via dashboard" }
+                              ).then(() => {
+                                setIaStatusForChat('inactive');
+                                toast({ title: "IA Desativada para esta conversa.", variant: "destructive" });
+                              }).catch(() => {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Erro ao desativar IA",
+                                  description: "Não foi possível desativar a IA para este contato."
+                                });
+                              });
+                            }
                           }}
                         />
                         <Button

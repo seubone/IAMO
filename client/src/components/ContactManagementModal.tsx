@@ -308,6 +308,7 @@ export function ContactManagementModal({
                                   { value: 900000, label: "15 minutos" },
                                   { value: 1800000, label: "30 minutos" },
                                   { value: 3600000, label: "1 hora" },
+                                  { value: 7200000, label: "2 horas" },
                                 ].map((option) => (
                                   <DropdownMenuItem
                                     key={option.value}
