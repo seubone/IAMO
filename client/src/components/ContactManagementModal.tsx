@@ -14,8 +14,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { contactStatusAPI } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import { Loader2, Pause, Play, X, AlertCircle } from "lucide-react";
+import { Loader2, Pause, Play, Power, AlertCircle, ChevronDown } from "lucide-react";
 import type { ContactStatus } from "@shared/instance-contact-status.types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ContactManagementModalProps {
   open: boolean;
@@ -40,6 +50,7 @@ export function ContactManagementModal({
   const [searchTerm, setSearchTerm] = useState("");
   const [pauseDuration, setPauseDuration] = useState(3600000); // 1 hora em ms
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "paused" | "inactive">("all");
+  const [selectedContactForPause, setSelectedContactForPause] = useState<string | null>(null);
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: [`/api/instances/${instanceNumber}/contacts`],
@@ -212,28 +223,6 @@ export function ContactManagementModal({
             </div>
           )}
 
-          {/* Pause Duration Selector */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Duração da pausa (minutos)</label>
-            <div className="flex gap-2">
-              {[
-                { value: 3600000, label: "1 hora" },
-                { value: 1800000, label: "30 min" },
-                { value: 900000, label: "15 min" },
-                { value: 300000, label: "5 min" },
-              ].map((option) => (
-                <Button
-                  key={option.value}
-                  variant={pauseDuration === option.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPauseDuration(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
           {/* Filters */}
           <div className="flex gap-2">
             <Input
@@ -287,50 +276,106 @@ export function ContactManagementModal({
                           : "Inativo"}
                     </Badge>
 
-                    <div className="flex gap-1 ml-2">
+                    <div className="flex gap-2 ml-2">
                       {contact.status === "active" && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => pauseMutation.mutate(contact.contact_jid)}
-                            disabled={pauseMutation.isPending}
-                            title="Pausar por 1 hora"
-                          >
-                            {pauseMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Pause className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deactivateMutation.mutate(contact.contact_jid)}
-                            disabled={deactivateMutation.isPending}
-                            title="Desativar"
-                          >
-                            {deactivateMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <X className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </>
+                        <DropdownMenu open={selectedContactForPause === contact.contact_jid} onOpenChange={(open) => setSelectedContactForPause(open ? contact.contact_jid : null)}>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="gap-1"
+                              disabled={pauseMutation.isPending || deactivateMutation.isPending}
+                            >
+                              {pauseMutation.isPending || deactivateMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <span>Ações</span>
+                                  <ChevronDown className="w-4 h-4" />
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <Pause className="w-4 h-4 mr-2" />
+                                <span>Pausar</span>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                {[
+                                  { value: 300000, label: "5 minutos" },
+                                  { value: 900000, label: "15 minutos" },
+                                  { value: 1800000, label: "30 minutos" },
+                                  { value: 3600000, label: "1 hora" },
+                                ].map((option) => (
+                                  <DropdownMenuItem
+                                    key={option.value}
+                                    onClick={() => {
+                                      setSelectedContactForPause(null);
+                                      contactStatusAPI
+                                        .pauseContact(instanceNumber, contact.contact_jid, {
+                                          duration: option.value,
+                                          reason: "Pausado via dashboard",
+                                        })
+                                        .then(() => {
+                                          queryClient.invalidateQueries({
+                                            queryKey: [`/api/instances/${instanceNumber}/contacts`],
+                                          });
+                                          queryClient.invalidateQueries({
+                                            queryKey: [`/api/instances/${instanceNumber}/contacts/stats`],
+                                          });
+                                          toast({
+                                            title: "Contato pausado",
+                                            description: `Contato pausado por ${option.label}.`,
+                                          });
+                                        })
+                                        .catch(() => {
+                                          toast({
+                                            variant: "destructive",
+                                            title: "Erro",
+                                            description: "Falha ao pausar o contato.",
+                                          });
+                                        });
+                                    }}
+                                  >
+                                    <span>{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedContactForPause(null);
+                                deactivateMutation.mutate(contact.contact_jid);
+                              }}
+                              disabled={deactivateMutation.isPending}
+                            >
+                              <Power className="w-4 h-4 mr-2" />
+                              <span>Desativar</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
 
                       {contact.status === "paused" && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
                           onClick={() => resumeMutation.mutate(contact.contact_jid)}
                           disabled={resumeMutation.isPending}
-                          title="Retomar"
+                          className="gap-1"
                         >
                           {resumeMutation.isPending ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            <Play className="w-4 h-4" />
+                            <>
+                              <Play className="w-4 h-4" />
+                              <span>Ativar</span>
+                            </>
                           )}
                         </Button>
                       )}
@@ -338,15 +383,18 @@ export function ContactManagementModal({
                       {contact.status === "inactive" && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
                           onClick={() => activateMutation.mutate(contact.contact_jid)}
                           disabled={activateMutation.isPending}
-                          title="Ativar"
+                          className="gap-1"
                         >
                           {activateMutation.isPending ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            <Play className="w-4 h-4" />
+                            <>
+                              <Play className="w-4 h-4" />
+                              <span>Ativar</span>
+                            </>
                           )}
                         </Button>
                       )}
