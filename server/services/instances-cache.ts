@@ -180,8 +180,8 @@ export async function getInstances(): Promise<CachedInstance[]> {
       }
 
       // Fallback: return empty list with error logged
-      console.error("[instances-cache] No cache available and fetch failed");
-      throw new Error("Failed to load instances: " + error.message);
+      console.error("[instances-cache] No cache available and fetch failed, returning empty array");
+      return [];
     }
   })();
 
