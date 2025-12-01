@@ -1,8 +1,8 @@
-import type { Express } from "express";
+ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { dbStorage as storage } from "./config/db-storage";
-import { authMiddleware, generateToken, type AuthRequest } from "./middleware/auth";
+import { authMiddleware, generateToken, generateRefreshToken, verifyRefreshToken, type AuthRequest } from "./middleware/auth";
 import { requirePermission, requireRole } from "./middleware/rbac";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -25,6 +25,9 @@ import { registerInstanceRoutes } from "./routes/instances.routes";
 import instanceWorkflowsRouter from "./routes/instance-workflows.routes";
 import instanceBotStatusRouter from "./routes/instance-bot-status.routes";
 import instanceContactStatusRouter from "./routes/instance-contact-status.routes";
+import { InstanceBotStatusService } from "./services/instance-bot-status";
+import { InstanceContactStatusService } from "./services/instance-contact-status";
+import { verifyWebhookSignature } from "./middleware/webhook-auth";
 
 // Rate limiters
 // In development, allow more attempts; in production, keep it strict
@@ -141,12 +144,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   process.on('SIGINT', cleanupWS);
 
   wss.on("connection", (ws, req) => {
-    // Extract token from query string or header
-    const url = new URL(req.url || "", `http://${req.headers.host}`);
-    const token = url.searchParams.get("token") || req.headers.authorization?.replace("Bearer ", "");
+    // SECURITY: Prefer Authorization header, but fall back to URL query param for browser WebSocket clients
+    // (Browser WebSocket API doesn't support custom headers)
+    let token = req.headers.authorization?.replace("Bearer ", "");
+
+    // Fallback: extract token from URL query parameter
+    if (!token && req.url) {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      token = url.searchParams.get("token") || undefined;
+    }
 
     if (!token) {
-      console.log("WebSocket connection rejected: No token provided");
+      console.log("WebSocket connection rejected: No token provided in Authorization header or query params");
       ws.close(1008, "Authentication required");
       return;
     }
@@ -537,18 +546,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function pollInstanceChanges() {
     try {
-      const { data, error } = await supabase
-        .from("Instance")
-        .select("id, name, connectionStatus, createdAt")
-        .order("createdAt", { ascending: false })
-        .limit(1000);
+      // IMPORTANT: Use evolutionPool (not supabase) - Instance table is in Evolution DB
+      // Column name is "connectionStatus" (not "status")
+      const result = await evolutionPool.query(`
+        SELECT id, name, "connectionStatus", "createdAt"
+        FROM "Instance"
+        ORDER BY "createdAt" DESC
+        LIMIT 1000
+      `);
 
-      if (error) {
-        console.warn("⚠️ Instance polling error:", error.message);
-        return;
-      }
-
-      const currentInstanceCount = data?.length || 0;
+      const currentInstanceCount = result.rows?.length || 0;
 
       // If instance count changed, broadcast to all connected clients
       if (currentInstanceCount !== cachedInstanceCount) {
@@ -614,83 +621,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Update Evolution Database Configuration
-  app.post("/api/config/evolution-db", authMiddleware, requireRole("admin"), async (req, res) => {
-    try {
-      const { host, port, name, user, password } = req.body;
-
-      // Validate required fields
-      if (!host || !port || !name || !user || !password) {
-        return res.status(400).json({
-          error: "Todos os campos são obrigatórios (host, port, name, user, password)"
-        });
-      }
-
-      // Update environment variables (in-memory)
-      process.env.EVOLUTION_DB_HOST = host;
-      process.env.EVOLUTION_DB_PORT = port;
-      process.env.EVOLUTION_DB_NAME = name;
-      process.env.EVOLUTION_DB_USER = user;
-      process.env.EVOLUTION_DB_PASSWORD = password;
-
-      // Update .env file
-      const fs = await import("fs");
-      const path = await import("path");
-      const envPath = path.join(process.cwd(), ".env");
-
-      let envContent = fs.readFileSync(envPath, "utf-8");
-
-      // Update or add each variable
-      const updateEnvVar = (content: string, key: string, value: string) => {
-        const regex = new RegExp(`^${key}=.*$`, "m");
-        if (regex.test(content)) {
-          return content.replace(regex, `${key}=${value}`);
-        } else {
-          return content + `\n${key}=${value}`;
-        }
-      };
-
-      envContent = updateEnvVar(envContent, "EVOLUTION_DB_HOST", host);
-      envContent = updateEnvVar(envContent, "EVOLUTION_DB_PORT", port);
-      envContent = updateEnvVar(envContent, "EVOLUTION_DB_NAME", name);
-      envContent = updateEnvVar(envContent, "EVOLUTION_DB_USER", user);
-      envContent = updateEnvVar(envContent, "EVOLUTION_DB_PASSWORD", password);
-
-      fs.writeFileSync(envPath, envContent, "utf-8");
-
-      // Try to reconnect to the database with new credentials
-      const connectionString = `postgresql://${user}:${password}@${host}:${port}/${name}`;
-      console.log("🔄 Tentando reconectar ao banco Evolution com novas credenciais...");
-
-      try {
-        const testPool = require("pg").Pool;
-        const pool = new testPool({ connectionString, connectionTimeoutMillis: 5000 });
-        await pool.query("SELECT 1");
-        await pool.end();
-        console.log("✅ Conexão com banco Evolution bem-sucedida!");
-      } catch (dbError: any) {
-        console.error("❌ Erro ao conectar com novo banco:", dbError.message);
-        return res.status(400).json({
-          error: `Não foi possível conectar ao banco com as credenciais fornecidas: ${dbError.message}`
-        });
-      }
-
-      res.json({
-        success: true,
-        message: "Configurações do Evolution DB atualizadas com sucesso!",
-        config: { host, port, name, user },
-      });
-    } catch (error: any) {
-      console.error("Erro ao atualizar configurações:", error);
-      res.status(500).json({
-        error: "Erro ao atualizar configurações do Evolution DB",
-        details: error.message
-      });
-    }
-  });
+  // REMOVED: Update Evolution Database Configuration endpoint
+  // SECURITY: This endpoint was removed because it allowed modification of .env file
+  // via API, which is a critical security vulnerability. If database credentials
+  // need to be changed, they should be managed through environment variables or
+  // a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.), not via API.
+  //
+  // Previous endpoint: POST /api/config/evolution-db
+  // If you need this functionality, implement it securely using a secrets manager.
 
   // Debug JWT verification (development/troubleshooting only)
+  // SECURITY: Only available in development mode
   app.post("/api/debug/jwt", async (req, res) => {
+    // Block in production
+    if (process.env.NODE_ENV === "production") {
+      return res.status(404).json({ error: "Not found" });
+    }
+
     const { token } = req.body;
 
     if (!token) {
@@ -733,9 +680,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nome, email e senha são obrigatórios" });
       }
 
-      // Validate password strength
-      if (password.length < 6) {
-        return res.status(400).json({ error: "Senha deve ter no mínimo 6 caracteres" });
+      // SECURITY: Validate password strength (same requirements as password change)
+      // Minimum 12 characters with complexity requirements
+      if (password.length < 12) {
+        return res.status(400).json({
+          error: "Senha deve ter no mínimo 12 caracteres"
+        });
+      }
+
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({
+          error: "Senha deve conter pelo menos uma letra maiúscula"
+        });
+      }
+
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({
+          error: "Senha deve conter pelo menos uma letra minúscula"
+        });
+      }
+
+      if (!/\d/.test(password)) {
+        return res.status(400).json({
+          error: "Senha deve conter pelo menos um número"
+        });
       }
 
       // Create user in Supabase Auth (with email verification enabled)
@@ -831,6 +799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate JWT token for legacy users
       const token = generateToken(localUser);
+      const refreshToken = generateRefreshToken(localUser);
 
       res.json({
         user: {
@@ -840,10 +809,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: localUser.role,
         },
         token,
+        refreshToken, // NEW: Return refresh token for token renewal
       });
     } catch (error: any) {
       console.error("Login error:", error);
       res.status(400).json({ error: error.message || "Erro ao fazer login" });
+    }
+  });
+
+  // Refresh access token using refresh token
+  // SECURITY: Short-lived access tokens (2h) with long-lived refresh tokens (7d)
+  app.post("/api/auth/refresh-token", async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({ error: "Refresh token é obrigatório" });
+      }
+
+      // Verify refresh token
+      const userData = verifyRefreshToken(refreshToken);
+
+      if (!userData) {
+        return res.status(401).json({ error: "Refresh token inválido ou expirado" });
+      }
+
+      // Get full user data from database
+      const localUser = await storage.getUserById(userData.id);
+
+      if (!localUser) {
+        return res.status(401).json({ error: "Usuário não encontrado" });
+      }
+
+      // Generate new access token
+      const newToken = generateToken(localUser);
+
+      res.json({
+        token: newToken,
+        user: {
+          id: localUser.id,
+          name: localUser.name,
+          email: localUser.email,
+          role: localUser.role,
+        },
+      });
+    } catch (error: any) {
+      console.error("Refresh token error:", error);
+      res.status(401).json({ error: "Erro ao renovar token" });
     }
   });
 
@@ -1160,35 +1172,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ WEBHOOKS ============
   
   // N8N Webhook for error logging
-  app.post("/webhooks/n8n/log", webhookLimiter, async (req, res) => {
-    try {
-      const { iaId, attendanceId, errorType, severity, message, suggestion, origin } = req.body;
-      
-      // Validate required fields
-      if (!iaId || !attendanceId || !errorType || !severity || !message || !origin) {
-        return res.status(400).json({ error: "Campos obrigatórios faltando" });
+  // SECURITY: HMAC signature verification required
+  app.post(
+    "/webhooks/n8n/log",
+    webhookLimiter,
+    verifyWebhookSignature("N8N_WEBHOOK_SECRET"),
+    async (req, res) => {
+      try {
+        const { iaId, attendanceId, errorType, severity, message, suggestion, origin } = req.body;
+
+        // Validate required fields
+        if (!iaId || !attendanceId || !errorType || !severity || !message || !origin) {
+          return res.status(400).json({ error: "Campos obrigatórios faltando" });
+        }
+
+        // Create ticket
+        const ticket = await storage.createTicket({
+          iaId,
+          attendanceId,
+          errorType,
+          severity,
+          message,
+          suggestion,
+          origin,
+        });
+
+        // Broadcast to connected clients
+        broadcast({ type: "ticket_created", data: ticket });
+
+        res.status(201).json({ success: true, ticket });
+      } catch (error: any) {
+        console.error("N8N Webhook error:", error);
+        res.status(500).json({ error: "Erro ao processar webhook" });
       }
-
-      // Create ticket
-      const ticket = await storage.createTicket({
-        iaId,
-        attendanceId,
-        errorType,
-        severity,
-        message,
-        suggestion,
-        origin,
-      });
-
-      // Broadcast to connected clients
-      broadcast({ type: "ticket_created", data: ticket });
-
-      res.status(201).json({ success: true, ticket });
-    } catch (error: any) {
-      console.error("N8N Webhook error:", error);
-      res.status(500).json({ error: "Erro ao processar webhook" });
     }
-  });
+  );
 
 
   // ============ WHATSAPP/EVOLUTION ROUTES ============
@@ -1437,7 +1455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Determinar tipo de mídia e extrair dados
       let mediaInfo: any;
-      let mediaTypeKey: 'image' | 'video' | 'audio' | 'document' = 'document';
+      let mediaTypeKey: 'image' | 'video' | 'audio' | 'document' = 'image'; // Default seguro para mídias visuais
 
       if (messageType === 'stickerMessage' && messageData.stickerMessage) {
         mediaInfo = messageData.stickerMessage;
@@ -1456,6 +1474,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mediaTypeKey = 'video';
       } else {
         return res.status(400).json({ error: "Tipo de mídia não suportado" });
+      }
+
+      // Log de fallback para tipos desconhecidos que usaram o default
+      if (mediaTypeKey === 'image' && messageType !== 'stickerMessage' && messageType !== 'imageMessage') {
+        console.warn('⚠️ Unknown media type, defaulting to image context:', {
+          messageId: req.params.messageId,
+          messageType,
+          hasUrl: Boolean(mediaInfo?.url),
+          hasMediaKey: Boolean(mediaInfo?.mediaKey),
+        });
       }
 
       let { url, mediaKey, mimetype, fileName } = mediaInfo;
@@ -2849,69 +2877,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============ WEBHOOKS ============
   
   // Evolution API webhook for new messages
-  app.post("/webhooks/evolution/message", webhookLimiter, async (req, res) => {
-    try {
-      const payload = req.body;
+  // SECURITY: HMAC signature verification required
+  app.post(
+    "/webhooks/evolution/message",
+    webhookLimiter,
+    verifyWebhookSignature("EVOLUTION_WEBHOOK_SECRET"),
+    async (req, res) => {
+      try {
+        const payload = req.body;
 
-      console.log("📨 Evolution webhook received:", JSON.stringify(payload, null, 2));
+        console.log("📨 Evolution webhook received:", JSON.stringify(payload, null, 2));
 
-      // Estrutura esperada do webhook do Evolution:
-      // {
-      //   "instance": "instance_name",
-      //   "data": {
-      //     "key": { "remoteJid": "5511999999999@s.whatsapp.net", "fromMe": false, ... },
-      //     "message": { ... },
-      //     "messageTimestamp": "1234567890",
-      //     ...
-      //   }
-      // }
+        // Estrutura esperada do webhook do Evolution:
+        // {
+        //   "instance": "instance_name",
+        //   "data": {
+        //     "key": { "remoteJid": "5511999999999@s.whatsapp.net", "fromMe": false, ... },
+        //     "message": { ... },
+        //     "messageTimestamp": "1234567890",
+        //     ...
+        //   }
+        // }
 
-      // Extrair dados da mensagem
-      const messageData = payload.data;
-      const fromMe = messageData?.key?.fromMe || false;
-      const instanceId = payload.instanceNumber || payload.instance;
+        // Extrair dados da mensagem
+        const messageData = payload.data;
+        const fromMe = messageData?.key?.fromMe || false;
+        const instanceNumber = payload.instanceNumber || payload.instance;
+        const contactJid = payload.data?.key?.remoteJid;
 
-      // Se for mensagem nossa (fromMe), aplicar configuração de bot
-      let finalMessage = messageData;
-      let senderType: SenderType | undefined;
-      if (fromMe && instanceId && messageData) {
-        const botConfig = await getBotConfig(instanceId);
-        if (botConfig) {
-          const identity = resolveSenderIdentity({
-            messageText: extractPrimaryMessageText(messageData?.message),
-            pushName: messageData?.pushName,
-            botConfig,
-          });
+        // ✅ VERIFICAÇÃO DE STATUS: Checar se bot está ativo (apenas para mensagens recebidas)
+        if (!fromMe && instanceNumber) {
+          try {
+            const isBotActive = await InstanceBotStatusService.isBotActive(instanceNumber);
+            if (!isBotActive) {
+              console.log(`[webhook] ⏸️  Bot pausado/inativo para instância ${instanceNumber}, mensagem ignorada`);
+              return res.status(200).json({
+                success: true,
+                message: "Bot pausado/inativo, mensagem ignorada",
+                ignored: true,
+                reason: "bot_not_active"
+              });
+            }
+          } catch (error: any) {
+            console.error(`[webhook] ⚠️  Erro ao verificar status do bot:`, error.message);
+            // Em caso de erro, continua processando (fail-safe)
+          }
 
-          finalMessage = {
-            ...messageData,
-            pushName: identity.pushName ?? messageData?.pushName,
-            senderType: identity.senderType,
-          };
-          senderType = identity.senderType;
+          // ✅ VERIFICAÇÃO DE STATUS: Checar se contato está ativo
+          if (contactJid) {
+            try {
+              const isContactActive = await InstanceContactStatusService.isContactActive(
+                instanceNumber,
+                contactJid
+              );
+              if (!isContactActive) {
+                console.log(`[webhook] ⏸️  Contato pausado/inativo: ${contactJid}, mensagem ignorada`);
+                return res.status(200).json({
+                  success: true,
+                  message: "Contato pausado/inativo, mensagem ignorada",
+                  ignored: true,
+                  reason: "contact_not_active"
+                });
+              }
+            } catch (error: any) {
+              console.error(`[webhook] ⚠️  Erro ao verificar status do contato:`, error.message);
+              // Em caso de erro, continua processando (fail-safe)
+            }
+          }
         }
+
+        // Se for mensagem nossa (fromMe), aplicar configuração de bot
+        let finalMessage = messageData;
+        let senderType: SenderType | undefined;
+        if (fromMe && instanceNumber && messageData) {
+          const botConfig = await getBotConfig(instanceNumber);
+          if (botConfig) {
+            const identity = resolveSenderIdentity({
+              messageText: extractPrimaryMessageText(messageData?.message),
+              pushName: messageData?.pushName,
+              botConfig,
+            });
+
+            finalMessage = {
+              ...messageData,
+              pushName: identity.pushName ?? messageData?.pushName,
+              senderType: identity.senderType,
+            };
+            senderType = identity.senderType;
+          }
+        }
+
+
+        // Broadcast para todos os clientes WebSocket conectados
+        broadcast({
+          type: "whatsapp_message_received",
+          data: {
+            instance: payload.instance,
+            instanceNumber: payload.instanceNumber,
+            remoteJid: payload.data?.key?.remoteJid,
+            message: finalMessage,
+            senderType,
+            timestamp: payload.data?.messageTimestamp || Date.now(),
+          }
+        });
+
+        res.status(200).json({ success: true, message: "Webhook processed" });
+      } catch (error: any) {
+        console.error("Error processing Evolution webhook:", error);
+        res.status(500).json({ error: "Erro ao processar webhook" });
       }
-
-
-      // Broadcast para todos os clientes WebSocket conectados
-      broadcast({
-        type: "whatsapp_message_received",
-        data: {
-          instance: payload.instance,
-          instanceNumber: payload.instanceNumber,
-          remoteJid: payload.data?.key?.remoteJid,
-          message: finalMessage,
-          senderType,
-          timestamp: payload.data?.messageTimestamp || Date.now(),
-        }
-      });
-
-      res.status(200).json({ success: true, message: "Webhook processed" });
-    } catch (error: any) {
-      console.error("Error processing Evolution webhook:", error);
-      res.status(500).json({ error: "Erro ao processar webhook" });
     }
-  });
+  );
 
   // Register bot configuration routes
   registerBotConfigRoutes(app);
