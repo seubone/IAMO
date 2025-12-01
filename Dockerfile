@@ -33,10 +33,10 @@ RUN apk add --no-cache dumb-init curl postgresql-client \
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/scripts ./scripts
 
-# Copy init script if it exists, otherwise create a no-op script
-COPY --from=builder /app/scripts/init-db.sh ./init-db.sh
-RUN chmod +x ./init-db.sh && chown nodejs:nodejs ./init-db.sh
+# Make init-db.sh executable (must be done before switching to nodejs user)
+RUN chmod +x /app/scripts/init-db.sh 2>/dev/null || true
 
 USER nodejs
 EXPOSE 5051
@@ -44,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD curl -f http://localhost:5051/health || exit 1
 ENTRYPOINT ["/usr/bin/dumb-init","--"]
 ENV NODE_ENV=production
-CMD ["sh", "-c", "if [ -f ./init-db.sh ]; then ./init-db.sh 2>&1 || echo 'Warning: init-db.sh failed but continuing'; fi && node dist/index.js"]
+CMD ["node","dist/index.js"]

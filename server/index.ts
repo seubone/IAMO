@@ -42,6 +42,7 @@ import { seedData } from "./scripts/seed";
 import "./config/evolution-db"; // Initialize Evolution DB connection
 import { startMaintenanceJob } from "./jobs/bot-status-maintenance"; // Bot status maintenance
 import { errorHandler } from "./middleware/error-handler";
+import { securityHeaders } from "./middleware/security-headers";
 
 // Lazy load routes to avoid issues with missing Evolution DB
 let registerRoutes: any = null;
@@ -61,16 +62,18 @@ const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:5000', 'http://localhost:5173', 'http://localhost:5051']; // Default for development
+const allowMissingOrigin = process.env.ALLOW_MISSING_ORIGIN === "true" || !isProduction;
 
 app.use(cors({
   origin: (origin, callback) => {
     // In production, reject requests without origin (security hardening)
     // In development, allow missing origin for testing tools like curl
     if (!origin) {
-      if (process.env.NODE_ENV === "production") {
-        return callback(new Error('CORS policy: Missing origin header'));
+      if (allowMissingOrigin) {
+        return callback(null, true);
       }
-      // Allow in development only
+      // IMPORTANT: In production, always allow missing origin for health checks
+      // Healthcheck tools (Docker, K8s, load balancers) don't send Origin headers
       return callback(null, true);
     }
 
@@ -87,6 +90,9 @@ app.use(cors({
   maxAge: 3600, // Cache preflight requests for 1 hour
   optionsSuccessStatus: 200, // For legacy browser support
 }));
+
+// Security: Add security headers to all responses
+app.use(securityHeaders);
 
 // Security: Add request size limits
 app.use(express.json({ limit: "10mb" })); // Limit JSON payload size
