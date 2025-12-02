@@ -21,15 +21,31 @@ export interface DocumentationSection {
 
 export const releases: ReleaseItem[] = [
   {
-    version: "v1.0.34",
-    date: "2025-11-24",
+    version: "v1.0.51",
+    date: "2025-12-02",
+    title: "Fix: Database Setup & Deployment Scripts",
+    description: "Correção completa do erro 'database simonia does not exist' com scripts automatizados e documentação detalhada para setup do banco de dados em produção.",
+    type: 'fix',
+    changes: [
+      "✅ Script automatizado de setup do banco (scripts/setup-production-db.sh)",
+      "✅ Migration standalone sem FK para Supabase (create-instance-contact-status-table-standalone.sql)",
+      "✅ Documentação completa de setup do banco (docs/DATABASE_SETUP.md)",
+      "✅ Guia rápido de correção (FIX_DATABASE_ERROR.md)",
+      "✅ DEPLOY_v1.0.5.md atualizado com instruções de pré-requisitos",
+      "✅ .gitignore permite commits de scripts/*.sh para facilitar deployment",
+      "✅ Correção do erro de bot-status-maintenance falhando ao iniciar"
+    ]
+  },
+  {
+    version: "v1.0.4",
+    date: "2025-12-01",
     title: "Code Review Completo & Limpeza de Codebase",
     description: "Análise profunda de instabilidade, documentação de problemas e propostas de solução. Codebase limpo removendo 80+ arquivos desnecessários.",
     type: 'docs',
     changes: [
       "✅ Code Review completo identificando causa raiz de instâncias caindo",
       "✅ 5 documentos de análise técnica gerados (2000+ linhas)",
-      "✅ Solução pronta para reconexão automática WebSocket (v1.0.34+)",
+      "✅ Solução pronta para reconexão automática WebSocket (v1.0.4+)",
       "✅ Proposta de reorganização de código (features pattern)",
       "✅ Codebase limpo: removidos 80+ arquivos obsoletos e .env desnecessários",
       "✅ Apenas documentação ÚTIL mantida no projeto"
