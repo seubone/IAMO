@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  // Database
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  // Database - Optional, will fallback to Evolution DB if not provided
+  DATABASE_URL: z.string().optional(),
 
-  // Evolution DB
+  // Evolution DB - Required as it's the primary database
   EVOLUTION_DB_HOST: z.string().min(1, "EVOLUTION_DB_HOST is required"),
   EVOLUTION_DB_PORT: z.string().default("5432"),
   EVOLUTION_DB_NAME: z.string().min(1, "EVOLUTION_DB_NAME is required"),
@@ -18,6 +18,15 @@ const envSchema = z.object({
       (val) => val !== "your-super-secret-jwt-key-change-in-production-12345678",
       "JWT_SECRET must be changed from default value in production"
     ),
+
+  // Webhook Secrets (for HMAC signature verification)
+  // Optional in development, recommended in production
+  EVOLUTION_WEBHOOK_SECRET: z.string()
+    .min(32, "EVOLUTION_WEBHOOK_SECRET should be at least 32 characters")
+    .optional(),
+  N8N_WEBHOOK_SECRET: z.string()
+    .min(32, "N8N_WEBHOOK_SECRET should be at least 32 characters")
+    .optional(),
 
   // Server
   PORT: z.string().default("5000"),

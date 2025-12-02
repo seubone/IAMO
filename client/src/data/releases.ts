@@ -21,6 +21,22 @@ export interface DocumentationSection {
 
 export const releases: ReleaseItem[] = [
   {
+    version: "v1.0.52",
+    date: "2025-12-02",
+    title: "Fix: Automatic Evolution DB Fallback",
+    description: "Correção definitiva do erro 'database simonia does not exist' - o sistema agora usa automaticamente Evolution DB sem necessidade de DATABASE_URL ou comandos manuais.",
+    type: 'fix',
+    changes: [
+      "✅ DATABASE_URL agora é OPCIONAL - sistema usa Evolution DB automaticamente",
+      "✅ Detecção inteligente: se DATABASE_URL aponta para 'simonia' inexistente, faz fallback automático",
+      "✅ Connection string construída automaticamente a partir de EVOLUTION_DB_* variables",
+      "✅ Logging claro mostrando qual banco está sendo usado",
+      "✅ .env.example atualizado documentando configuração simplificada",
+      "✅ Zero comandos manuais necessários - deploy direto via Easypanel/Docker",
+      "✅ Compatível com arquitetura de produção (Supabase + Evolution DB apenas)"
+    ]
+  },
+  {
     version: "v1.0.51",
     date: "2025-12-02",
     title: "Fix: Database Setup & Deployment Scripts",
