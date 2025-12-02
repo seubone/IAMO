@@ -9,6 +9,7 @@
 *.db
 *.log
 *.sh
+!scripts/*.sh
 *.sqlite
 *.swp
 *.tar.gz

@@ -23,10 +23,28 @@
 
 ### 1. Banco de Dados PostgreSQL
 
-```sql
--- Conectar ao PostgreSQL e criar banco 'simonia'
-CREATE DATABASE simonia;
+O banco de dados "simonia" precisa ser criado e as tabelas inicializadas **ANTES** do primeiro deploy.
+
+**Opção A - Script Automatizado** (Recomendado):
+```bash
+# No VPS, executar:
+./scripts/setup-production-db.sh
 ```
+
+**Opção B - Manual**:
+```bash
+# 1. Criar banco
+PGPASSWORD='sua_senha' psql -h 31.97.255.54 -U postgres -p 5432 -d postgres -c "CREATE DATABASE simonia;"
+
+# 2. Executar schema do Drizzle
+npm run db:push
+
+# 3. Executar migrations críticas
+psql ... -f server/migrations/create-instance-bot-status-table.sql
+psql ... -f server/migrations/create-instance-contact-status-table-standalone.sql
+```
+
+**📖 Guia Detalhado**: [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)
 
 ### 2. Variáveis de Ambiente
 
@@ -131,8 +149,27 @@ curl https://simonia-simonia.ialm8c.easypanel.host/api/whatsapp/instances \
 **Solução**: Deploy v1.0.5 (commit 29607ab + 5a04cfd)
 
 ### Problema: "database simonia does not exist"
-**Causa**: Banco não foi criado
-**Solução**: Conectar ao PostgreSQL e executar `CREATE DATABASE simonia;`
+**Causa**: Banco não foi criado e migrations não foram executadas
+**Solução Rápida**:
+```bash
+# Executar script automatizado
+./scripts/setup-production-db.sh
+```
+
+**Solução Manual**:
+```bash
+# 1. Criar banco
+PGPASSWORD='sua_senha' psql -h host -U postgres -p 5432 -d postgres -c "CREATE DATABASE simonia;"
+
+# 2. Criar schema do Drizzle
+npm run db:push
+
+# 3. Executar migrations
+psql ... -f server/migrations/create-instance-bot-status-table.sql
+psql ... -f server/migrations/create-instance-contact-status-table-standalone.sql
+```
+
+**📖 Guia Completo**: Ver [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)
 
 ### Problema: "Invalid environment variables"
 **Causa**: Variáveis não configuradas no Easypanel
